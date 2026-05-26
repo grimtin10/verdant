@@ -36,9 +36,6 @@ pub mod image;
 
 pub type RendererResult<T> = Result<T, Error>;
 
-// TODO: upgrade to the latest version of winit instead of pinning 0.29
-// TODO: (x, y, w, h) is used a lot... consider making a `Box` struct?
-
 const KIND_RECT:     u32 = 0;
 const KIND_ELLIPSE:  u32 = 1;
 const KIND_LINE:     u32 = 2;

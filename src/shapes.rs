@@ -1,4 +1,3 @@
-// TODO: line
 // TODO: transforms on shapes
 // TODO: image
 // TODO: text
@@ -232,6 +231,54 @@ impl Line {
             end: Vec2::new(x2, y2),
             ..Default::default()
         }
+    }
+
+    pub fn new(
+        x1: f32,
+        y1: f32,
+        x2: f32,
+        y2: f32,
+        outline_width: f32,
+        outline_color: Color
+    ) -> Self {
+        Self {
+            start: Vec2::new(x1, y1),
+            end: Vec2::new(x2, y2),
+            style: Style { outline_width, outline_color, fill_color: Color::TRANSPARENT },
+        }
+    }
+
+    pub fn width(
+        &mut self,
+        width: f32,
+    ) -> &mut Self {
+        self.style.outline_width = width;
+        self
+    }
+
+    pub fn color(
+        &mut self,
+        color: Color,
+    ) -> &mut Self {
+        self.style.outline_color = color;
+        self
+    }
+}
+
+impl Drawable for Line {
+    fn draw(&self, window: &mut Window) {
+        window.with_style(|window| {
+            window.outline(self.style.outline_color, self.style.outline_width);
+            window.line(self.start.x, self.start.y, self.end.x, self.end.y);
+        });
+    }
+
+    fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
+        let offset = self.end - self.start;
+        window.with_style(|window| {
+            window.outline(self.style.outline_color, self.style.outline_width);
+            window.line(x, y, x + offset.x, y + offset.y);
+        });
     }
 }
 
