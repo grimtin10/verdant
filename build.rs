@@ -5,10 +5,10 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
     cfg_aliases! {
-        android: { target_os = "android" },
-        macos: { target_os = "macos" },
-        ios: { all(target_vendor = "apple", not(target_os = "macos")) },
-        windows: { target_os = "windows" },
-        linux: { target_os = "linux" },
+        android_platform: { target_os = "android" },
+        macos_platform: { target_os = "macos" },
+        ios_platform: { all(target_vendor = "apple", not(target_os = "macos")) },
+        windows_platform: { target_os = "windows" },
+        linux_platform: { target_os = "linux" },
     }
 }

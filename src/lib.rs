@@ -367,7 +367,7 @@ impl RendererContext {
                 .with_surface_size(PhysicalSize::new(props.width, props.height))
                 .with_transparent(props.transparent);
 
-            #[cfg(linux)]
+            #[cfg(linux_platform)]
             {
                 use winit::platform::wayland::WindowAttributesWayland;
                 use winit::platform::x11::WindowAttributesX11;
@@ -382,7 +382,7 @@ impl RendererContext {
                 }
             }
 
-            #[cfg(windows)]
+            #[cfg(windows_platform)]
             {
                 use winit::platform::windows::WindowAttributesWindows;
                 let platform_attributes = WindowAttributesWindows::default()
@@ -511,13 +511,13 @@ impl Renderer {
     pub fn new() -> RendererResult<Self> {
         let event_loop = EventLoop::new()?;
         let is_wayland = {
-            #[cfg(linux)]
+            #[cfg(linux_platform)]
             {
                 use winit::platform::wayland::EventLoopExtWayland;
 
                 event_loop.is_wayland()
             }
-            #[cfg(not(linux))]
+            #[cfg(not(linux_platform))]
             false
         };
         Ok(Self {
@@ -555,7 +555,7 @@ impl Renderer {
     /// respective windows internally.
     ///
     /// Only available on Windows, macOS, Linux, and Android.
-    #[cfg(any(windows, macos, linux, android))]
+    #[cfg(any(windows_platform, macos_platform, linux_platform, android_platform))]
     pub fn poll(&mut self) -> Vec<(WindowId, WindowEvent)> {
         use std::{mem::take, time::Duration};
         use winit::event_loop::pump_events::EventLoopExtPumpEvents;
