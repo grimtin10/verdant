@@ -4,26 +4,9 @@ use bytemuck::cast_slice;
 use wgpu::{BindGroup, Buffer, BufferDescriptor, BufferUsages, CurrentSurfaceTexture, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
-use crate::{GpuContext, RendererResult, Vertex, font::Font, image::Image, ortho, shapes::{ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
+use crate::{GpuContext, RendererResult, Vertex, font::Font, image::Image, ortho, shape_vertices::{ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::Style, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
 
-#[derive(Debug, Clone, Copy)]
-struct Style {
-    fill_color: Color,
-
-    outline_color: Color,
-    outline_width: f32,
-}
-
-impl Default for Style {
-    fn default() -> Self {
-        Self {
-            fill_color: Color::WHITE,
-
-            outline_color: Color::default(),
-            outline_width: f32::default(),
-        }
-    }
-}
+// TODO: the ability to toggle if you want stroke scaling or not with views/transforms
 
 #[derive(Debug, Clone)]
 pub(crate) struct DrawBatch {
@@ -97,6 +80,7 @@ pub struct Window {
     gpu_context: Arc<GpuContext>,
     context: WindowContext,
     style: Style,
+    text_size: f32,
     view: View,
 }
 
@@ -118,7 +102,6 @@ impl Window {
 
         gpu_context: Arc<GpuContext>,
     ) -> Self {
-
         Self {
             inner_window,
 
@@ -138,6 +121,7 @@ impl Window {
             gpu_context,
             context: WindowContext::default(),
             style: Style::default(),
+            text_size: 16.,
             view: View::default(),
         }
     }
@@ -210,7 +194,6 @@ impl Window {
 
     // troll function
     pub(crate) fn push_vertices<const N: usize>(&mut self, vertices: [Vertex; N]) {
-        // TODO: the ability to toggle if you want stroke scaling or not with views/transforms
         self.context.vertices.extend(vertices);
     }
 
@@ -360,6 +343,7 @@ impl Window {
         ))
     }
 
+    /// Draws an image at `(x, y)` with the given width and height using the current fill color.
     pub fn image(&mut self, image: Image, x: f32, y: f32, w: f32, h: f32) {
         self.context.update_texture(Some(image));
 
@@ -376,8 +360,13 @@ impl Window {
         self.context.update_texture(None);
     }
 
-    // TODO: this is not very stateful of you
-    pub fn text(&mut self, font: &mut Font, text: impl ToString, size_px: f32, mut x: f32, y: f32) {
+    /// Sets the text size (in pixels) for subsequent text calls.
+    pub fn text_size(&mut self, size_px: f32) {
+        self.text_size = size_px;
+    }
+
+    /// Draws text at `(x, y)` with the given font using the current fill color and text size.
+    pub fn text(&mut self, font: &mut Font, mut x: f32, y: f32, text: impl ToString) {
         let mut glyphs = HashMap::new();
 
         let text = text.to_string();
@@ -390,7 +379,7 @@ impl Window {
                 break;
             }
             for char in text.chars() {
-                let Ok(Some(glyph)) = font.get_or_load_glyph(char, size_px) else {
+                let Ok(Some(glyph)) = font.get_or_load_glyph(char, self.text_size) else {
                     glyphs.clear();
                     retries += 1;
                     continue 'outer;
@@ -454,14 +443,17 @@ impl Window {
     /// Any changes to style or view made inside will be reverted when it returns.
     pub fn with_style(&mut self, commands: impl FnOnce(&mut Self)) {
         let style = self.style;
+        let text_size = self.text_size;
         let view = self.view;
 
         commands(self);
 
         self.style = style;
+        self.text_size = text_size;
         self.view.set(view, &mut self.context);
     }
 
+    /// Applies `transform` relative to the current transform for the duration of `commands`.
     pub fn with_transform(&mut self, transform: Transform2d, commands: impl FnOnce(&mut Self)) {
         let old_local = self.context.local_transform;
         let new_local = old_local * transform;
@@ -474,10 +466,12 @@ impl Window {
         self.context.update_transform(self.view.transform() * old_local);
     }
 
+    /// Get the title of this window
     pub fn get_title(&mut self) -> String {
         self.inner_window.title()
     }
 
+    /// Set the title of this window
     pub fn set_title(&mut self, title: impl ToString) {
         self.inner_window.set_title(&title.to_string());
     }

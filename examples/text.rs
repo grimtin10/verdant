@@ -29,7 +29,7 @@ fn main() -> RendererResult<()> {
             let size = window.get_mouse_x() / 8.;
 
             window.background(Color::BLACK);
-            window.text(&mut font, &text, size, 0., size);
+            window.text(&mut font, 0., size, &text);
             window.image(font.atlas.clone(), 0., size * 2., 1024., 1024.);
         }
 

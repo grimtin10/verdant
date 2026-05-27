@@ -51,6 +51,7 @@ pub struct Font {
 }
 
 impl Font {
+    /// Loads a font from the given source (byte array or path to font file).
     pub fn load(source: impl ByteSource) -> RendererResult<Self> {
         let data = source.load()?;
         let settings = FontSettings::default();

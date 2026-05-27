@@ -7,8 +7,6 @@
 //       (premultiplied, non-srgb)
 //       and i don't think it'll look right if you're not on that setup
 
-// TODO: another documentation pass...
-
 #![deny(clippy::unwrap_used)]
 
 use bytemuck::{Pod, Zeroable, cast_slice};
@@ -29,6 +27,8 @@ pub mod types;
 pub mod window;
 pub mod view;
 pub mod vec;
+
+mod shape_vertices;
 
 #[cfg(feature = "text")]
 pub mod font;
@@ -596,7 +596,7 @@ impl Renderer {
     // }
 }
 
-// TODO: error handling
+// TODO: error handling/forwarding
 impl ApplicationHandler for RendererContext {
     fn can_create_surfaces(&mut self, event_loop: &dyn ActiveEventLoop) {
         let _ = self.process_queued_windows(event_loop);
