@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use verdant::{Renderer, RendererResult, WindowEvent, image::Image, rgb, rgba, shapes::{Drawable, Ellipse, Rect}, transform::Transform2d, types::Color, view::ViewMode};
+use verdant::{Renderer, RendererResult, WindowEvent, image::Image, rgb, rgba, shapes::{Drawable, Ellipse, Rect, Style}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
@@ -10,10 +10,13 @@ fn main() -> RendererResult<()> {
     let third = renderer.create_window("window 3", 800, 800, true);
 
     let mut mouse_ellipse = Ellipse::new(
-        400., 400.,
-        50., 50.,
-        Color::RED,
-        Color::BLACK, 5.,
+        Vec2::new(400., 400.),
+        Vec2::new(50., 50.),
+        Style {
+            fill_color: Color::RED,
+            outline_color: Color::BLACK,
+            outline_width: 5.,
+        },
         Transform2d::identity(),
     );
 
@@ -64,7 +67,8 @@ fn main() -> RendererResult<()> {
                 .corner_radius(25.)
                 .draw(window);
 
-            Ellipse::sized(400., 400., 18., 180.)
+            Ellipse::at(400., 400.)
+                .size(18., 180.)
                 .fill(rgb(0.7, 0.7, 0.3))
                 .outline(Color::BLACK, 5.0)
                 .draw(window);
@@ -75,13 +79,12 @@ fn main() -> RendererResult<()> {
             }
             mouse_ellipse.draw(window);
 
-            Rect::styled(
-                0., 400.,
-                800., 400.,
-                rgba(0., 0., 0., 0.5),
-                Color::BLACK, 5.0,
-                0.,
-            ).draw(window);
+            Rect::at(0., 400.)
+                .size(800., 400.)
+                .fill(rgba(0., 0., 0., 0.5))
+                .outline(Color::BLACK, 5.0)
+                .corner_radius(0.)
+                .draw(window);
         }
 
         // custom view and origin
