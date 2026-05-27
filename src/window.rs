@@ -381,10 +381,18 @@ impl Window {
         let mut glyphs = HashMap::new();
 
         let text = text.to_string();
+        let mut retries = 0;
         'outer: loop {
+            // TODO: probably put a warning here that the text was too big to fit in the atlas
+            //       i want to make a proper error handling/signaling system first,
+            //       that's why i'm not doing it now
+            if retries > 1 {
+                break;
+            }
             for char in text.chars() {
                 let Ok(Some(glyph)) = font.get_or_load_glyph(char, size_px) else {
                     glyphs.clear();
+                    retries += 1;
                     continue 'outer;
                 };
                 glyphs.insert(char, glyph);

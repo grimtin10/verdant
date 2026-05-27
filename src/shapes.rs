@@ -372,7 +372,7 @@ impl Line {
         Self {
             start: Vec2::new(x1, y1),
             end: Vec2::new(x2, y2),
-            style: Style { outline_width, outline_color, fill_color: Color::TRANSPARENT },
+            style: Style { outline_width, outline_color, ..Default::default() },
             ..Default::default()
         }
     }
@@ -390,21 +390,24 @@ impl Line {
         Self {
             start: Vec2::new(x1, y1),
             end: Vec2::new(x2, y2),
-            style: Style { outline_width, outline_color, fill_color: Color::TRANSPARENT },
+            style: Style { outline_width, outline_color, ..Default::default() },
             transform,
         }
     }
 
+    /// Sets the color of this [`Line`].
     pub fn color(&mut self, color: Color) -> &mut Self {
         self.style.outline_color = color;
         self
     }
 
+    /// Sets the width of this [`Line`].
     pub fn width(&mut self, width: f32) -> &mut Self {
         self.style.outline_width = width;
         self
     }
 
+    /// Sets the color and width of this [`Line`].
     pub fn style(&mut self, color: Color, width: f32) -> &mut Self {
         self.style.outline_color = color;
         self.style.outline_width = width;
