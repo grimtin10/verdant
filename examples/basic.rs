@@ -1,13 +1,19 @@
 #![allow(unused)]
 
-use verdant::{Renderer, RendererResult, WindowEvent, image::Image, rgb, rgba, shapes::{Drawable, Ellipse, Rect, Style}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
+use verdant::{Renderer, RendererResult, WindowEvent, image::Image, rgb, rgba, shapes::{Drawable, Ellipse, Rect, Style}, transform::Transform2d, types::{Color, WindowProperties}, vec::Vec2, view::ViewMode};
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
 
-    let first = renderer.create_window("window 1", 800, 800, false);
-    let second = renderer.create_window("window 2", 800, 800, false);
-    let third = renderer.create_window("window 3", 800, 800, true);
+    let first = renderer.create_window("window 1", 800, 800);
+    let second = renderer.create_window("window 2", 800, 800);
+    let third = renderer.create_window_ext(WindowProperties {
+        title: "window 3".into(),
+        width: 800,
+        height: 800,
+        resizable: true,
+        ..Default::default()
+    });
 
     let mut mouse_ellipse = Ellipse::new(
         Vec2::new(400., 400.),

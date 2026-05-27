@@ -5,7 +5,7 @@ use verdant::{ElementState, Key, KeyEvent, NamedKey, Renderer, RendererResult, W
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
 
-    let window = renderer.create_window("text input", 1024, 1024, false);
+    let window = renderer.create_window("text input", 1024, 1024);
 
     let mut font = Font::load("assets/JetBrainsMonoNerdFont_Regular.ttf")?;
 

@@ -534,7 +534,6 @@ impl Renderer {
         title: impl ToString,
         width: u32,
         height: u32,
-        resizable: bool,
     ) -> WindowId {
         let id = WindowId::new();
 
@@ -542,9 +541,16 @@ impl Renderer {
             width,
             height,
             title: title.to_string(),
-            resizable,
             ..Default::default()
         }));
+
+        id
+    }
+
+    pub fn create_window_ext(&mut self, props: WindowProperties) -> WindowId {
+        let id = WindowId::new();
+
+        self.context.window_queue.push_back((id, props));
 
         id
     }

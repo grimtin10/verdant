@@ -1,12 +1,18 @@
 #![allow(unused)]
 
 use time::OffsetDateTime;
-use verdant::{Renderer, RendererResult, WindowEvent, rgb, rgba, types::Color, view::ViewMode};
+use verdant::{Renderer, RendererResult, WindowEvent, rgb, rgba, types::{Color, WindowProperties}, view::ViewMode};
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
 
-    let window = renderer.create_window("clock", 1000, 1000, true);
+    let window = renderer.create_window_ext(WindowProperties {
+        title: "window 3".into(),
+        width: 1000,
+        height: 1000,
+        resizable: true,
+        ..Default::default()
+    });
 
     while renderer.is_running() {
         for (id, event) in renderer.poll() {
