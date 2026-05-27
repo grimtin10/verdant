@@ -36,7 +36,7 @@ impl Style {
 macro_rules! impl_position {
     ($name:ident) => {
         impl $name {
-            #[doc = concat!("Creates a [`", stringify!($name), "`] at `(x, y)` with no size or style set.")]
+            #[doc = concat!("Creates a [`", stringify!($name), "`] at `(x, y)` with nothing else set.")]
             pub fn at(x: f32, y: f32) -> Self {
                 Self {
                     position: Vec2 { x, y },
