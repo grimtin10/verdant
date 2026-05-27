@@ -13,7 +13,8 @@ fn main() -> RendererResult<()> {
         400., 400.,
         50., 50.,
         Color::RED,
-        Color::BLACK, 5.
+        Color::BLACK, 5.,
+        Transform2d::identity(),
     );
 
     let image = Image::load("assets/1.png")?;
@@ -74,7 +75,7 @@ fn main() -> RendererResult<()> {
             }
             mouse_ellipse.draw(window);
 
-            Rect::new(
+            Rect::styled(
                 0., 400.,
                 800., 400.,
                 rgba(0., 0., 0., 0.5),

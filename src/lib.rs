@@ -7,6 +7,8 @@
 //       (premultiplied, non-srgb)
 //       and i don't think it'll look right if you're not on that setup
 
+// TODO: another documentation pass...
+
 #![deny(clippy::unwrap_used)]
 
 use bytemuck::{Pod, Zeroable, cast_slice};

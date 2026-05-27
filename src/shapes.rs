@@ -1,8 +1,7 @@
-// TODO: transforms on shapes
 // TODO: image
 // TODO: text
 
-use crate::{KIND_ELLIPSE, KIND_LINE, KIND_RECT, KIND_TEXTURED, Vertex, types::Color, vec::Vec2, window::Window};
+use crate::{KIND_ELLIPSE, KIND_LINE, KIND_RECT, KIND_TEXTURED, Vertex, transform::Transform2d, types::Color, vec::Vec2, window::Window};
 
 /// Trait for types that can draw themselves onto a [`Window`].
 pub trait Drawable {
@@ -80,7 +79,7 @@ macro_rules! impl_styled {
     ($name:ident) => {
         impl $name {
             #[doc = concat!("Creates a fully specified [`", stringify!($name), "`] with position, size, and style.")]
-            pub fn new(
+            pub fn styled(
                 x: f32,
                 y: f32,
                 width: f32,
@@ -93,6 +92,7 @@ macro_rules! impl_styled {
                     position: Vec2 { x, y },
                     size: Vec2::new(width, height),
                     style: Style { fill_color, outline_color, outline_width },
+                    ..Default::default()
                 }
             }
 
@@ -109,6 +109,90 @@ macro_rules! impl_styled {
             }
         }
     };
+    ($name:ident, no_outline) => {
+        impl $name {
+            #[doc = concat!("Creates a [`", stringify!($name), "`] with position, size, and style.")]
+            pub fn styled(
+                x: f32,
+                y: f32,
+                width: f32,
+                height: f32,
+                fill_color: Color,
+            ) -> Self {
+                Self {
+                    position: Vec2 { x, y },
+                    size: Vec2::new(width, height),
+                    style: Style { fill_color, ..Default::default() },
+                    ..Default::default()
+                }
+            }
+
+            #[doc = concat!("Sets the fill color of this [`", stringify!($name), "`].")]
+            pub fn fill(&mut self, color: Color) -> &mut Self {
+                self.style.fill_color = color;
+                self
+            }
+        }
+    };
+}
+
+macro_rules! impl_transformed {
+    ($name:ident) => {
+        impl $name {
+            #[allow(clippy::too_many_arguments)]
+            #[doc = concat!("Creates a fully specified [`", stringify!($name), "`] with position, size, style and transform.")]
+            pub fn new(
+                x: f32,
+                y: f32,
+                width: f32,
+                height: f32,
+                fill_color: Color,
+                outline_color: Color,
+                outline_width: f32,
+                transform: Transform2d,
+            ) -> Self {
+                Self {
+                    position: Vec2 { x, y },
+                    size: Vec2::new(width, height),
+                    style: Style { fill_color, outline_color, outline_width },
+                    transform,
+                }
+            }
+
+            #[doc = concat!("Sets the transform of this [`", stringify!($name), "`].")]
+            pub fn transform(&mut self, transform: Transform2d) -> &mut Self {
+                self.transform = transform;
+                self
+            }
+        }
+    };
+    ($name:ident, no_outline) => {
+        impl $name {
+            #[allow(clippy::too_many_arguments)]
+            #[doc = concat!("Creates a fully specified [`", stringify!($name), "`] with position, size, style and transform.")]
+            pub fn new(
+                x: f32,
+                y: f32,
+                width: f32,
+                height: f32,
+                fill_color: Color,
+                transform: Transform2d,
+            ) -> Self {
+                Self {
+                    position: Vec2 { x, y },
+                    size: Vec2::new(width, height),
+                    style: Style { fill_color, ..Default::default() },
+                    transform,
+                }
+            }
+
+            #[doc = concat!("Sets the transform of this [`", stringify!($name), "`].")]
+            pub fn transform(&mut self, transform: Transform2d) -> &mut Self {
+                self.transform = transform;
+                self
+            }
+        }
+    };
 }
 
 macro_rules! impl_drawable {
@@ -116,19 +200,23 @@ macro_rules! impl_drawable {
         impl Drawable for $name {
             fn draw(&self, window: &mut Window) {
                 window.with_style(|window| {
-                    window.fill(self.style.fill_color);
-                    window.outline_color(self.style.outline_color);
-                    window.outline_width(self.style.outline_width);
-                    window.$func(self.position.x, self.position.y, self.size.x, self.size.y);
+                    window.with_transform(self.transform, |window| {
+                        window.fill(self.style.fill_color);
+                        window.outline_color(self.style.outline_color);
+                        window.outline_width(self.style.outline_width);
+                        window.$func(self.position.x, self.position.y, self.size.x, self.size.y);
+                    });
                 });
             }
 
             fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
                 window.with_style(|window| {
-                    window.fill(self.style.fill_color);
-                    window.outline_color(self.style.outline_color);
-                    window.outline_width(self.style.outline_width);
-                    window.$func(x, y, self.size.x, self.size.y);
+                    window.with_transform(self.transform, |window| {
+                        window.fill(self.style.fill_color);
+                        window.outline_color(self.style.outline_color);
+                        window.outline_width(self.style.outline_width);
+                        window.$func(x, y, self.size.x, self.size.y);
+                    });
                 });
             }
         }
@@ -141,12 +229,44 @@ pub struct Rect {
     pub size: Vec2,
     pub style: Style,
     pub corner_radius: f32,
+    pub transform: Transform2d,
 }
+
+impl_position!(Rect);
+impl_size!(Rect);
 
 impl Rect {
     #[allow(clippy::too_many_arguments)]
-    #[doc = concat!("Creates a fully specified [`Rect`] with position, size, and style.")]
+    /// Creates a fully specified [`Rect`] with position, size, style, and transform.
     pub fn new(
+        x: f32,
+        y: f32,
+        width: f32,
+        height: f32,
+        fill_color: Color,
+        outline_color: Color,
+        outline_width: f32,
+        corner_radius: f32,
+        transform: Transform2d,
+    ) -> Self {
+        Self {
+            position: Vec2 { x, y },
+            size: Vec2::new(width, height),
+            style: Style { fill_color, outline_color, outline_width },
+            corner_radius,
+            transform,
+        }
+    }
+
+    /// Sets the transform of this [`Rect`].
+    pub fn transform(&mut self, transform: Transform2d) -> &mut Self {
+        self.transform = transform;
+        self
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    /// Creates a [`Rect`] with position, size, and style.
+    pub fn styled(
         x: f32,
         y: f32,
         width: f32,
@@ -161,21 +281,23 @@ impl Rect {
             size: Vec2::new(width, height),
             style: Style { fill_color, outline_color, outline_width },
             corner_radius,
+            ..Default::default()
         }
     }
 
-    #[doc = concat!("Sets the fill color of this [`Rect`].")]
+    /// Sets the fill color of this [`Rect`].
     pub fn fill(&mut self, color: Color) -> &mut Self {
         self.style.fill_color = color;
         self
     }
 
-    #[doc = concat!("Sets the outline color and width of this [`Rect`].")]
+    /// Sets the outline color and width of this [`Rect`].
     pub fn outline(&mut self, color: Color, width: f32) -> &mut Self {
         self.style.outline(color, width);
         self
     }
 
+    /// Sets the corner radius of this [`Rect`].
     pub fn corner_radius(&mut self, corner_radius: f32) -> &mut Self {
         self.corner_radius = corner_radius;
         self
@@ -185,19 +307,23 @@ impl Rect {
 impl Drawable for Rect {
     fn draw(&self, window: &mut Window) {
         window.with_style(|window| {
-            window.fill(self.style.fill_color);
-            window.outline_color(self.style.outline_color);
-            window.outline_width(self.style.outline_width);
-            window.round_rect(self.position.x, self.position.y, self.size.x, self.size.y, self.corner_radius);
+            window.with_transform(self.transform, |window| {
+                window.fill(self.style.fill_color);
+                window.outline_color(self.style.outline_color);
+                window.outline_width(self.style.outline_width);
+                window.round_rect(self.position.x, self.position.y, self.size.x, self.size.y, self.corner_radius);
+            });
         });
     }
 
     fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
         window.with_style(|window| {
-            window.fill(self.style.fill_color);
-            window.outline_color(self.style.outline_color);
-            window.outline_width(self.style.outline_width);
-            window.round_rect(x, y, self.size.x, self.size.y, self.corner_radius);
+            window.with_transform(self.transform, |window| {
+                window.fill(self.style.fill_color);
+                window.outline_color(self.style.outline_color);
+                window.outline_width(self.style.outline_width);
+                window.round_rect(x, y, self.size.x, self.size.y, self.corner_radius);
+            });
         });
     }
 }
@@ -207,14 +333,13 @@ pub struct Ellipse {
     pub position: Vec2,
     pub size: Vec2,
     pub style: Style,
+    pub transform: Transform2d,
 }
-
-impl_position!(Rect);
-impl_size!(Rect);
 
 impl_position!(Ellipse);
 impl_size!(Ellipse);
 impl_styled!(Ellipse);
+impl_transformed!(Ellipse);
 impl_drawable!(Ellipse, ellipse);
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -222,9 +347,11 @@ pub struct Line {
     pub start: Vec2,
     pub end: Vec2,
     pub style: Style,
+    pub transform: Transform2d,
 }
 
 impl Line {
+    /// Creates a [`Line`] between two points.
     pub fn between(x1: f32, y1: f32, x2: f32, y2: f32) -> Self {
         Self {
             start: Vec2::new(x1, y1),
@@ -233,7 +360,8 @@ impl Line {
         }
     }
 
-    pub fn new(
+    /// Creates a fully specified [`Line`] with start point, end point, and style.
+    pub fn styled(
         x1: f32,
         y1: f32,
         x2: f32,
@@ -245,22 +373,41 @@ impl Line {
             start: Vec2::new(x1, y1),
             end: Vec2::new(x2, y2),
             style: Style { outline_width, outline_color, fill_color: Color::TRANSPARENT },
+            ..Default::default()
         }
     }
 
-    pub fn width(
-        &mut self,
-        width: f32,
-    ) -> &mut Self {
+    /// Creates a fully specified [`Line`] with start point, end point, style, and transform.
+    pub fn new(
+        x1: f32,
+        y1: f32,
+        x2: f32,
+        y2: f32,
+        outline_width: f32,
+        outline_color: Color,
+        transform: Transform2d,
+    ) -> Self {
+        Self {
+            start: Vec2::new(x1, y1),
+            end: Vec2::new(x2, y2),
+            style: Style { outline_width, outline_color, fill_color: Color::TRANSPARENT },
+            transform,
+        }
+    }
+
+    pub fn color(&mut self, color: Color) -> &mut Self {
+        self.style.outline_color = color;
+        self
+    }
+
+    pub fn width(&mut self, width: f32) -> &mut Self {
         self.style.outline_width = width;
         self
     }
 
-    pub fn color(
-        &mut self,
-        color: Color,
-    ) -> &mut Self {
+    pub fn style(&mut self, color: Color, width: f32) -> &mut Self {
         self.style.outline_color = color;
+        self.style.outline_width = width;
         self
     }
 }
@@ -268,16 +415,20 @@ impl Line {
 impl Drawable for Line {
     fn draw(&self, window: &mut Window) {
         window.with_style(|window| {
-            window.outline(self.style.outline_color, self.style.outline_width);
-            window.line(self.start.x, self.start.y, self.end.x, self.end.y);
+            window.with_transform(self.transform, |window| {
+                window.outline(self.style.outline_color, self.style.outline_width);
+                window.line(self.start.x, self.start.y, self.end.x, self.end.y);
+            });
         });
     }
 
     fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
         let offset = self.end - self.start;
         window.with_style(|window| {
-            window.outline(self.style.outline_color, self.style.outline_width);
-            window.line(x, y, x + offset.x, y + offset.y);
+            window.with_transform(self.transform, |window| {
+                window.outline(self.style.outline_color, self.style.outline_width);
+                window.line(x, y, x + offset.x, y + offset.y);
+            });
         });
     }
 }
