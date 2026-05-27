@@ -170,23 +170,31 @@ impl Rect {
 impl Drawable for Rect {
     fn draw(&self, window: &mut Window) {
         window.with_style(|window| {
-            window.with_transform(self.transform, |window| {
-                window.fill(self.style.fill_color);
-                window.outline_color(self.style.outline_color);
-                window.outline_width(self.style.outline_width);
-                window.round_rect(self.position.x, self.position.y, self.size.x, self.size.y, self.corner_radius);
-            });
+            window.with_transform(
+                self.transform
+                    .then(Transform2d::translation(self.position.x, self.position.y)),
+                |window| {
+                    window.fill(self.style.fill_color);
+                    window.outline_color(self.style.outline_color);
+                    window.outline_width(self.style.outline_width);
+                    window.round_rect(0., 0., self.size.x, self.size.y, self.corner_radius);
+                }
+            );
         });
     }
 
     fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
         window.with_style(|window| {
-            window.with_transform(self.transform, |window| {
-                window.fill(self.style.fill_color);
-                window.outline_color(self.style.outline_color);
-                window.outline_width(self.style.outline_width);
-                window.round_rect(x, y, self.size.x, self.size.y, self.corner_radius);
-            });
+            window.with_transform(
+                self.transform
+                    .then(Transform2d::translation(x, y)),
+                |window| {
+                    window.fill(self.style.fill_color);
+                    window.outline_color(self.style.outline_color);
+                    window.outline_width(self.style.outline_width);
+                    window.round_rect(x, y, self.size.x, self.size.y, self.corner_radius);
+                }
+            );
         });
     }
 }
@@ -219,23 +227,31 @@ impl Ellipse {
 impl Drawable for Ellipse {
     fn draw(&self, window: &mut Window) {
         window.with_style(|window| {
-            window.with_transform(self.transform, |window| {
-                window.fill(self.style.fill_color);
-                window.outline_color(self.style.outline_color);
-                window.outline_width(self.style.outline_width);
-                window.ellipse(self.position.x, self.position.y, self.size.x, self.size.y);
-            });
+            window.with_transform(
+                self.transform
+                    .then(Transform2d::translation(self.position.x, self.position.y)),
+                |window| {
+                    window.fill(self.style.fill_color);
+                    window.outline_color(self.style.outline_color);
+                    window.outline_width(self.style.outline_width);
+                    window.ellipse(0., 0., self.size.x, self.size.y);
+                }
+            );
         });
     }
 
     fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
         window.with_style(|window| {
-            window.with_transform(self.transform, |window| {
-                window.fill(self.style.fill_color);
-                window.outline_color(self.style.outline_color);
-                window.outline_width(self.style.outline_width);
-                window.ellipse(x, y, self.size.x, self.size.y);
-            });
+            window.with_transform(
+                self.transform
+                    .then(Transform2d::translation(x, y)),
+                |window| {
+                    window.fill(self.style.fill_color);
+                    window.outline_color(self.style.outline_color);
+                    window.outline_width(self.style.outline_width);
+                    window.ellipse(x, y, self.size.x, self.size.y);
+                }
+            );
         });
     }
 }
@@ -320,11 +336,16 @@ impl Line {
 
 impl Drawable for Line {
     fn draw(&self, window: &mut Window) {
+        let offset = self.end - self.start;
         window.with_style(|window| {
-            window.with_transform(self.transform, |window| {
-                window.outline(self.style.outline_color, self.style.outline_width);
-                window.line(self.start.x, self.start.y, self.end.x, self.end.y);
-            });
+            window.with_transform(
+                self.transform
+                    .then(Transform2d::translation(self.start.x, self.start.y)),
+                |window| {
+                    window.outline(self.style.outline_color, self.style.outline_width);
+                    window.line(0., 0., offset.x, offset.y);
+                }
+            );
         });
     }
 
@@ -332,10 +353,14 @@ impl Drawable for Line {
     fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
         let offset = self.end - self.start;
         window.with_style(|window| {
-            window.with_transform(self.transform, |window| {
-                window.outline(self.style.outline_color, self.style.outline_width);
-                window.line(x, y, x + offset.x, y + offset.y);
-            });
+            window.with_transform(
+                self.transform
+                    .then(Transform2d::translation(x, y)),
+                |window| {
+                    window.outline(self.style.outline_color, self.style.outline_width);
+                    window.line(0., 0., offset.x, offset.y);
+                }
+            );
         });
     }
 }
@@ -403,19 +428,27 @@ impl ImageRect {
 impl Drawable for ImageRect {
     fn draw(&self, window: &mut Window) {
         window.with_style(|window| {
-            window.with_transform(self.transform, |window| {
-                window.fill(self.color);
-                window.image(self.image.clone(), self.position.x, self.position.y, self.size.x, self.size.y);
-            });
+            window.with_transform(
+                self.transform
+                    .then(Transform2d::translation(self.position.x, self.position.y)),
+                |window| {
+                    window.fill(self.color);
+                    window.image(self.image.clone(), 0., 0., self.size.x, self.size.y);
+                }
+            );
         });
     }
 
     fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
         window.with_style(|window| {
-            window.with_transform(self.transform, |window| {
-                window.fill(self.color);
-                window.image(self.image.clone(), x, y, self.size.x, self.size.y);
-            });
+            window.with_transform(
+                self.transform
+                    .then(Transform2d::translation(x, y)),
+                |window| {
+                    window.fill(self.color);
+                    window.image(self.image.clone(), 0., 0., self.size.x, self.size.y);
+                }
+            );
         });
     }
 }

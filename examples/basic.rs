@@ -71,6 +71,7 @@ fn main() -> RendererResult<()> {
                 .size(18., 180.)
                 .fill(rgb(0.7, 0.7, 0.3))
                 .outline(Color::BLACK, 5.0)
+                .transform(Transform2d::rotation_deg(45.))
                 .draw(window);
 
             if window.is_focused() {
