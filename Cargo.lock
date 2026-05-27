@@ -2226,8 +2226,6 @@ dependencies = [
  "pollster",
  "thiserror 2.0.18",
  "time",
- "wasm-bindgen",
- "wasm-bindgen-futures",
  "wgpu",
  "winit",
 ]

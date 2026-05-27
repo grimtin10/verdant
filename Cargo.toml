@@ -17,8 +17,6 @@ pollster = "0.4.0"
 thiserror = "2.0.18"
 wgpu = "29.0.3"
 winit = "0.31.0-beta.2"
-wasm-bindgen = "0.2.122"
-wasm-bindgen-futures = "0.4.72"
 
 fontdue = { version = "0.9.3", optional = true }
 image = { version = "0.25.10", optional = true }
