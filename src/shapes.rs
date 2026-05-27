@@ -1,5 +1,3 @@
-// TODO: text
-
 use crate::{image::Image, transform::Transform2d, types::Color, vec::Vec2, window::Window};
 
 /// Trait for types that can draw themselves onto a [`Window`].
@@ -8,6 +6,7 @@ pub trait Drawable {
     fn draw(&self, window: &mut Window);
 
     /// Draws this shape onto the given window at the given position.
+    /// Transforms are still applied.
     fn draw_at(&self, window: &mut Window, x: f32, y: f32);
 }
 
@@ -450,5 +449,53 @@ impl Drawable for ImageRect {
                 }
             );
         });
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Text {
+    pub position: Vec2,
+    pub size: f32,
+    pub color: Color,
+    pub text: String,
+    pub transform: Transform2d,
+}
+
+impl_position!(Text);
+impl_transformed!(Text);
+
+impl Text {
+    pub fn new(
+        position: Vec2,
+        size: f32,
+        color: Color,
+        text: String,
+        transform: Transform2d,
+    ) -> Self {
+        Self {
+            position,
+            size,
+            color,
+            text,
+            transform,
+        }
+    }
+
+    /// Sets the font size (in pixels) of this [`Text`].
+    pub fn size(&mut self, size_px: f32) -> &mut Self {
+        self.size = size_px;
+        self
+    }
+
+    /// Sets the color of this [`Text`].
+    pub fn color(&mut self, color: Color) -> &mut Self {
+        self.color = color;
+        self
+    }
+
+    /// Sets the text of this [`Text`].
+    pub fn text(&mut self, text: String) -> &mut Self {
+        self.text = text;
+        self
     }
 }
