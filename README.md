@@ -9,6 +9,25 @@ A rendering and windowing library built on `winit` and `wgpu`, aiming to be ligh
 
 ---
 
+## Installation
+
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+verdant = "0.2.2"
+```
+
+### Cargo Features
+By default, Verdant includes `image` and `text` features. If you don't need asset loading and/or text and want a lighter dependency tree, you can disable them:
+
+```toml
+[dependencies]
+verdant = { version = "0.2.2", default-features = false }
+```
+
+---
+
 ## Examples
 
 ### 1. Minimal Window
