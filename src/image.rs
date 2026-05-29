@@ -67,7 +67,7 @@ impl Image {
     /// Creates an image with the given data, width, and height.
     /// Expects data to be RGBA8.
     pub fn new(data: Vec<u8>, width: u32, height: u32) -> RendererResult<Self> {
-        let required_bytes = (width * height) as usize;
+        let required_bytes = (width * height * 4) as usize;
         let actual_bytes = data.len();
         if required_bytes < actual_bytes {
             return Err(Error::ImageBufferTooSmall { expected: required_bytes, actual: actual_bytes });
@@ -92,7 +92,7 @@ impl Image {
 
             data: None,
 
-            image: Arc::new(vec![0; (width * height) as usize]),
+            image: Arc::new(vec![0; (width * height * 4) as usize]),
             dirty_zone: Some(Bounds::new(0, 0, width, height)),
         }
     }

@@ -251,6 +251,10 @@ impl Window {
 
     /// Clears the window to the given color at the start of each frame.
     /// Any vertices queued before this call are discarded, since they would be covered by the clear.
+    // TODO: this is *meant* to work by only clearing when you call it,
+    //       and keeping the current frame if you don't, processing style
+    //       however, due to how wgpu works, right now if you don't clear every frame, it freaks out
+    //       so i have to implement Canvas before it'll work right
     pub fn background(&mut self, color: Color) {
         // dont render things that are just getting cleared
         self.context.vertices.clear();

@@ -7,7 +7,7 @@ fn main() -> RendererResult<()> {
 
     let window = renderer.create_window("text input", 1024, 1024);
 
-    let mut font = Font::load("assets/JetBrainsMonoNerdFont_Regular.ttf")?;
+    let mut font = Font::load(include_bytes!("assets/JetBrainsMonoNerdFont_Regular.ttf"))?;
 
     let mut text = String::new();
     while renderer.is_running() {

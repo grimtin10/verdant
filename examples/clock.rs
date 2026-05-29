@@ -7,7 +7,7 @@ fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
 
     let window = renderer.create_window_ext(WindowProperties {
-        title: "window 3".into(),
+        title: "clock".into(),
         width: 1000,
         height: 1000,
         resizable: true,

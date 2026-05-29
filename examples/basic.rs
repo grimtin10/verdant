@@ -26,7 +26,9 @@ fn main() -> RendererResult<()> {
         Transform2d::identity(),
     );
 
-    let image = Image::load("assets/1.png")?;
+    // with Image::load (or any function that takes a `ByteSource`)
+    // you can either use `include_bytes` or just give the path
+    let image = Image::load(include_bytes!("assets/1.png"))?;
     while renderer.is_running() {
         for (id, event) in renderer.poll() {
             if let WindowEvent::CloseRequested = event {
