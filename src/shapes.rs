@@ -469,7 +469,7 @@ impl Default for Text {
     fn default() -> Self {
         Self {
             position: Vec2::default(),
-            size: f32::default(),
+            size: 16.,
             color: Color::WHITE,
             text: String::default(),
             transform: Transform2d::default(),
