@@ -403,7 +403,7 @@ impl ImageRect {
         Self {
             position: Vec2::default(),
             size: Vec2::default(),
-            color: Color::default(),
+            color: Color::WHITE,
             image,
             transform: Transform2d::default(),
         }
@@ -456,13 +456,25 @@ impl Drawable for ImageRect {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Text {
     pub position: Vec2,
     pub size: f32,
     pub color: Color,
     pub text: String,
     pub transform: Transform2d,
+}
+
+impl Default for Text {
+    fn default() -> Self {
+        Self {
+            position: Vec2::default(),
+            size: f32::default(),
+            color: Color::WHITE,
+            text: String::default(),
+            transform: Transform2d::default(),
+        }
+    }
 }
 
 impl_position!(Text);
