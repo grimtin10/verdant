@@ -21,6 +21,7 @@ use std::{collections::{HashMap, VecDeque}, num::NonZeroU64, sync::Arc};
 use crate::{errors::Error, transform::{GpuTransform2d, Transform2d}, types::{Color, WindowId, WindowProperties}, vec::Vec2, window::Window};
 
 pub mod errors;
+pub mod image;
 pub mod shapes;
 pub mod transform;
 pub mod types;
@@ -33,8 +34,6 @@ mod shape_vertices;
 #[cfg(feature = "text")]
 pub mod font;
 
-#[cfg(feature = "image")]
-pub mod image;
 
 pub type RendererResult<T> = Result<T, Error>;
 
@@ -42,6 +41,30 @@ const KIND_RECT:     u32 = 0;
 const KIND_ELLIPSE:  u32 = 1;
 const KIND_LINE:     u32 = 2;
 const KIND_TEXTURED: u32 = 3;
+
+/// Constructs a `Color` from RGB components in the range `0.0..=1.0`, with full opacity.
+#[inline(always)]
+pub const fn rgb(r: f32, g: f32, b: f32) -> Color {
+    Color { r, g, b, a: 1.0 }
+}
+
+/// Constructs a `Color` from RGBA components in the range `0.0..=1.0`.
+#[inline(always)]
+pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
+    Color { r, g, b, a }
+}
+
+/// Constructs a `Color` from RGB components in the range `0.0..=255.0`, with full opacity.
+#[inline(always)]
+pub const fn rgb255(r: f32, g: f32, b: f32) -> Color {
+    Color { r: r / 255., g: g / 255., b: b / 255., a: 1.0 }
+}
+
+/// Constructs a `Color` from RGBA components in the range `0.0..=255.0`.
+#[inline(always)]
+pub const fn rgba255(r: f32, g: f32, b: f32, a: f32) -> Color {
+    Color { r: r / 255., g: g / 255., b: b / 255., a: a / 255. }
+}
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
@@ -487,18 +510,6 @@ impl RendererContext {
 pub struct Renderer {
     event_loop: EventLoop,
     context: RendererContext,
-}
-
-/// Constructs a `Color` from RGB components in the range `0.0..=1.0`, with full opacity.
-#[inline(always)]
-pub const fn rgb(r: f32, g: f32, b: f32) -> Color {
-    Color { r, g, b, a: 1.0 }
-}
-
-/// Constructs a `Color` from RGBA components in the range `0.0..=1.0`.
-#[inline(always)]
-pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
-    Color { r, g, b, a }
 }
 
 fn ortho(width: f32, height: f32) -> Transform2d {

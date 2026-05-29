@@ -2,7 +2,6 @@
 
 use std::sync::Arc;
 
-use image::{RgbaImage, load_from_memory};
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Extent3d, Origin3d, TexelCopyBufferLayout, TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor};
 
 use crate::{GpuContext, RendererResult, errors::Error, types::ByteSource};
@@ -54,7 +53,7 @@ pub struct Image {
 
     pub(crate) data: Option<Arc<ImageData>>,
 
-    image: Arc<RgbaImage>,
+    image: Arc<Vec<u8>>,
     dirty_zone: Option<Bounds>,
 }
 
@@ -70,19 +69,17 @@ impl Image {
     pub fn new(data: Vec<u8>, width: u32, height: u32) -> RendererResult<Self> {
         let required_bytes = (width * height) as usize;
         let actual_bytes = data.len();
+        if required_bytes < actual_bytes {
+            return Err(Error::ImageBufferTooSmall { expected: required_bytes, actual: actual_bytes });
+        }
+
         Ok(Self {
             width,
             height,
 
             data: None,
 
-            image: Arc::new(
-                RgbaImage::from_vec(width, height, data)
-                    .ok_or(Error::ImageBufferTooSmall {
-                        expected: required_bytes,
-                        actual: actual_bytes,
-                    })?
-            ),
+            image: Arc::new(data),
             dirty_zone: Some(Bounds::new(0, 0, width, height)),
         })
     }
@@ -95,13 +92,16 @@ impl Image {
 
             data: None,
 
-            image: Arc::new(RgbaImage::new(width, height)),
+            image: Arc::new(vec![0; (width * height) as usize]),
             dirty_zone: Some(Bounds::new(0, 0, width, height)),
         }
     }
 
     /// Loads an image from the given source (byte array or path to image file).
+    #[cfg(feature = "image")]
     pub fn load(data: impl ByteSource) -> RendererResult<Self> {
+        use image::load_from_memory;
+
         let bytes = data.load()?;
 
         let image = load_from_memory(&bytes)?.to_rgba8();
@@ -113,7 +113,7 @@ impl Image {
 
             data: None,
 
-            image: Arc::new(image),
+            image: Arc::new(image.to_vec()),
             dirty_zone: Some(Bounds::new(0, 0, width, height)),
         })
     }

@@ -196,6 +196,14 @@ impl ByteSource for &[u8] {
     fn load(self) -> RendererResult<Vec<u8>> { Ok(self.to_vec()) }
 }
 
+impl<const N: usize> ByteSource for [u8; N] {
+    fn load(self) -> RendererResult<Vec<u8>> { Ok(self.to_vec()) }
+}
+
+impl<const N: usize> ByteSource for &[u8; N] {
+    fn load(self) -> RendererResult<Vec<u8>> { Ok(self.to_vec()) }
+}
+
 impl ByteSource for Vec<u8> {
     fn load(self) -> RendererResult<Vec<u8>> { Ok(self) }
 }

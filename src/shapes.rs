@@ -1,4 +1,8 @@
-use crate::{image::Image, transform::Transform2d, types::Color, vec::Vec2, window::Window};
+// TODO: right now, the shape API is technically a bit slower than the state machine API
+//       it could get optimized out but i'm unsure if it would be
+//       not a huge issue, just something to note
+
+use crate::{font::Font, image::Image, transform::Transform2d, types::Color, vec::Vec2, window::Window};
 
 /// Trait for types that can draw themselves onto a [`Window`].
 pub trait Drawable {
@@ -494,8 +498,40 @@ impl Text {
     }
 
     /// Sets the text of this [`Text`].
-    pub fn text(&mut self, text: String) -> &mut Self {
-        self.text = text;
+    pub fn text(&mut self, text: impl ToString) -> &mut Self {
+        self.text = text.to_string();
         self
+    }
+
+    // TODO: this does not impl the `Drawable` trait like it should, because of how fonts work
+    //       they need to be passed through a `&mut Font`
+    //       i think the best solution to this is to make it so that you only need `&Font`
+    //       but still give it interior mutability... whatever wgpu is doing
+    pub fn draw(&self, window: &mut Window, font: &mut Font) {
+        window.with_style(|window| {
+            window.with_transform(
+                self.transform
+                    .then(Transform2d::translation(self.position.x, self.position.y)),
+                |window| {
+                    window.fill(self.color);
+                    window.text_size(self.size);
+                    window.text(font, 0., 0., &self.text);
+                }
+            );
+        });
+    }
+
+    pub fn draw_at(&self, window: &mut Window, font: &mut Font, x: f32, y: f32) {
+        window.with_style(|window| {
+            window.with_transform(
+                self.transform
+                    .then(Transform2d::translation(x, y)),
+                |window| {
+                    window.fill(self.color);
+                    window.text_size(self.size);
+                    window.text(font, 0., 0., &self.text);
+                }
+            );
+        });
     }
 }
