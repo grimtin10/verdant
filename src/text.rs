@@ -515,17 +515,7 @@ impl Text {
 
 impl Drawable for Text {
     fn draw(&self, window: &mut Window) {
-        window.with_style(|window| {
-            window.with_transform(
-                self.transform
-                    .then(Transform2d::translation(self.position.x, self.position.y)),
-                |window| {
-                    window.fill(self.style.color);
-                    window.text_size(self.style.size);
-                    window.text(&self.font, 0., 0., &self.text);
-                }
-            );
-        });
+        self.draw_at(window, self.position.x, self.position.y);
     }
 
     fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
@@ -581,15 +571,7 @@ impl RichText {
 
 impl Drawable for RichText {
     fn draw(&self, window: &mut Window) {
-        window.with_style(|window| {
-            window.with_transform(
-                self.transform
-                    .then(Transform2d::translation(self.position.x, self.position.y)),
-                |window| {
-                    window.rich_text(0., 0., &self.spans);
-                }
-            );
-        });
+        self.draw_at(window, self.position.x, self.position.y);
     }
 
     fn draw_at(&self, window: &mut Window, x: f32, y: f32) {

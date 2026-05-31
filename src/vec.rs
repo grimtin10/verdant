@@ -1,4 +1,6 @@
-use std::ops::{Add, Div, Mul, Sub};
+// TODO: these functions need documenting!
+
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 use bytemuck::{Pod, Zeroable};
 
@@ -76,6 +78,62 @@ impl Div<f32> for Vec2 {
     }
 }
 
+impl AddAssign for Vec2 {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
+
+impl AddAssign<f32> for Vec2 {
+    fn add_assign(&mut self, rhs: f32) {
+        self.x += rhs;
+        self.y += rhs;
+    }
+}
+
+impl SubAssign for Vec2 {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+impl SubAssign<f32> for Vec2 {
+    fn sub_assign(&mut self, rhs: f32) {
+        self.x -= rhs;
+        self.y -= rhs;
+    }
+}
+
+impl MulAssign for Vec2 {
+    fn mul_assign(&mut self, rhs: Self) {
+        self.x *= rhs.x;
+        self.y *= rhs.y;
+    }
+}
+
+impl MulAssign<f32> for Vec2 {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.x *= rhs;
+        self.y *= rhs;
+    }
+}
+
+impl DivAssign for Vec2 {
+    fn div_assign(&mut self, rhs: Self) {
+        self.x /= rhs.x;
+        self.y /= rhs.y;
+    }
+}
+
+impl DivAssign<f32> for Vec2 {
+    fn div_assign(&mut self, rhs: f32) {
+        self.x /= rhs;
+        self.y /= rhs;
+    }
+}
+
 impl Vec2 {
     pub const fn new(x: f32, y: f32) -> Self {
         Self { x, y }
@@ -86,8 +144,21 @@ impl Vec2 {
     }
 
     pub fn normalize(&self) -> Vec2 {
-        let len = self.length();
-        Vec2::new(self.x / len, self.y / len)
+        *self / self.length()
+    }
+
+    pub fn angle_rad(&self) -> f32 {
+        self.y.atan2(self.x)
+    }
+
+    pub fn angle_deg(&self) -> f32 {
+        self.y.atan2(self.x).to_degrees()
+    }
+
+    pub fn dist(&self, other: Self) -> f32 {
+        let dx = other.x - self.x;
+        let dy = other.y - self.y;
+        (dx * dx + dy * dy).sqrt()
     }
 }
 
@@ -172,6 +243,70 @@ impl Div<f32> for Vec3 {
     }
 }
 
+impl AddAssign for Vec3 {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+        self.z += rhs.z;
+    }
+}
+
+impl AddAssign<f32> for Vec3 {
+    fn add_assign(&mut self, rhs: f32) {
+        self.x += rhs;
+        self.y += rhs;
+        self.z += rhs;
+    }
+}
+
+impl SubAssign for Vec3 {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+        self.z -= rhs.z;
+    }
+}
+
+impl SubAssign<f32> for Vec3 {
+    fn sub_assign(&mut self, rhs: f32) {
+        self.x -= rhs;
+        self.y -= rhs;
+        self.z -= rhs;
+    }
+}
+
+impl MulAssign for Vec3 {
+    fn mul_assign(&mut self, rhs: Self) {
+        self.x *= rhs.x;
+        self.y *= rhs.y;
+        self.z *= rhs.z;
+    }
+}
+
+impl MulAssign<f32> for Vec3 {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.x *= rhs;
+        self.y *= rhs;
+        self.z *= rhs;
+    }
+}
+
+impl DivAssign for Vec3 {
+    fn div_assign(&mut self, rhs: Self) {
+        self.x /= rhs.x;
+        self.y /= rhs.y;
+        self.z /= rhs.z;
+    }
+}
+
+impl DivAssign<f32> for Vec3 {
+    fn div_assign(&mut self, rhs: f32) {
+        self.x /= rhs;
+        self.y /= rhs;
+        self.z /= rhs;
+    }
+}
+
 impl Vec3 {
     pub const fn new(x: f32, y: f32, z: f32) -> Self {
         Self { x, y, z }
@@ -184,6 +319,27 @@ impl Vec3 {
     pub fn normalize(&self) -> Vec3 {
         let len = self.length();
         Vec3::new(self.x / len, self.y / len, self.z / len)
+    }
+
+    pub fn angles_rad(&self) -> Vec2 {
+        Vec2::new(
+            Vec2::new(self.x, self.y).angle_rad(),
+            (self.z / self.length()).acos(),
+        )
+    }
+
+    pub fn angles_deg(&self) -> Vec2 {
+        Vec2::new(
+            Vec2::new(self.x, self.y).angle_deg(),
+            (self.z / self.length()).acos().to_degrees(),
+        )
+    }
+
+    pub fn dist(&self, other: Self) -> f32 {
+        let dx = other.x - self.x;
+        let dy = other.y - self.y;
+        let dz = other.z - self.z;
+        (dx * dx + dy * dy + dz * dz).sqrt()
     }
 }
 
@@ -269,6 +425,78 @@ impl Div<f32> for Vec4 {
     }
 }
 
+impl AddAssign for Vec4 {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+        self.z += rhs.z;
+        self.w += rhs.w;
+    }
+}
+
+impl AddAssign<f32> for Vec4 {
+    fn add_assign(&mut self, rhs: f32) {
+        self.x += rhs;
+        self.y += rhs;
+        self.z += rhs;
+        self.w += rhs;
+    }
+}
+
+impl SubAssign for Vec4 {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+        self.z -= rhs.z;
+        self.w -= rhs.w;
+    }
+}
+
+impl SubAssign<f32> for Vec4 {
+    fn sub_assign(&mut self, rhs: f32) {
+        self.x -= rhs;
+        self.y -= rhs;
+        self.z -= rhs;
+        self.w -= rhs;
+    }
+}
+
+impl MulAssign for Vec4 {
+    fn mul_assign(&mut self, rhs: Self) {
+        self.x *= rhs.x;
+        self.y *= rhs.y;
+        self.z *= rhs.z;
+        self.w *= rhs.w;
+    }
+}
+
+impl MulAssign<f32> for Vec4 {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.x *= rhs;
+        self.y *= rhs;
+        self.z *= rhs;
+        self.w *= rhs;
+    }
+}
+
+impl DivAssign for Vec4 {
+    fn div_assign(&mut self, rhs: Self) {
+        self.x /= rhs.x;
+        self.y /= rhs.y;
+        self.z /= rhs.z;
+        self.w /= rhs.w;
+    }
+}
+
+impl DivAssign<f32> for Vec4 {
+    fn div_assign(&mut self, rhs: f32) {
+        self.x /= rhs;
+        self.y /= rhs;
+        self.z /= rhs;
+        self.w /= rhs;
+    }
+}
+
 impl Vec4 {
     pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self { x, y, z, w }
@@ -281,6 +509,32 @@ impl Vec4 {
     pub fn normalize(&self) -> Vec4 {
         let len = self.length();
         Vec4::new(self.x / len, self.y / len, self.z / len, self.w / len)
+    }
+
+    pub fn angles_rad(&self) -> Vec3 {
+        let inner_angle = Vec3::new(self.x, self.y, self.z).angles_rad();
+        Vec3::new(
+            (self.w / self.length()).acos(),
+            inner_angle.y,
+            inner_angle.x,
+        )
+    }
+
+    pub fn angles_deg(&self) -> Vec3 {
+        let inner_angle = Vec3::new(self.x, self.y, self.z).angles_deg();
+        Vec3::new(
+            (self.w / self.length()).acos().to_degrees(),
+            inner_angle.y,
+            inner_angle.x,
+        )
+    }
+
+    pub fn dist(&self, other: Self) -> f32 {
+        let dx = other.x - self.x;
+        let dy = other.y - self.y;
+        let dz = other.z - self.z;
+        let dw = other.w - self.w;
+        (dx * dx + dy * dy + dz * dz + dw * dw).sqrt()
     }
 }
 

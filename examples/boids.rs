@@ -1,0 +1,189 @@
+use std::time::Instant;
+
+use rand::random_range;
+use verdant::{Renderer, RendererResult, WindowEvent, shapes::Drawable, text::{Font, VerticalAlign}, transform::Transform2d, types::{Color, WindowProperties}, vec::Vec2, view::ViewMode, window::Window};
+
+const NEIGHBORHOOD: f32 = 100.;
+const SEPARATION_DIST: f32 = 40.;
+
+const SEPARATION_WEIGHT: f32 = 2.5;
+const ALIGN_WEIGHT: f32 = 1.0;
+const COHESION_WEIGHT: f32 = 1.0;
+
+const MAX_SPEED: f32 = 250.;
+const MAX_FORCE: f32 = 3.;
+
+#[derive(Default)]
+struct Boid {
+    position: Vec2,
+    velocity: Vec2,
+    acceleration: Vec2,
+}
+
+impl Boid {
+    fn new(position: Vec2) -> Self {
+        Self {
+            position,
+            velocity: Vec2::new(random_range(-MAX_SPEED..MAX_SPEED), random_range(-MAX_SPEED..MAX_SPEED)),
+            ..Default::default()
+        }
+    }
+
+    fn update(&mut self, dt: f32) {
+        self.velocity += self.acceleration;
+
+        if self.velocity.length() > MAX_SPEED {
+            self.velocity /= self.velocity.length() / MAX_SPEED;
+        }
+
+        self.position += self.velocity * dt;
+        self.acceleration = Vec2::ZERO;
+
+        if self.position.x < -12.5 {
+            self.position.x = 1920. + 12.5;
+        }
+
+        if self.position.y < -12.5 {
+            self.position.y = 1080. + 12.5;
+        }
+
+        if self.position.x > 1920. + 12.5 {
+            self.position.x = -12.5;
+        }
+
+        if self.position.y > 1080. + 12.5 {
+            self.position.y = -12.5;
+        }
+    }
+}
+
+impl Drawable for Boid {
+    fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
+        window.with_style(|window| {
+            window.with_transform(
+                Transform2d::rotation_rad(self.velocity.angle_rad())
+                    .translate(x, y),
+                |window| {
+                    window.no_outline();
+                    window.fill(Color::WHITE);
+                    window.ellipse(0., 0., 12.5, 12.5);
+
+                    window.outline(Color::BLACK, 1.);
+                    window.line(0., 0., 12.5, 0.);
+                }
+            );
+        });
+    }
+
+    fn draw(&self, window: &mut Window) {
+        self.draw_at(window, self.position.x, self.position.y);
+    }
+}
+
+fn main() -> RendererResult<()> {
+    let mut renderer = Renderer::new()?;
+    let window = renderer.create_window_ext(WindowProperties {
+        title: "boids".into(),
+        width: 1920,
+        height: 1080,
+        resizable: true,
+        ..Default::default()
+    });
+
+    let mut boids = Vec::new();
+
+    for _ in 0..500 {
+        boids.push(Boid::new(Vec2::new(random_range(0f32..1920.), random_range(0f32..1080.))));
+    }
+
+    let font = Font::load(include_bytes!("assets/JetBrainsMonoNerdFont_Regular.ttf"))?;
+
+    let mut last_time = Instant::now();
+
+    while renderer.is_running() {
+        let now = Instant::now();
+        let dt = now.duration_since(last_time).as_secs_f32();
+        last_time = now;
+
+        for (id, event) in renderer.poll() {
+            if event == WindowEvent::CloseRequested {
+                renderer.close_window(id);
+            }
+        }
+
+        if let Some(window) = renderer.get_window(window) {
+            window.background(Color::BLACK);
+
+            for i in 0..boids.len() {
+                let boid = &boids[i];
+
+                let mut separation = Vec2::ZERO;
+                let mut align = Vec2::ZERO;
+                let mut cohesion = Vec2::ZERO;
+
+                let mut neighbor_count = 0;
+                let mut close_count = 0;
+                for (j, other) in boids.iter().enumerate() {
+                    if i != j {
+                        let dist = boid.position.dist(other.position);
+
+                        if dist < SEPARATION_DIST {
+                            separation += (boid.position - other.position) / (dist * dist);
+                            close_count += 1;
+                        }
+
+                        if dist < NEIGHBORHOOD {
+                            align += other.velocity;
+                            // scale to 0..1 for precision
+                            cohesion += Vec2::new(other.position.x / 1920., other.position.y / 1080.);
+                            neighbor_count += 1;
+                        }
+                    }
+                }
+
+                if close_count > 0 {
+                    separation /= close_count as f32;
+                    separation /= separation.length() / MAX_FORCE;
+                }
+
+                if neighbor_count > 0 {
+                    align /= neighbor_count as f32;
+                    cohesion /= neighbor_count as f32;
+
+                    align = align.normalize() * MAX_SPEED - boid.velocity;
+                    align /= align.length() / MAX_FORCE;
+
+                    let toward_center = Vec2::new(cohesion.x * 1920., cohesion.y * 1080.) - boid.position;
+                    cohesion = toward_center.normalize() * MAX_SPEED - boid.velocity;
+                    cohesion /= cohesion.length() / MAX_FORCE;
+                }
+
+                boids[i].acceleration =
+                    separation * SEPARATION_WEIGHT
+                    + align * ALIGN_WEIGHT
+                    + cohesion * COHESION_WEIGHT;
+            }
+
+            for boid in &mut boids {
+                boid.update(dt);
+            }
+
+
+            window.with_style(|window| {
+                window.set_view(1920., 1080., ViewMode::Crop);
+
+                for boid in &boids {
+                    boid.draw(window);
+                }
+            });
+
+            window.fill(Color::GREEN);
+            window.vertical_text_align(VerticalAlign::Top);
+            window.text(&font, 0., 0., format!("FPS: {:.2}", 1. / dt));
+        }
+
+        renderer.flush()?;
+    }
+
+    Ok(())
+}

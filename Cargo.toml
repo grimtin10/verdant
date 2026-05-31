@@ -1,6 +1,6 @@
 [package]
 name = "verdant"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 description = "A WIP windowing and rendering library, aiming to be lightweight, performant, and powerful."
 license = "MPL-2.0"
@@ -25,4 +25,5 @@ image = { version = "0.25.10", optional = true }
 cfg_aliases = "0.2.0"
 
 [dev-dependencies]
+rand = "0.10.1"
 time = { version = "0.3", features = ["local-offset"] }
