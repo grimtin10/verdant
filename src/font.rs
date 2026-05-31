@@ -37,13 +37,14 @@ pub(crate) struct CachedGlyph {
     pub advance: f32,
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct FontPosition {
     current_x: u32,
     current_y: u32,
     row_height: u32,
 }
 
+#[derive(Debug)]
 struct FontInner {
     pub atlas: RwLock<Image>,
 
@@ -157,7 +158,7 @@ impl FontInner {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Font {
     inner: Arc<FontInner>,
 }

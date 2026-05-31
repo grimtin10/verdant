@@ -1,6 +1,6 @@
 // TODO: optimize the case where someone loads the same image a bunch
 
-use std::sync::Arc;
+use std::{fmt::{self, Debug, Formatter}, sync::Arc};
 
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Extent3d, Origin3d, TexelCopyBufferLayout, TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor};
 
@@ -46,7 +46,7 @@ pub(crate) struct ImageData {
     texture: Texture,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Image {
     pub width: u32,
     pub height: u32,
@@ -55,6 +55,18 @@ pub struct Image {
 
     image: Arc<Vec<u8>>,
     dirty_zone: Option<Bounds>,
+}
+
+impl Debug for Image {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Image")
+            .field("width", &self.width)
+            .field("height", &self.height)
+            .field("data", &self.data)
+            .field("image", &format!("[{} bytes of image data]", self.image.len()))
+            .field("dirty_zone", &self.dirty_zone)
+            .finish()
+    }
 }
 
 impl PartialEq for Image {

@@ -4,7 +4,7 @@ use bytemuck::cast_slice;
 use wgpu::{BindGroup, Buffer, BufferDescriptor, BufferUsages, CurrentSurfaceTexture, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
-use crate::{GpuContext, RendererResult, Vertex, font::Font, image::Image, ortho, shape_vertices::{ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::Style, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
+use crate::{GpuContext, RendererResult, Vertex, font::Font, image::Image, ortho, shape_vertices::{ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, transform::{GpuTransform2d, Transform2d}, types::{Color, Style, TextStyle}, vec::Vec2, view::{View, ViewMode}};
 
 // TODO: the ability to toggle if you want stroke scaling or not with views/transforms
 
@@ -81,6 +81,7 @@ pub struct Window {
     context: WindowContext,
     style: Style,
     text_size: f32,
+
     view: View,
 }
 
@@ -365,6 +366,7 @@ impl Window {
     }
 
     /// Sets the text size (in pixels) for subsequent text calls.
+    /// Does not effect rich text.
     pub fn text_size(&mut self, size_px: f32) {
         self.text_size = size_px;
     }

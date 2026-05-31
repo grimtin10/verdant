@@ -2,7 +2,7 @@
 //       it could get optimized out but i'm unsure if it would be
 //       not a huge issue, just something to note
 
-use crate::{font::Font, image::Image, transform::Transform2d, types::Color, vec::Vec2, window::Window};
+use crate::{font::Font, image::Image, transform::Transform2d, types::{Color, Style, TextStyle}, vec::Vec2, window::Window};
 
 /// Trait for types that can draw themselves onto a [`Window`].
 pub trait Drawable {
@@ -12,39 +12,6 @@ pub trait Drawable {
     /// Draws this shape onto the given window at the given position.
     /// Transforms are still applied.
     fn draw_at(&self, window: &mut Window, x: f32, y: f32);
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Style {
-    pub fill_color: Color,
-    pub outline_color: Color,
-    pub outline_width: f32,
-}
-
-impl Default for Style {
-    fn default() -> Self {
-        Self {
-            fill_color: Color::WHITE,
-
-            outline_color: Color::default(),
-            outline_width: f32::default(),
-        }
-    }
-}
-
-impl Style {
-    /// Sets the fill color.
-    pub fn fill(&mut self, color: Color) -> &mut Self {
-        self.fill_color = color;
-        self
-    }
-
-    /// Sets the outline color and width.
-    pub fn outline(&mut self, color: Color, width: f32) -> &mut Self {
-        self.outline_color = color;
-        self.outline_width = width;
-        self
-    }
 }
 
 macro_rules! impl_position {
@@ -459,53 +426,68 @@ impl Drawable for ImageRect {
 #[derive(Debug, Clone)]
 pub struct Text {
     pub position: Vec2,
-    pub size: f32,
-    pub color: Color,
-    pub text: String,
+    pub style: TextStyle,
     pub transform: Transform2d,
+
+    pub text: String,
 }
 
-impl Default for Text {
-    fn default() -> Self {
-        Self {
-            position: Vec2::default(),
-            size: 16.,
-            color: Color::WHITE,
-            text: String::default(),
-            transform: Transform2d::default(),
-        }
-    }
-}
-
-impl_position!(Text);
 impl_transformed!(Text);
 
 impl Text {
     pub fn new(
         position: Vec2,
-        size: f32,
-        color: Color,
-        text: String,
+        style: TextStyle,
         transform: Transform2d,
+
+        text: String,
     ) -> Self {
         Self {
             position,
-            size,
-            color,
-            text,
+            style,
             transform,
+
+            text,
         }
+    }
+
+    pub fn with_font(&mut self, font: Font) -> Self {
+        Self {
+            position: Vec2::default(),
+            style: TextStyle { size: 16., font, color: Color::WHITE },
+            transform: Transform2d::identity(),
+
+            text: String::default(),
+        }
+    }
+
+    /// Sets the position of this [`Text`].
+    pub fn position(&mut self, x: f32, y: f32) -> &mut Self {
+        self.position = Vec2 { x, y };
+        self
+    }
+
+    /// Sets the font of this [`Text`].
+    pub fn font(&mut self, font: Font) -> &mut Self {
+        self.style.font = font;
+        self
     }
 
     /// Sets the font size (in pixels) of this [`Text`].
     pub fn size(&mut self, size_px: f32) -> &mut Self {
-        self.size = size_px;
+        self.style.size = size_px;
         self
     }
 
     /// Sets the color of this [`Text`].
     pub fn color(&mut self, color: Color) -> &mut Self {
-        self.color = color;
+        self.style.color = color;
+        self
+    }
+
+    /// Sets the style of this [`Text`].
+    pub fn style(&mut self, style: TextStyle) -> &mut Self {
+        self.style = style;
         self
     }
 
@@ -514,34 +496,32 @@ impl Text {
         self.text = text.to_string();
         self
     }
+}
 
-    // TODO: this does not impl the `Drawable` trait like it should, because of how fonts work
-    //       they need to be passed through a `&mut Font`
-    //       i think the best solution to this is to make it so that you only need `&Font`
-    //       but still give it interior mutability... whatever wgpu is doing
-    pub fn draw(&self, window: &mut Window, font: &mut Font) {
+impl Drawable for Text {
+    fn draw(&self, window: &mut Window) {
         window.with_style(|window| {
             window.with_transform(
                 self.transform
                     .then(Transform2d::translation(self.position.x, self.position.y)),
                 |window| {
-                    window.fill(self.color);
-                    window.text_size(self.size);
-                    window.text(font, 0., 0., &self.text);
+                    window.fill(self.style.color);
+                    window.text_size(self.style.size);
+                    window.text(&self.style.font, 0., 0., &self.text);
                 }
             );
         });
     }
 
-    pub fn draw_at(&self, window: &mut Window, font: &mut Font, x: f32, y: f32) {
+    fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
         window.with_style(|window| {
             window.with_transform(
                 self.transform
                     .then(Transform2d::translation(x, y)),
                 |window| {
-                    window.fill(self.color);
-                    window.text_size(self.size);
-                    window.text(font, 0., 0., &self.text);
+                    window.fill(self.style.color);
+                    window.text_size(self.style.size);
+                    window.text(&self.style.font, 0., 0., &self.text);
                 }
             );
         });

@@ -2,7 +2,7 @@ use std::{fs, path::{Path, PathBuf}, sync::atomic::{AtomicUsize, Ordering}};
 
 use bytemuck::{Pod, Zeroable};
 
-use crate::{RendererResult, rgb, rgba, vec::Vec4};
+use crate::{RendererResult, font::Font, rgb, rgba, vec::Vec4};
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -206,4 +206,74 @@ impl<const N: usize> ByteSource for &[u8; N] {
 
 impl ByteSource for Vec<u8> {
     fn load(self) -> RendererResult<Vec<u8>> { Ok(self) }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Style {
+    pub fill_color: Color,
+    pub outline_color: Color,
+    pub outline_width: f32,
+}
+
+impl Default for Style {
+    fn default() -> Self {
+        Self {
+            fill_color: Color::WHITE,
+
+            outline_color: Color::default(),
+            outline_width: f32::default(),
+        }
+    }
+}
+
+impl Style {
+    /// Sets the fill color.
+    pub fn fill(&mut self, color: Color) -> &mut Self {
+        self.fill_color = color;
+        self
+    }
+
+    pub fn outline_color(&mut self, color: Color) -> &mut Self {
+        self.outline_color = color;
+        self
+    }
+
+    pub fn outline_width(&mut self, width: f32) -> &mut Self {
+        self.outline_width = width;
+        self
+    }
+
+    /// Sets the outline color and width.
+    pub fn outline(&mut self, color: Color, width: f32) -> &mut Self {
+        self.outline_color = color;
+        self.outline_width = width;
+        self
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TextStyle {
+    pub size: f32,
+    pub font: Font,
+    pub color: Color,
+}
+
+impl TextStyle {
+    /// Sets the font size (in pixels).
+    pub fn size(&mut self, size_px: f32) -> &mut Self {
+        self.size = size_px;
+        self
+    }
+
+    /// Sets the font.
+    pub fn font(&mut self, font: &Font) -> &mut Self {
+        self.font = font.clone();
+        self
+    }
+
+    /// Sets the color.
+    pub fn color(&mut self, color: Color) -> &mut Self {
+        self.color = color;
+        self
+    }
 }
