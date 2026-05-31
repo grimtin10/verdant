@@ -4,7 +4,7 @@ use bytemuck::cast_slice;
 use wgpu::{BindGroup, Buffer, BufferDescriptor, BufferUsages, CurrentSurfaceTexture, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
-use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, shape_vertices::{ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::Style, text::Font, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
+use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, shape_vertices::{ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::Style, text::{Font, Span, TextStyle}, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
 
 // TODO: the ability to toggle if you want stroke scaling or not with views/transforms
 
@@ -365,6 +365,80 @@ impl Window {
         self.context.update_texture(None);
     }
 
+    pub fn rich_text(&mut self, x: f32, y: f32, spans: &[Span]) {
+        // because the hash of a `Font` is just the `Arc` pointer, this is fine
+        #[allow(clippy::mutable_key_type)]
+        let mut fonts = HashMap::new();
+
+        for span in spans {
+            let glyphs: &mut HashMap<_, _> = fonts.entry(&span.style.font).or_default();
+
+            let mut retries = 0;
+            'outer: loop {
+                // TODO: probably put a warning here that the text was too big to fit in the atlas
+                //       i want to make a proper error handling/signaling system first,
+                //       that's why i'm not doing it now
+                if retries > 1 {
+                    break;
+                }
+                for char in span.text.chars() {
+                    let Ok(Some(glyph)) = span.style.font.get_or_load_glyph(char, self.text_size) else {
+                        glyphs.clear();
+                        retries += 1;
+                        continue 'outer;
+                    };
+                    glyphs.insert(char, glyph);
+                }
+                break;
+            }
+        }
+
+        let mut cx = x;
+        let mut cy = y;
+        for span in spans {
+            self.context.update_texture(Some(span.style.font.atlas().clone()));
+
+            let Some(glyphs) = fonts.get(&span.style.font) else { continue };
+            for char in span.text.chars() {
+                if char == '\n' {
+                    if let Some(glyph) = glyphs.get(&char) {
+                        cx = x;
+                        cy += glyph.height;
+                    }
+                    continue;
+                }
+
+                if char.is_whitespace() {
+                    if let Some(glyph) = glyphs.get(&char) {
+                        cx += glyph.advance;
+                    }
+                    continue;
+                }
+
+                let Some(glyph) = glyphs.get(&char) else { continue };
+
+                let char_x = cx + glyph.xmin;
+                let char_y = cy - glyph.height - glyph.ymin;
+                let w = glyph.width;
+                let h = glyph.height;
+
+                self.push_vertices(textured_vertices(
+                    char_x,
+                    char_y,
+                    w,
+                    h,
+                    glyph.uv_min,
+                    glyph.uv_max,
+                    span.style.color,
+                ));
+
+                cx += glyph.advance;
+            }
+        }
+
+        self.context.update_texture(None);
+    }
+
     /// Sets the text size (in pixels) for subsequent text calls.
     /// Does not effect rich text.
     pub fn text_size(&mut self, size_px: f32) {
@@ -372,60 +446,15 @@ impl Window {
     }
 
     /// Draws text at `(x, y)` with the given font using the current fill color and text size.
-    pub fn text(&mut self, font: &Font, mut x: f32, y: f32, text: impl ToString) {
-        let mut glyphs = HashMap::new();
-
-        let text = text.to_string();
-        let mut retries = 0;
-        'outer: loop {
-            // TODO: probably put a warning here that the text was too big to fit in the atlas
-            //       i want to make a proper error handling/signaling system first,
-            //       that's why i'm not doing it now
-            if retries > 1 {
-                break;
-            }
-            for char in text.chars() {
-                let Ok(Some(glyph)) = font.get_or_load_glyph(char, self.text_size) else {
-                    glyphs.clear();
-                    retries += 1;
-                    continue 'outer;
-                };
-                glyphs.insert(char, glyph);
-            }
-            break;
-        }
-
-        self.context.update_texture(Some(font.atlas().clone()));
-
-        for char in text.chars() {
-            if char.is_whitespace() {
-                if let Some(glyph) = glyphs.get(&char) {
-                    x += glyph.advance;
-                }
-                continue;
-            }
-
-            let Some(glyph) = glyphs.get(&char) else { continue };
-
-            let char_x = x + glyph.xmin;
-            let char_y = y - glyph.height - glyph.ymin;
-            let w = glyph.width;
-            let h = glyph.height;
-
-            self.push_vertices(textured_vertices(
-                char_x,
-                char_y,
-                w,
-                h,
-                glyph.uv_min,
-                glyph.uv_max,
-                self.style.fill_color
-            ));
-
-            x += glyph.advance;
-        }
-
-        self.context.update_texture(None);
+    pub fn text(&mut self, font: &Font, x: f32, y: f32, text: impl ToString) {
+        self.rich_text(x, y, &[Span {
+            text: text.to_string(),
+            style: TextStyle {
+                size: self.text_size,
+                font: font.clone(),
+                color: self.style.fill_color,
+            },
+        }]);
     }
 
     /// Sets the logical view size and scaling mode.

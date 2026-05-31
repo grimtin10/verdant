@@ -99,6 +99,9 @@ impl GpuContext {
         min_offset.max(size_of::<GpuTransform2d>() as u64)
     }
 
+    // TODO: apparently, uniform buffers have a size limit,
+    //       so we should switch to using a storage buffer
+    //       though, there are performance considerations to be had first
     pub(crate) fn create_transform_buffer(&self, size: u64) -> (Buffer, BindGroup) {
         let stride = self.get_transform_stride();
         let buffer = self.device.create_buffer(&BufferDescriptor {

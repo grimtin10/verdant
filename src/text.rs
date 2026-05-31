@@ -88,6 +88,20 @@ impl FontInner {
             return Ok(Some(*glyph));
         }
 
+        if key.0 == '\n' && let Some(metrics) = self.font.horizontal_line_metrics(key.1) {
+            let newline_glyph = CachedGlyph {
+                uv_min: Vec2::ZERO,
+                uv_max: Vec2::ZERO,
+                width: 0.,
+                height: metrics.new_line_size,
+                xmin: 0.,
+                ymin: 0.,
+                advance: 0.,
+            };
+            self.cache.write()?.insert(key, newline_glyph);
+            return Ok(Some(newline_glyph));
+        }
+
         // TODO: technically we could decide to not hold this lock for the whole function to
         //       allow for two glyphs to be rasterized at the same time, but for now, i'm lazy
         let mut position = self.position.lock()?;
@@ -163,6 +177,20 @@ pub struct Font {
     inner: Arc<FontInner>,
 }
 
+impl PartialEq for Font {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
+    }
+}
+
+impl Eq for Font {}
+
+impl Hash for Font {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::ptr::hash(Arc::as_ptr(&self.inner), state);
+    }
+}
+
 impl Font {
     /// Loads a font from the given source (byte array or path to font file).
     pub fn load(source: impl ByteSource) -> RendererResult<Self> {
@@ -228,6 +256,38 @@ impl TextStyle {
     /// Sets the color.
     pub fn color(&mut self, color: Color) -> &mut Self {
         self.color = color;
+        self
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Span {
+    pub text: String,
+    pub style: TextStyle,
+}
+
+impl Span {
+    /// Sets the text displayed by this [`Span`].
+    pub fn text(&mut self, text: impl ToString) -> &mut Self {
+        self.text = text.to_string();
+        self
+    }
+
+    /// Sets the font size (in pixels) of this [`Span`].
+    pub fn size(&mut self, size_px: f32) -> &mut Self {
+        self.style.size = size_px;
+        self
+    }
+
+    /// Sets the font of this [`Span`].
+    pub fn font(&mut self, font: &Font) -> &mut Self {
+        self.style.font = font.clone();
+        self
+    }
+
+    /// Sets the color of this [`Span`].
+    pub fn color(&mut self, color: Color) -> &mut Self {
+        self.style.color = color;
         self
     }
 }
