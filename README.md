@@ -3,9 +3,9 @@
 [![Crates.io](https://img.shields.io/crates/v/verdant)](https://crates.io/crates/verdant)
 [![Docs.rs](https://docs.rs/verdant/badge.svg)](https://docs.rs/verdant)
 
-A rendering and windowing library built on `winit` and `wgpu`, aiming to be lightweight and performant.
+A rendering and windowing library built on `winit` and `wgpu`, aiming to be lightweight, performant, and powerful.
 
-> **Note:** Verdant is a work in progress. The API is unstable, and 3D support is planned for the future.
+> **Note:** Verdant is a work in progress. The API is unstable, and breaking changes may happen at any time.
 
 ---
 

@@ -2,7 +2,7 @@
 name = "verdant"
 version = "0.2.6"
 edition = "2024"
-description = "A WIP windowing and rendering library."
+description = "A WIP windowing and rendering library, aiming to be lightweight, performant, and powerful."
 license = "MPL-2.0"
 repository = "https://github.com/grimtin10/verdant"
 
