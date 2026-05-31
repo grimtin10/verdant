@@ -530,3 +530,65 @@ impl Drawable for Text {
         });
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct RichText {
+    pub position: Vec2,
+    pub transform: Transform2d,
+    pub spans: Vec<Span>,
+}
+
+impl RichText {
+    pub fn new(
+        position: Vec2,
+        transform: Transform2d,
+        spans: Vec<Span>,
+    ) -> Self {
+        Self {
+            position,
+            transform,
+            spans,
+        }
+    }
+
+    /// Creates a new [`RichText`] with the given [`Span`]s.
+    pub fn with_spans(&mut self, spans: Vec<Span>) -> Self {
+        Self {
+            position: Vec2::default(),
+            transform: Transform2d::identity(),
+            spans,
+        }
+    }
+
+    /// Sets the position of this [`RichText`].
+    pub fn position(&mut self, x: f32, y: f32) -> &mut Self {
+        self.position = Vec2 { x, y };
+        self
+    }
+}
+
+impl Drawable for RichText {
+    fn draw(&self, window: &mut Window) {
+        window.with_style(|window| {
+            window.with_transform(
+                self.transform
+                    .then(Transform2d::translation(self.position.x, self.position.y)),
+                |window| {
+                    window.rich_text(0., 0., &self.spans);
+                }
+            );
+        });
+    }
+
+    fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
+        window.with_style(|window| {
+            window.with_transform(
+                self.transform
+                    .then(Transform2d::translation(x, y)),
+                |window| {
+                    window.rich_text(0., 0., &self.spans);
+                }
+            );
+        });
+    }
+}

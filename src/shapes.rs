@@ -2,7 +2,7 @@
 //       it could get optimized out but i'm unsure if it would be
 //       not a huge issue, just something to note
 
-use crate::{image::Image, text::Text, transform::Transform2d, types::Color, vec::Vec2, window::Window};
+use crate::{image::Image, text::{RichText, Text}, transform::Transform2d, types::Color, vec::Vec2, window::Window};
 
 /// Trait for types that can draw themselves onto a [`Window`].
 pub trait Drawable {
@@ -467,3 +467,4 @@ impl Drawable for ImageRect {
 }
 
 impl_transformed!(Text);
+impl_transformed!(RichText);

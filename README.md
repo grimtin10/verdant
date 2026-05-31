@@ -15,7 +15,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-verdant = "0.2"
+verdant = "0.3"
 ```
 
 ### Cargo Features
@@ -23,7 +23,7 @@ By default, Verdant includes `image` and `text` features. If you don't need asse
 
 ```toml
 [dependencies]
-verdant = { version = "0.2", default-features = false }
+verdant = { version = "0.3", default-features = false }
 ```
 
 ---
