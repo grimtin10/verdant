@@ -11,7 +11,7 @@ fn main() -> RendererResult<()> {
         width: 1000,
         height: 1000,
         resizable: true,
-        ..Default::default()
+        transparent: true,
     });
 
     while renderer.is_running() {
