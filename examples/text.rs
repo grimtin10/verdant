@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use verdant::{ElementState, Key, KeyEvent, NamedKey, Renderer, RendererResult, WindowEvent, font::Font, types::Color};
+use verdant::{ElementState, Key, KeyEvent, NamedKey, Renderer, RendererResult, WindowEvent, text::Font, types::Color};
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;

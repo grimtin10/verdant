@@ -4,7 +4,7 @@ use bytemuck::cast_slice;
 use wgpu::{BindGroup, Buffer, BufferDescriptor, BufferUsages, CurrentSurfaceTexture, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
-use crate::{GpuContext, RendererResult, Vertex, font::Font, image::Image, ortho, shape_vertices::{ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, transform::{GpuTransform2d, Transform2d}, types::{Color, Style, TextStyle}, vec::Vec2, view::{View, ViewMode}};
+use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, shape_vertices::{ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::Style, text::Font, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
 
 // TODO: the ability to toggle if you want stroke scaling or not with views/transforms
 

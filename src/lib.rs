@@ -32,7 +32,7 @@ pub mod vec;
 mod shape_vertices;
 
 #[cfg(feature = "text")]
-pub mod font;
+pub mod text;
 
 pub type RendererResult<T> = Result<T, Error>;
 

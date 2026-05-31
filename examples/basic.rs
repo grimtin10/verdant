@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use verdant::{Renderer, RendererResult, WindowEvent, image::Image, rgb, rgba, shapes::{Drawable, Ellipse, Rect}, transform::Transform2d, types::{Color, Style, WindowProperties}, vec::Vec2, view::ViewMode};
+use verdant::{Renderer, RendererResult, WindowEvent, image::Image, rgb, rgba, shapes::{Drawable, Ellipse, Rect, Style}, transform::Transform2d, types::{Color, WindowProperties}, vec::Vec2, view::ViewMode};
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
