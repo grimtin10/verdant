@@ -4,7 +4,7 @@ use bytemuck::cast_slice;
 use wgpu::{BindGroup, Buffer, BufferDescriptor, BufferUsages, CurrentSurfaceTexture, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
-use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, shape_vertices::{ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::Style, text::{Font, Span, TextStyle}, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
+use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, shape_vertices::{ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::Style, text::{self, Font, HorizontalAlign, Span, VerticalAlign}, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
 
 // TODO: the ability to toggle if you want stroke scaling or not with views/transforms
 
@@ -61,6 +61,23 @@ impl WindowContext {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct TextStyle {
+    size: f32,
+    horizontal_align: HorizontalAlign,
+    vertical_align: VerticalAlign,
+}
+
+impl Default for TextStyle {
+    fn default() -> Self {
+        Self {
+            size: 16.,
+            horizontal_align: HorizontalAlign::default(),
+            vertical_align: VerticalAlign::default(),
+        }
+    }
+}
+
 pub struct Window {
     pub(crate) inner_window: Arc<Box<dyn winit::window::Window>>,
 
@@ -80,7 +97,7 @@ pub struct Window {
     gpu_context: Arc<GpuContext>,
     context: WindowContext,
     style: Style,
-    text_size: f32,
+    text_style: TextStyle,
 
     view: View,
 }
@@ -122,7 +139,7 @@ impl Window {
             gpu_context,
             context: WindowContext::default(),
             style: Style::default(),
-            text_size: 16.,
+            text_style: TextStyle::default(),
             view: View::default(),
         }
     }
@@ -365,13 +382,50 @@ impl Window {
         self.context.update_texture(None);
     }
 
+    /// Sets the horizontal text align for subsequent text calls.
+    /// Effects rich text.
+    pub fn horizontal_text_align(&mut self, horizontal: HorizontalAlign) {
+        self.text_style.horizontal_align = horizontal;
+    }
+
+    /// Sets the vertical text align for subsequent text calls.
+    /// Effects rich text.
+    pub fn vertical_text_align(&mut self, vertical: VerticalAlign) {
+        self.text_style.vertical_align = vertical;
+    }
+
+    /// Sets the text align for subsequent text calls.
+    /// Effects rich text.
+    pub fn text_align(&mut self, horizontal: HorizontalAlign, vertical: VerticalAlign) {
+        self.text_style.horizontal_align = horizontal;
+        self.text_style.vertical_align = vertical;
+    }
+
+    /// Draws rich text at `(x, y)` with each span's font and style.
     pub fn rich_text(&mut self, x: f32, y: f32, spans: &[Span]) {
+        // this is some of the code of all time
+        #[derive(Default)]
+        struct SpanBounds {
+            width: f32,
+            line_widths: Vec<f32>,
+            line_height: f32,
+        }
+
         // because the hash of a `Font` is just the `Arc` pointer, this is fine
         #[allow(clippy::mutable_key_type)]
         let mut fonts = HashMap::new();
+        let mut bounds = Vec::new();
 
+        let mut total_width = 0.;
         for span in spans {
-            let glyphs: &mut HashMap<_, _> = fonts.entry(&span.style.font).or_default();
+            let key = (span.style, span.font.clone());
+            let glyphs: &mut HashMap<_, _> = fonts.entry(key).or_default();
+
+            let mut width: f32 = 0.;
+            let mut line_widths = Vec::new();
+            let mut line_height: f32 = 0.;
+
+            let mut cx = 0.;
 
             let mut retries = 0;
             'outer: loop {
@@ -381,30 +435,79 @@ impl Window {
                 if retries > 1 {
                     break;
                 }
+
                 for char in span.text.chars() {
-                    let Ok(Some(glyph)) = span.style.font.get_or_load_glyph(char, self.text_size) else {
+                    let Ok(Some(glyph)) = span.font.get_or_load_glyph(char, span.style.size) else {
                         glyphs.clear();
                         retries += 1;
                         continue 'outer;
                     };
+
+                    cx += glyph.advance;
+                    if char == '\n' {
+                        line_widths.push(cx);
+                        cx = 0.;
+                    } else {
+                        line_height = line_height.max(glyph.height);
+                    }
+
+                    width = width.max(cx);
+
                     glyphs.insert(char, glyph);
                 }
                 break;
             }
+
+            total_width += width;
+            line_widths.push(cx);
+            bounds.push(SpanBounds {
+                width,
+                line_widths,
+                line_height,
+            });
         }
 
-        let mut cx = x;
-        let mut cy = y;
-        for span in spans {
-            self.context.update_texture(Some(span.style.font.atlas().clone()));
+        let total_x_offset = match self.text_style.horizontal_align {
+            HorizontalAlign::Left => 0.,
+            HorizontalAlign::Center => -total_width / 2.,
+            HorizontalAlign::Right => -total_width,
+        };
 
-            let Some(glyphs) = fonts.get(&span.style.font) else { continue };
+        let mut span_x = x;
+        for (span, bounds) in spans.iter().zip(bounds) {
+            let mut line = 0;
+            let mut cx = span_x;
+            let mut cy = y;
+            self.context.update_texture(Some(span.font.atlas().clone()));
+
+            let Some(glyphs) = fonts.get(&(span.style, span.font.clone())) else { continue };
+
+            let y_offset = match self.text_style.vertical_align {
+                VerticalAlign::Bottom => 0.,
+                VerticalAlign::Center => bounds.line_height / 2.,
+                VerticalAlign::Top => bounds.line_height,
+            };
+
+            let mut x_offset = match span.style.line_align {
+                HorizontalAlign::Left => 0.,
+                HorizontalAlign::Center => (bounds.width - bounds.line_widths[line]) / 2.,
+                HorizontalAlign::Right => bounds.width - bounds.line_widths[line],
+            };
+
             for char in span.text.chars() {
                 if char == '\n' {
                     if let Some(glyph) = glyphs.get(&char) {
                         cx = x;
                         cy += glyph.height;
                     }
+
+                    line += 1;
+                    x_offset = match span.style.line_align {
+                        HorizontalAlign::Left => 0.,
+                        HorizontalAlign::Center => (bounds.width - bounds.line_widths[line]) / 2.,
+                        HorizontalAlign::Right => bounds.width - bounds.line_widths[line],
+                    };
+
                     continue;
                 }
 
@@ -417,8 +520,8 @@ impl Window {
 
                 let Some(glyph) = glyphs.get(&char) else { continue };
 
-                let char_x = cx + glyph.xmin;
-                let char_y = cy - glyph.height - glyph.ymin;
+                let char_x = cx + glyph.xmin + span.style.offset.x + total_x_offset + x_offset;
+                let char_y = cy - glyph.height - glyph.ymin + span.style.offset.y + y_offset;
                 let w = glyph.width;
                 let h = glyph.height;
 
@@ -434,6 +537,8 @@ impl Window {
 
                 cx += glyph.advance;
             }
+
+            span_x += bounds.width;
         }
 
         self.context.update_texture(None);
@@ -442,17 +547,18 @@ impl Window {
     /// Sets the text size (in pixels) for subsequent text calls.
     /// Does not effect rich text.
     pub fn text_size(&mut self, size_px: f32) {
-        self.text_size = size_px;
+        self.text_style.size = size_px;
     }
 
     /// Draws text at `(x, y)` with the given font using the current fill color and text size.
-    pub fn text(&mut self, font: &Font, x: f32, y: f32, text: impl ToString) {
+    pub fn text(&mut self, font: impl AsRef<Font>, x: f32, y: f32, text: impl ToString) {
         self.rich_text(x, y, &[Span {
             text: text.to_string(),
-            style: TextStyle {
-                size: self.text_size,
-                font: font.clone(),
+            font: font.as_ref().clone(),
+            style: text::TextStyle {
+                size: self.text_style.size,
                 color: self.style.fill_color,
+                ..Default::default()
             },
         }]);
     }
@@ -478,13 +584,13 @@ impl Window {
     /// Any changes to style or view made inside will be reverted when it returns.
     pub fn with_style(&mut self, commands: impl FnOnce(&mut Self)) {
         let style = self.style;
-        let text_size = self.text_size;
+        let text_style = self.text_style;
         let view = self.view;
 
         commands(self);
 
         self.style = style;
-        self.text_size = text_size;
+        self.text_style = text_style;
         self.view.set(view, &mut self.context);
     }
 

@@ -1,8 +1,8 @@
-use verdant::{Renderer, RendererResult, WindowEvent, text::{Font, Span, TextStyle}, types::Color};
+use verdant::{Renderer, RendererResult, WindowEvent, text::{Font, HorizontalAlign, Span, TextStyle, VerticalAlign}, types::Color};
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
-    let window = renderer.create_window("rich text", 500, 500);
+    let window = renderer.create_window("rich text", 750, 750);
 
     let font = Font::load(include_bytes!("assets/JetBrainsMonoNerdFont_Regular.ttf"))?;
 
@@ -16,21 +16,26 @@ fn main() -> RendererResult<()> {
         if let Some(window) = renderer.get_window(window) {
             window.background(Color::BLACK);
 
-            window.rich_text(0., 16., &[
+            window.text_align(HorizontalAlign::Center, VerticalAlign::Top);
+
+            window.rich_text(375., 0., &[
                 Span {
-                    text: "red text ".into(),
+                    text: "red text\nnewline\nvery long line ".into(),
+                    font: font.clone(),
                     style: TextStyle {
-                        size: 16.,
-                        font: font.clone(),
+                        size: 32.,
                         color: Color::RED,
+                        line_align: HorizontalAlign::Center,
+                        ..Default::default()
                     },
                 },
                 Span {
-                    text: "blue text ".into(),
+                    text: "blue text".into(),
+                    font: font.clone(),
                     style: TextStyle {
-                        size: 16.,
-                        font: font.clone(),
+                        size: 48.,
                         color: Color::BLUE,
+                        ..Default::default()
                     }
                 }
             ]);

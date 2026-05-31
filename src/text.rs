@@ -27,7 +27,7 @@ impl Hash for GlyphInfo {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct CachedGlyph {
+pub struct CachedGlyph {
     pub uv_min: Vec2,
     pub uv_max: Vec2,
     pub width: f32,
@@ -226,30 +226,80 @@ impl Font {
         self.inner.atlas.write().expect("text atlas lock is poisoned")
     }
 
-    pub(crate) fn get_or_load_glyph(&self, char: char, size_px: f32) -> RendererResult<Option<CachedGlyph>> {
+    pub fn get_or_load_glyph(&self, char: char, size_px: f32) -> RendererResult<Option<CachedGlyph>> {
         let key = GlyphInfo(char, size_px);
 
         self.inner.get_or_load_glyph(key)
     }
+
+    pub fn line_distance(&self, size_px: f32) -> f32 {
+        if let Some(metrics) = self.inner.font.horizontal_line_metrics(size_px) {
+            metrics.new_line_size
+        } else {
+            size_px
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
+impl AsRef<Font> for Font {
+    fn as_ref(&self) -> &Font {
+        self
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum HorizontalAlign {
+    #[default]
+    Left,
+    Center,
+    Right,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum VerticalAlign {
+    #[default]
+    Bottom,
+    Center,
+    Top,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct TextStyle {
     pub size: f32,
-    pub font: Font,
     pub color: Color,
+    pub offset: Vec2,
+    pub line_align: HorizontalAlign,
 }
+
+impl Default for TextStyle {
+    fn default() -> Self {
+        Self {
+            size: 16.,
+            color: Color::WHITE,
+            offset: Vec2::default(),
+            line_align: HorizontalAlign::default(),
+        }
+    }
+}
+
+impl Hash for TextStyle {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.size.to_bits().hash(state);
+    }
+}
+
+impl PartialEq for TextStyle {
+    fn eq(&self, other: &Self) -> bool {
+        self.size == other.size
+    }
+}
+
+impl Eq for TextStyle {}
 
 impl TextStyle {
     /// Sets the font size (in pixels).
     pub fn size(&mut self, size_px: f32) -> &mut Self {
         self.size = size_px;
-        self
-    }
-
-    /// Sets the font.
-    pub fn font(&mut self, font: &Font) -> &mut Self {
-        self.font = font.clone();
         self
     }
 
@@ -263,6 +313,7 @@ impl TextStyle {
 #[derive(Debug, Clone)]
 pub struct Span {
     pub text: String,
+    pub font: Font,
     pub style: TextStyle,
 }
 
@@ -281,7 +332,7 @@ impl Span {
 
     /// Sets the font of this [`Span`].
     pub fn font(&mut self, font: &Font) -> &mut Self {
-        self.style.font = font.clone();
+        self.font = font.clone();
         self
     }
 
@@ -298,6 +349,7 @@ pub struct Text {
     pub style: TextStyle,
     pub transform: Transform2d,
 
+    pub font: Font,
     pub text: String,
 }
 
@@ -307,6 +359,7 @@ impl Text {
         style: TextStyle,
         transform: Transform2d,
 
+        font: impl AsRef<Font>,
         text: String,
     ) -> Self {
         Self {
@@ -314,16 +367,18 @@ impl Text {
             style,
             transform,
 
+            font: font.as_ref().clone(),
             text,
         }
     }
 
-    pub fn with_font(&mut self, font: Font) -> Self {
+    pub fn with_font(&mut self, font: impl AsRef<Font>) -> Self {
         Self {
             position: Vec2::default(),
-            style: TextStyle { size: 16., font, color: Color::WHITE },
+            style: TextStyle::default(),
             transform: Transform2d::identity(),
 
+            font: font.as_ref().clone(),
             text: String::default(),
         }
     }
@@ -335,8 +390,8 @@ impl Text {
     }
 
     /// Sets the font of this [`Text`].
-    pub fn font(&mut self, font: Font) -> &mut Self {
-        self.style.font = font;
+    pub fn font(&mut self, font: impl AsRef<Font>) -> &mut Self {
+        self.font = font.as_ref().clone();
         self
     }
 
@@ -374,7 +429,7 @@ impl Drawable for Text {
                 |window| {
                     window.fill(self.style.color);
                     window.text_size(self.style.size);
-                    window.text(&self.style.font, 0., 0., &self.text);
+                    window.text(&self.font, 0., 0., &self.text);
                 }
             );
         });
@@ -388,7 +443,7 @@ impl Drawable for Text {
                 |window| {
                     window.fill(self.style.color);
                     window.text_size(self.style.size);
-                    window.text(&self.style.font, 0., 0., &self.text);
+                    window.text(&self.font, 0., 0., &self.text);
                 }
             );
         });
