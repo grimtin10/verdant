@@ -1,4 +1,4 @@
-use std::io;
+use std::{io, sync::PoisonError};
 
 #[cfg(feature = "image")]
 use image::ImageError;
@@ -74,4 +74,13 @@ pub enum Error {
 
     #[error("Event loop error: {0}")]
     EventLoopError(#[from] EventLoopError),
+
+    #[error("Poisoned lock error: {0}")]
+    PoisonError(String),
+}
+
+impl<T> From<PoisonError<T>> for Error {
+    fn from(error: PoisonError<T>) -> Self {
+        Error::PoisonError(error.to_string())
+    }
 }

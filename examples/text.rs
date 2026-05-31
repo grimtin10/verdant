@@ -30,8 +30,8 @@ fn main() -> RendererResult<()> {
 
             window.background(Color::BLACK);
             window.text_size(size);
-            window.text(&mut font, 0., size, &text);
-            window.image(font.atlas.clone(), 0., size * 2., 1024., 1024.);
+            window.text(&font, 0., size, &text);
+            window.image(&font.atlas(), 0., size * 2., 1024., 1024.);
         }
 
         renderer.flush()?;

@@ -436,7 +436,7 @@ impl Drawable for ImageRect {
                     .then(Transform2d::translation(self.position.x, self.position.y)),
                 |window| {
                     window.fill(self.color);
-                    window.image(self.image.clone(), 0., 0., self.size.x, self.size.y);
+                    window.image(&self.image, 0., 0., self.size.x, self.size.y);
                 }
             );
         });
@@ -449,7 +449,7 @@ impl Drawable for ImageRect {
                     .then(Transform2d::translation(x, y)),
                 |window| {
                     window.fill(self.color);
-                    window.image(self.image.clone(), 0., 0., self.size.x, self.size.y);
+                    window.image(&self.image, 0., 0., self.size.x, self.size.y);
                 }
             );
         });

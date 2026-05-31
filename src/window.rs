@@ -348,8 +348,8 @@ impl Window {
     }
 
     /// Draws an image at `(x, y)` with the given width and height using the current fill color.
-    pub fn image(&mut self, image: Image, x: f32, y: f32, w: f32, h: f32) {
-        self.context.update_texture(Some(image));
+    pub fn image(&mut self, image: &Image, x: f32, y: f32, w: f32, h: f32) {
+        self.context.update_texture(Some(image.clone()));
 
         self.push_vertices(textured_vertices(
             x,
@@ -370,7 +370,7 @@ impl Window {
     }
 
     /// Draws text at `(x, y)` with the given font using the current fill color and text size.
-    pub fn text(&mut self, font: &mut Font, mut x: f32, y: f32, text: impl ToString) {
+    pub fn text(&mut self, font: &Font, mut x: f32, y: f32, text: impl ToString) {
         let mut glyphs = HashMap::new();
 
         let text = text.to_string();
@@ -393,7 +393,7 @@ impl Window {
             break;
         }
 
-        self.context.update_texture(Some(font.atlas.clone()));
+        self.context.update_texture(Some(font.atlas().clone()));
 
         for char in text.chars() {
             if char.is_whitespace() {

@@ -1,6 +1,6 @@
 // TODO: font fallback
 
-use std::{collections::HashMap, hash::{Hash, Hasher}};
+use std::{collections::HashMap, hash::{Hash, Hasher}, sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard}};
 
 use fontdue::FontSettings;
 
@@ -37,17 +37,129 @@ pub(crate) struct CachedGlyph {
     pub advance: f32,
 }
 
-pub struct Font {
-    pub atlas: Image,
-
-    font: fontdue::Font,
-
+#[derive(Default)]
+struct FontPosition {
     current_x: u32,
     current_y: u32,
     row_height: u32,
+}
+
+struct FontInner {
+    pub atlas: RwLock<Image>,
+
+    font: fontdue::Font,
+
+    position: Mutex<FontPosition>,
     padding: u32,
 
-    cache: HashMap<GlyphInfo, CachedGlyph>,
+    cache: RwLock<HashMap<GlyphInfo, CachedGlyph>>,
+}
+
+impl FontInner {
+    fn resize_atlas(&self) -> RendererResult<()> {
+        let width = self.atlas.read()?.width;
+        let old_height = self.atlas.read()?.height;
+
+        let new_height = old_height * 2;
+
+        let mut old_data = vec![0; (width * old_height * 4) as usize];
+        self.atlas.read()?.read_rect(
+            Bounds::new(0, 0, width, old_height),
+            &mut old_data,
+        )?;
+
+        let mut new_atlas = Image::new_empty(width, new_height);
+        new_atlas.blit(0, 0, width, old_height, &old_data)?;
+
+        let height_ratio = old_height as f32 / new_height as f32;
+        for glyph in self.cache.write()?.values_mut() {
+            glyph.uv_min.y *= height_ratio;
+            glyph.uv_max.y *= height_ratio;
+        }
+
+        *self.atlas.write()? = new_atlas;
+
+        Ok(())
+    }
+
+    fn get_or_load_glyph(&self, key: GlyphInfo) -> RendererResult<Option<CachedGlyph>> {
+        if let Some(glyph) = self.cache.read()?.get(&key) {
+            return Ok(Some(*glyph));
+        }
+
+        // TODO: technically we could decide to not hold this lock for the whole function to
+        //       allow for two glyphs to be rasterized at the same time, but for now, i'm lazy
+        let mut position = self.position.lock()?;
+
+        let (metrics, bitmap) = self.font.rasterize(key.0, key.1);
+
+        let width = metrics.width as u32;
+        let height = metrics.height as u32;
+
+        if width == 0 || height == 0 {
+            let empty_glyph = CachedGlyph {
+                uv_min: Vec2::ZERO,
+                uv_max: Vec2::ZERO,
+                width: 0.,
+                height: 0.,
+                xmin: 0.,
+                ymin: 0.,
+                advance: metrics.advance_width,
+            };
+            self.cache.write()?.insert(key, empty_glyph);
+            return Ok(Some(empty_glyph));
+        }
+
+        if position.current_x + width + self.padding > self.atlas.read()?.width {
+            position.current_x = 0;
+            position.current_y += position.row_height + self.padding;
+            position.row_height = 0;
+        }
+
+        while position.current_y + height + self.padding > self.atlas.read()?.height {
+            if self.atlas.read()?.height >= MAX_ATLAS_SIZE {
+                *self.atlas.write()? = Image::new_empty(1024, 1024);
+                self.cache.write()?.clear();
+                position.current_x = 0;
+                position.current_y = 0;
+                position.row_height = 0;
+                return Ok(None);
+            }
+            self.resize_atlas()?;
+        }
+
+        let rgba: Vec<u8> = bitmap.iter()
+            .flat_map(|&a| [255, 255, 255, a])
+            .collect();
+
+        self.atlas.write()?.blit(position.current_x, position.current_y, width, height, &rgba)?;
+
+        let u0 = position.current_x as f32 / self.atlas.read()?.width as f32;
+        let v0 = position.current_y as f32 / self.atlas.read()?.height as f32;
+        let u1 = (position.current_x + width) as f32 / self.atlas.read()?.width as f32;
+        let v1 = (position.current_y + height) as f32 / self.atlas.read()?.height as f32;
+
+        let cached = CachedGlyph {
+            uv_min: Vec2::new(u0, v0),
+            uv_max: Vec2::new(u1, v1),
+            width: width as f32,
+            height: height as f32,
+            xmin: metrics.xmin as f32,
+            ymin: metrics.ymin as f32,
+            advance: metrics.advance_width,
+        };
+
+        position.current_x += width + self.padding;
+        position.row_height = position.row_height.max(height);
+
+        self.cache.write()?.insert(key, cached);
+        Ok(Some(cached))
+    }
+}
+
+#[derive(Clone)]
+pub struct Font {
+    inner: Arc<FontInner>,
 }
 
 impl Font {
@@ -63,113 +175,31 @@ impl Font {
         let atlas = Image::new_empty(atlas_width, atlas_height);
 
         Ok(Self {
-            font,
+            inner: Arc::new(FontInner {
+                font,
 
-            atlas,
+                atlas: RwLock::new(atlas),
 
-            current_x: 0,
-            current_y: 0,
-            row_height: 0 ,
-            padding: 2,
-            cache: HashMap::new(),
+                position: Mutex::new(FontPosition::default()),
+                padding: 2,
+                cache: RwLock::new(HashMap::new()),
+            }),
         })
     }
 
-    fn resize_atlas(&mut self) -> RendererResult<()> {
-        let width = self.atlas.width;
-        let old_height = self.atlas.height;
-
-        let new_height = old_height * 2;
-
-        let mut old_data = vec![0; (width * old_height * 4) as usize];
-        self.atlas.read_rect(
-            Bounds::new(0, 0, width, old_height),
-            &mut old_data,
-        )?;
-
-        let mut new_atlas = Image::new_empty(width, new_height);
-        new_atlas.blit(0, 0, width, old_height, &old_data)?;
-
-        let height_ratio = old_height as f32 / new_height as f32;
-        for glyph in self.cache.values_mut() {
-            glyph.uv_min.y *= height_ratio;
-            glyph.uv_max.y *= height_ratio;
-        }
-
-        self.atlas = new_atlas;
-
-        Ok(())
+    // TODO: i'm not a fan of using `.expect` here but it's a sacrifice
+    //       i'm willing to make to make the API nice and consistent
+    pub fn atlas(&self) -> RwLockReadGuard<'_, Image> {
+        self.inner.atlas.read().expect("text atlas lock is poisoned")
     }
 
-    pub(crate) fn get_or_load_glyph(&mut self, char: char, size_px: f32) -> RendererResult<Option<CachedGlyph>> {
+    pub fn atlas_mut(&self) -> RwLockWriteGuard<'_, Image> {
+        self.inner.atlas.write().expect("text atlas lock is poisoned")
+    }
+
+    pub(crate) fn get_or_load_glyph(&self, char: char, size_px: f32) -> RendererResult<Option<CachedGlyph>> {
         let key = GlyphInfo(char, size_px);
 
-        if let Some(glyph) = self.cache.get(&key) {
-            return Ok(Some(*glyph));
-        }
-
-        let (metrics, bitmap) = self.font.rasterize(char, size_px);
-
-        let width = metrics.width as u32;
-        let height = metrics.height as u32;
-
-        if width == 0 || height == 0 {
-            let empty_glyph = CachedGlyph {
-                uv_min: Vec2::ZERO,
-                uv_max: Vec2::ZERO,
-                width: 0.,
-                height: 0.,
-                xmin: 0.,
-                ymin: 0.,
-                advance: metrics.advance_width,
-            };
-            self.cache.insert(key, empty_glyph);
-            return Ok(Some(empty_glyph));
-        }
-
-        if self.current_x + width + self.padding > self.atlas.width {
-            self.current_x = 0;
-            self.current_y += self.row_height + self.padding;
-            self.row_height = 0;
-        }
-
-        while self.current_y + height + self.padding > self.atlas.height {
-            if self.atlas.height >= MAX_ATLAS_SIZE {
-                self.atlas = Image::new_empty(1024, 1024);
-                self.cache.clear();
-                self.current_x = 0;
-                self.current_y = 0;
-                self.row_height = 0;
-                return Ok(None);
-            }
-            self.resize_atlas()?;
-        }
-
-        let rgba: Vec<u8> = bitmap.iter()
-            .flat_map(|&a| [255, 255, 255, a])
-            .collect();
-
-        self.atlas.blit(self.current_x, self.current_y, width, height, &rgba)?;
-
-        let u0 = self.current_x as f32 / self.atlas.width as f32;
-        let v0 = self.current_y as f32 / self.atlas.height as f32;
-        let u1 = (self.current_x + width) as f32 / self.atlas.width as f32;
-        let v1 = (self.current_y + height) as f32 / self.atlas.height as f32;
-
-        let cached = CachedGlyph {
-            uv_min: Vec2::new(u0, v0),
-            uv_max: Vec2::new(u1, v1),
-            width: width as f32,
-            height: height as f32,
-            xmin: metrics.xmin as f32,
-            ymin: metrics.ymin as f32,
-            advance: metrics.advance_width,
-        };
-
-        self.current_x += width + self.padding;
-        self.row_height = self.row_height.max(height);
-
-        self.cache.insert(key, cached);
-        Ok(Some(cached))
+        self.inner.get_or_load_glyph(key)
     }
 }

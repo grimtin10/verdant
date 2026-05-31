@@ -42,7 +42,7 @@ fn main() -> RendererResult<()> {
             window.no_outline();
 
             window.fill(Color::WHITE);
-            window.image(image.clone(), 0., 0., window.get_mouse_x(), window.get_mouse_y());
+            window.image(&image, 0., 0., window.get_mouse_x(), window.get_mouse_y());
 
             window.fill(rgb(0.3, 0.7, 0.7));
             window.rect(200., 200., 400., 400.);

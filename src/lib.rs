@@ -34,7 +34,6 @@ mod shape_vertices;
 #[cfg(feature = "text")]
 pub mod font;
 
-
 pub type RendererResult<T> = Result<T, Error>;
 
 const KIND_RECT:     u32 = 0;
@@ -539,25 +538,23 @@ impl Renderer {
     /// Creates a new window with the given title, dimensions, and resizability.
     /// Returns a [`WindowId`] that can be used to interact with the window.
     /// Initializes the GPU context if this is the first window created.
-    // TODO: make `create_window_ext` with more options
     pub fn create_window(
         &mut self,
         title: impl ToString,
         width: u32,
         height: u32,
     ) -> WindowId {
-        let id = WindowId::new();
-
-        self.context.window_queue.push_back((id, WindowProperties {
+        self.create_window_ext(WindowProperties {
             width,
             height,
             title: title.to_string(),
             ..Default::default()
-        }));
-
-        id
+        })
     }
 
+    /// Creates a new window with the given properties.
+    /// Returns a [`WindowId`] that can be used to interact with the window.
+    /// Initializes the GPU context if this is the first window created.
     pub fn create_window_ext(&mut self, props: WindowProperties) -> WindowId {
         let id = WindowId::new();
 
