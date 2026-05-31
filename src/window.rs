@@ -481,7 +481,7 @@ impl Window {
             HorizontalAlign::Right => -total_width,
         };
 
-            let mut line = 0;
+        let mut line = 0;
         let mut x_offset = match self.text_style.line_align {
             HorizontalAlign::Left => 0.,
             HorizontalAlign::Center => (total_width - line_widths[line]) / 2.,
