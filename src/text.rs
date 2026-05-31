@@ -268,7 +268,6 @@ pub struct TextStyle {
     pub size: f32,
     pub color: Color,
     pub offset: Vec2,
-    pub line_align: HorizontalAlign,
 }
 
 impl Default for TextStyle {
@@ -277,7 +276,6 @@ impl Default for TextStyle {
             size: 16.,
             color: Color::WHITE,
             offset: Vec2::default(),
-            line_align: HorizontalAlign::default(),
         }
     }
 }

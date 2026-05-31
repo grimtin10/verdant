@@ -66,6 +66,7 @@ struct TextStyle {
     size: f32,
     horizontal_align: HorizontalAlign,
     vertical_align: VerticalAlign,
+    line_align: HorizontalAlign,
 }
 
 impl Default for TextStyle {
@@ -74,6 +75,7 @@ impl Default for TextStyle {
             size: 16.,
             horizontal_align: HorizontalAlign::default(),
             vertical_align: VerticalAlign::default(),
+            line_align: HorizontalAlign::default(),
         }
     }
 }
@@ -382,23 +384,29 @@ impl Window {
         self.context.update_texture(None);
     }
 
-    /// Sets the horizontal text align for subsequent text calls.
+    /// Sets the horizontal text alignment for subsequent text calls.
     /// Effects rich text.
     pub fn horizontal_text_align(&mut self, horizontal: HorizontalAlign) {
         self.text_style.horizontal_align = horizontal;
     }
 
-    /// Sets the vertical text align for subsequent text calls.
+    /// Sets the vertical text alignment for subsequent text calls.
     /// Effects rich text.
     pub fn vertical_text_align(&mut self, vertical: VerticalAlign) {
         self.text_style.vertical_align = vertical;
     }
 
-    /// Sets the text align for subsequent text calls.
+    /// Sets the text alignment for subsequent text calls.
     /// Effects rich text.
     pub fn text_align(&mut self, horizontal: HorizontalAlign, vertical: VerticalAlign) {
         self.text_style.horizontal_align = horizontal;
         self.text_style.vertical_align = vertical;
+    }
+
+    /// Sets the alignment per-line for subsequent text calls.
+    /// Effects rich text.
+    pub fn line_align(&mut self, align: HorizontalAlign) {
+        self.text_style.line_align = align;
     }
 
     /// Draws rich text at `(x, y)` with each span's font and style.
@@ -407,7 +415,6 @@ impl Window {
         #[derive(Default)]
         struct SpanBounds {
             width: f32,
-            line_widths: Vec<f32>,
             line_height: f32,
         }
 
@@ -417,15 +424,15 @@ impl Window {
         let mut bounds = Vec::new();
 
         let mut total_width = 0.;
+        let mut line_width = 0.;
+        let mut line_widths = Vec::new();
         for span in spans {
             let key = (span.style, span.font.clone());
             let glyphs: &mut HashMap<_, _> = fonts.entry(key).or_default();
 
-            let mut width: f32 = 0.;
-            let mut line_widths = Vec::new();
-            let mut line_height: f32 = 0.;
-
             let mut cx = 0.;
+            let mut width: f32 = 0.;
+            let mut line_height: f32 = 0.;
 
             let mut retries = 0;
             'outer: loop {
@@ -444,8 +451,10 @@ impl Window {
                     };
 
                     cx += glyph.advance;
+                    line_width += glyph.advance;
                     if char == '\n' {
-                        line_widths.push(cx);
+                        line_widths.push(line_width);
+                        line_width = 0.;
                         cx = 0.;
                     } else {
                         line_height = line_height.max(glyph.height);
@@ -459,13 +468,12 @@ impl Window {
             }
 
             total_width += width;
-            line_widths.push(cx);
             bounds.push(SpanBounds {
                 width,
-                line_widths,
                 line_height,
             });
         }
+        line_widths.push(line_width);
 
         let total_x_offset = match self.text_style.horizontal_align {
             HorizontalAlign::Left => 0.,
@@ -473,11 +481,16 @@ impl Window {
             HorizontalAlign::Right => -total_width,
         };
 
-        let mut span_x = x;
-        for (span, bounds) in spans.iter().zip(bounds) {
             let mut line = 0;
-            let mut cx = span_x;
-            let mut cy = y;
+        let mut x_offset = match self.text_style.line_align {
+            HorizontalAlign::Left => 0.,
+            HorizontalAlign::Center => (total_width - line_widths[line]) / 2.,
+            HorizontalAlign::Right => total_width - line_widths[line],
+        };
+
+        let mut cx = x;
+        let mut cy = y;
+        for (span, bounds) in spans.iter().zip(bounds) {
             self.context.update_texture(Some(span.font.atlas().clone()));
 
             let Some(glyphs) = fonts.get(&(span.style, span.font.clone())) else { continue };
@@ -488,12 +501,6 @@ impl Window {
                 VerticalAlign::Top => bounds.line_height,
             };
 
-            let mut x_offset = match span.style.line_align {
-                HorizontalAlign::Left => 0.,
-                HorizontalAlign::Center => (bounds.width - bounds.line_widths[line]) / 2.,
-                HorizontalAlign::Right => bounds.width - bounds.line_widths[line],
-            };
-
             for char in span.text.chars() {
                 if char == '\n' {
                     if let Some(glyph) = glyphs.get(&char) {
@@ -502,10 +509,10 @@ impl Window {
                     }
 
                     line += 1;
-                    x_offset = match span.style.line_align {
+                    x_offset = match self.text_style.line_align {
                         HorizontalAlign::Left => 0.,
-                        HorizontalAlign::Center => (bounds.width - bounds.line_widths[line]) / 2.,
-                        HorizontalAlign::Right => bounds.width - bounds.line_widths[line],
+                        HorizontalAlign::Center => (total_width - line_widths[line]) / 2.,
+                        HorizontalAlign::Right => total_width - line_widths[line],
                     };
 
                     continue;
@@ -537,8 +544,6 @@ impl Window {
 
                 cx += glyph.advance;
             }
-
-            span_x += bounds.width;
         }
 
         self.context.update_texture(None);

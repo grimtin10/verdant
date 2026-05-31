@@ -17,6 +17,7 @@ fn main() -> RendererResult<()> {
             window.background(Color::BLACK);
 
             window.text_align(HorizontalAlign::Center, VerticalAlign::Top);
+            window.line_align(HorizontalAlign::Center);
 
             window.rich_text(375., 0., &[
                 Span {
@@ -25,12 +26,11 @@ fn main() -> RendererResult<()> {
                     style: TextStyle {
                         size: 32.,
                         color: Color::RED,
-                        line_align: HorizontalAlign::Center,
                         ..Default::default()
                     },
                 },
                 Span {
-                    text: "blue text".into(),
+                    text: "blue text\nblue newline".into(),
                     font: font.clone(),
                     style: TextStyle {
                         size: 48.,
