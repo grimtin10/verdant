@@ -17,7 +17,7 @@ fn main() -> RendererResult<()> {
                 WindowEvent::CloseRequested => { renderer.close_window(id); },
                 WindowEvent::KeyboardInput { event: KeyEvent { logical_key, state: ElementState::Pressed, .. } , .. } => {
                     match logical_key {
-                        Key::Named(NamedKey::Backspace) => text = text.chars().next_back().map(|c| &text[..text.len() - c.len_utf8()]).unwrap_or("").to_string(),
+                        Key::Named(NamedKey::Backspace) => { text.pop(); },
                         Key::Named(NamedKey::Enter) => text += "\n",
                         Key::Character(c) => text += c.as_str(),
                         _ => {},
