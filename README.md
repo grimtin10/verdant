@@ -9,6 +9,12 @@ A rendering and windowing library built on `winit` and `wgpu`, aiming to be ligh
 
 ---
 
+<img width="800" height="462" alt="boids" src="https://github.com/user-attachments/assets/50e31e90-9e4b-4cf3-8702-e27c5dd8bfd2" />
+
+<img width="800" height="820" alt="clock" src="https://github.com/user-attachments/assets/1841ac1d-d3e1-4efc-b5d9-b8186a67dc53" />
+
+---
+
 ## Installation
 
 Add this to your `Cargo.toml`:
