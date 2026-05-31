@@ -590,6 +590,10 @@ impl Window {
     }
 
     /// Applies `transform` relative to the current transform for the duration of `commands`.
+    // TODO: i spent a bit of time getting these transforms rendering on the GPU, but honestly,
+    //       it's probably not worth it unless the group is large
+    //       we should implement smart batching, if the number of vertices per transform is enough,
+    //       do the matrix math on the GPU, otherwise, do it on the CPU to save on draw calls
     pub fn with_transform(&mut self, transform: Transform2d, commands: impl FnOnce(&mut Self)) {
         let old_local = self.context.local_transform;
         let new_local = old_local * transform;

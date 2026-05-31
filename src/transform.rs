@@ -113,7 +113,8 @@ impl Transform2d {
     /// assert_eq!(t2.transform_point(Vec2::new(1., 1.)), Vec2::new(5., 3.));
     /// ```
     pub fn translate(&mut self, x: f32, y: f32) -> Self {
-        self.then(Self::translation(x, y))
+        *self = self.then(Self::translation(x, y));
+        *self
     }
 
     /// Returns a transform that rotates by `rad` radians, counter-clockwise.
@@ -151,7 +152,8 @@ impl Transform2d {
     /// assert!((p.y - 1.).abs() < 1e-6);
     /// ```
     pub fn rotate_rad(&mut self, rad: f32) -> Self {
-        self.then(Self::rotation_rad(rad))
+        *self = self.then(Self::rotation_rad(rad));
+        *self
     }
 
     /// Returns a transform that rotates by `deg` degrees, counter-clockwise.
@@ -221,8 +223,9 @@ impl Transform2d {
     /// let t = Transform2d::translation(1., 1.).scale(2., 3.);
     /// assert_eq!(t.transform_point(Vec2::new(0., 0.)), Vec2::new(2., 3.));
     /// ```
-    pub fn scale(self, sx: f32, sy: f32) -> Self {
-        self.then(Transform2d::scaling(sx, sy))
+    pub fn scale(&mut self, sx: f32, sy: f32) -> Self {
+        *self = self.then(Transform2d::scaling(sx, sy));
+        *self
     }
 
     /// Applies this transform to a 2D point.
