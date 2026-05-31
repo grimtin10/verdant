@@ -411,17 +411,10 @@ impl Window {
 
     /// Draws rich text at `(x, y)` with each span's font and style.
     pub fn rich_text(&mut self, x: f32, y: f32, spans: &[Span]) {
-        // this is some of the code of all time
-        #[derive(Default)]
-        struct SpanBounds {
-            width: f32,
-            line_height: f32,
-        }
-
         // because the hash of a `Font` is just the `Arc` pointer, this is fine
         #[allow(clippy::mutable_key_type)]
         let mut fonts = HashMap::new();
-        let mut bounds = Vec::new();
+        let mut line_heights = Vec::new();
 
         let mut total_width = 0.;
         let mut line_width = 0.;
@@ -468,10 +461,7 @@ impl Window {
             }
 
             total_width += width;
-            bounds.push(SpanBounds {
-                width,
-                line_height,
-            });
+            line_heights.push(line_height);
         }
         line_widths.push(line_width);
 
@@ -490,15 +480,15 @@ impl Window {
 
         let mut cx = x;
         let mut cy = y;
-        for (span, bounds) in spans.iter().zip(bounds) {
+        for (span, line_height) in spans.iter().zip(line_heights) {
             self.context.update_texture(Some(span.font.atlas().clone()));
 
             let Some(glyphs) = fonts.get(&(span.style, span.font.clone())) else { continue };
 
             let y_offset = match self.text_style.vertical_align {
                 VerticalAlign::Bottom => 0.,
-                VerticalAlign::Center => bounds.line_height / 2.,
-                VerticalAlign::Top => bounds.line_height,
+                VerticalAlign::Center => line_height / 2.,
+                VerticalAlign::Top => line_height,
             };
 
             for char in span.text.chars() {

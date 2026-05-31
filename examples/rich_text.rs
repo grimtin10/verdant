@@ -1,4 +1,4 @@
-use verdant::{Renderer, RendererResult, WindowEvent, text::{Font, HorizontalAlign, Span, TextStyle, VerticalAlign}, types::Color};
+use verdant::{Renderer, RendererResult, WindowEvent, rgba255, text::{Font, HorizontalAlign, Span, TextStyle, VerticalAlign, rich_text_size}, types::Color};
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
@@ -19,7 +19,10 @@ fn main() -> RendererResult<()> {
             window.text_align(HorizontalAlign::Center, VerticalAlign::Top);
             window.line_align(HorizontalAlign::Center);
 
-            window.rich_text(375., 0., &[
+            window.outline(Color::GREEN, 4.);
+            window.fill(rgba255(0., 255., 0., 50.));
+
+            let spans = &[
                 Span {
                     text: "red text\nnewline\nvery long line ".into(),
                     font: font.clone(),
@@ -38,7 +41,13 @@ fn main() -> RendererResult<()> {
                         ..Default::default()
                     }
                 }
-            ]);
+            ];
+
+            let (w, h) = rich_text_size(spans)?;
+            window.rect(375. - w / 2., 0., w, h);
+
+            window.fill(Color::WHITE);
+            window.rich_text(375., 0., spans);
         }
 
         renderer.flush()?;

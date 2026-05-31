@@ -8,6 +8,89 @@ use crate::{RendererResult, errors::Error, image::{Bounds, Image}, shapes::Drawa
 
 const MAX_ATLAS_SIZE: u32 = 8192;
 
+pub fn rich_text_size(spans: &[Span]) -> RendererResult<(f32, f32)> {
+    // because the hash of a `Font` is just the `Arc` pointer, this is fine
+    #[allow(clippy::mutable_key_type)]
+    let mut fonts = HashMap::new();
+
+    let mut total_width: f32 = 0.;
+    let mut total_height = 0.;
+    let mut cx = 0.;
+    let mut width: f32 = 0.;
+    for span in spans {
+        let key = (span.style, span.font.clone());
+        let glyphs: &mut HashMap<_, _> = fonts.entry(key).or_default();
+
+        let mut height = 0.;
+        let mut line_height: f32 = 0.;
+
+        let mut retries = 0;
+        'outer: loop {
+            if retries > 1 {
+                return Err(Error::TextTooBig);
+            }
+
+            for char in span.text.chars() {
+                let Ok(Some(glyph)) = span.font.get_or_load_glyph(char, span.style.size) else {
+                    glyphs.clear();
+                    retries += 1;
+                    continue 'outer;
+                };
+
+                cx += glyph.advance;
+                if char == '\n' {
+                    height += glyph.height;
+                    width = 0.;
+                    line_height = 0.;
+                    cx = 0.;
+                } else {
+                    line_height = line_height.max(glyph.height);
+                }
+
+                width = width.max(cx);
+                total_width = total_width.max(width);
+
+                glyphs.insert(char, glyph);
+            }
+            break;
+        }
+        height += line_height;
+
+        total_height += height;
+    }
+
+    Ok((total_width, total_height))
+}
+
+pub fn rich_text_width(spans: &[Span]) -> RendererResult<f32> {
+    Ok(rich_text_size(spans)?.0)
+}
+
+pub fn rich_text_height(spans: &[Span]) -> RendererResult<f32> {
+    Ok(rich_text_size(spans)?.1)
+}
+
+pub fn text_size(text: impl ToString, font: impl AsRef<Font>, size_px: f32) -> RendererResult<(f32, f32)> {
+    rich_text_size(&[
+        Span {
+            text: text.to_string(),
+            font: font.as_ref().clone(),
+            style: TextStyle {
+                size: size_px,
+                ..Default::default()
+            }
+        }
+    ])
+}
+
+pub fn text_width(text: impl ToString, font: impl AsRef<Font>, size_px: f32) -> RendererResult<f32> {
+    Ok(text_size(text, font, size_px)?.0)
+}
+
+pub fn text_height(text: impl ToString, font: impl AsRef<Font>, size_px: f32) -> RendererResult<f32> {
+    Ok(text_size(text, font, size_px)?.1)
+}
+
 #[derive(Debug, Clone, Copy)]
 struct GlyphInfo(char, f32);
 

@@ -65,6 +65,10 @@ pub enum Error {
     #[error("Image error: {0}")]
     ImageError(#[from] ImageError),
 
+    // text errors
+    #[error("Text was too big to fit in atlas")]
+    TextTooBig,
+
     // misc errors
     #[error("IO error: {0}")]
     IOError(#[from] io::Error),
