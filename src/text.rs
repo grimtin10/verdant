@@ -389,6 +389,12 @@ impl TextStyle {
         self.color = color;
         self
     }
+
+    /// Sets the offset.
+    pub fn offset(&mut self, offset: Vec2) -> &mut Self {
+        self.offset = offset;
+        self
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -405,21 +411,27 @@ impl Span {
         self
     }
 
-    /// Sets the font size (in pixels) of this [`Span`].
-    pub fn size(&mut self, size_px: f32) -> &mut Self {
-        self.style.size = size_px;
-        self
-    }
-
     /// Sets the font of this [`Span`].
     pub fn font(&mut self, font: &Font) -> &mut Self {
         self.font = font.clone();
         self
     }
 
+    /// Sets the font size (in pixels) of this [`Span`].
+    pub fn size(&mut self, size_px: f32) -> &mut Self {
+        self.style.size = size_px;
+        self
+    }
+
     /// Sets the color of this [`Span`].
     pub fn color(&mut self, color: Color) -> &mut Self {
         self.style.color = color;
+        self
+    }
+
+    /// Sets the offset of this [`Span`].
+    pub fn offset(&mut self, offset: Vec2) -> &mut Self {
+        self.style.offset = offset;
         self
     }
 }
