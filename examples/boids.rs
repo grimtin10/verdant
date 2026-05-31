@@ -114,6 +114,7 @@ fn main() -> RendererResult<()> {
         if let Some(window) = renderer.get_window(window) {
             window.background(Color::BLACK);
 
+            // TODO: should probably optimize this loop so we can handle more boids
             for i in 0..boids.len() {
                 let boid = &boids[i];
 

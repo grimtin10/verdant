@@ -594,9 +594,9 @@ impl Window {
     //       it's probably not worth it unless the group is large
     //       we should implement smart batching, if the number of vertices per transform is enough,
     //       do the matrix math on the GPU, otherwise, do it on the CPU to save on draw calls
-    pub fn with_transform(&mut self, transform: Transform2d, commands: impl FnOnce(&mut Self)) {
+    pub fn with_transform(&mut self, transform: impl AsRef<Transform2d>, commands: impl FnOnce(&mut Self)) {
         let old_local = self.context.local_transform;
-        let new_local = old_local * transform;
+        let new_local = old_local * *transform.as_ref();
 
         self.context.local_transform = new_local;
         self.context.update_transform(self.view.transform() * new_local);

@@ -70,7 +70,7 @@ impl View {
         self.letterbox = self.get_view();
         let (scale_x, scale_y, x, y) = self.letterbox;
 
-        self.transform = Transform2d::translation(origin.x, origin.y)
+        self.transform = *Transform2d::translation(origin.x, origin.y)
             .scale(scale_x, scale_y)
             .translate(x, y);
 

@@ -515,7 +515,7 @@ pub struct Renderer {
 }
 
 fn ortho(width: f32, height: f32) -> Transform2d {
-    Transform2d::scaling(2. / width, -2. / height).translate(-1., 1.)
+    *Transform2d::scaling(2. / width, -2. / height).translate(-1., 1.)
 }
 
 impl Renderer {

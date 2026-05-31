@@ -42,6 +42,12 @@ pub struct Transform2d {
     pub matrix: [f32; 6],
 }
 
+impl AsRef<Transform2d> for Transform2d {
+    fn as_ref(&self) -> &Transform2d {
+        self
+    }
+}
+
 impl Default for Transform2d {
     fn default() -> Self {
         Self::identity()
@@ -112,9 +118,9 @@ impl Transform2d {
     /// let t2 = t.translate(3., 1.);
     /// assert_eq!(t2.transform_point(Vec2::new(1., 1.)), Vec2::new(5., 3.));
     /// ```
-    pub fn translate(&mut self, x: f32, y: f32) -> Self {
+    pub fn translate(&mut self, x: f32, y: f32) -> &mut Self {
         *self = self.then(Self::translation(x, y));
-        *self
+        self
     }
 
     /// Returns a transform that rotates by `rad` radians, counter-clockwise.
@@ -151,9 +157,9 @@ impl Transform2d {
     /// assert!((p.x - 0.).abs() < 1e-6);
     /// assert!((p.y - 1.).abs() < 1e-6);
     /// ```
-    pub fn rotate_rad(&mut self, rad: f32) -> Self {
+    pub fn rotate_rad(&mut self, rad: f32) -> &mut Self {
         *self = self.then(Self::rotation_rad(rad));
-        *self
+        self
     }
 
     /// Returns a transform that rotates by `deg` degrees, counter-clockwise.
@@ -190,9 +196,9 @@ impl Transform2d {
     /// assert!((p.x - 0.).abs() < 1e-6);
     /// assert!((p.y - 1.).abs() < 1e-6);
     /// ```
-    pub fn rotate_deg(&mut self, deg: f32) -> Self {
+    pub fn rotate_deg(&mut self, deg: f32) -> &mut Self {
         *self = self.then(Self::rotation_deg(deg));
-        *self
+        self
     }
 
     /// Returns a transform that scales by `sx` horizontally and `sy` vertically.
@@ -223,9 +229,9 @@ impl Transform2d {
     /// let t = Transform2d::translation(1., 1.).scale(2., 3.);
     /// assert_eq!(t.transform_point(Vec2::new(0., 0.)), Vec2::new(2., 3.));
     /// ```
-    pub fn scale(&mut self, sx: f32, sy: f32) -> Self {
+    pub fn scale(&mut self, sx: f32, sy: f32) -> &mut Self {
         *self = self.then(Transform2d::scaling(sx, sy));
-        *self
+        self
     }
 
     /// Applies this transform to a 2D point.
