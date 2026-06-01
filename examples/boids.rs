@@ -3,12 +3,16 @@ use std::time::Instant;
 use rand::random_range;
 use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, shapes::Drawable, text::{Font, VerticalAlign}, transform::Transform2d, types::{Color, WindowProperties}, vec::Vec2, view::ViewMode};
 
-const NEIGHBORHOOD: f32 = 100.;
-const SEPARATION_DIST: f32 = 40.;
+const BOID_COUNT: usize = 1000;
+const BOID_SIZE: f32 = 10.;
+
+const NEIGHBORHOOD: f32 = BOID_SIZE * 10.;
+const SEPARATION_DIST: f32 = BOID_SIZE * 3.5;
 
 const SEPARATION_WEIGHT: f32 = 2.5;
 const ALIGN_WEIGHT: f32 = 1.0;
 const COHESION_WEIGHT: f32 = 1.0;
+const WANDER_WEIGHT: f32 = 2.5;
 
 const MAX_SPEED: f32 = 250.;
 const MAX_FORCE: f32 = 3.;
@@ -39,20 +43,20 @@ impl Boid {
         self.position += self.velocity * dt;
         self.acceleration = Vec2::ZERO;
 
-        if self.position.x < -12.5 {
-            self.position.x = 1920. + 12.5;
+        if self.position.x < -BOID_SIZE {
+            self.position.x = 1920. + BOID_SIZE;
         }
 
-        if self.position.y < -12.5 {
-            self.position.y = 1080. + 12.5;
+        if self.position.y < -BOID_SIZE {
+            self.position.y = 1080. + BOID_SIZE;
         }
 
-        if self.position.x > 1920. + 12.5 {
-            self.position.x = -12.5;
+        if self.position.x > 1920. + BOID_SIZE {
+            self.position.x = -BOID_SIZE;
         }
 
-        if self.position.y > 1080. + 12.5 {
-            self.position.y = -12.5;
+        if self.position.y > 1080. + BOID_SIZE {
+            self.position.y = -BOID_SIZE;
         }
     }
 }
@@ -66,10 +70,10 @@ impl Drawable for Boid {
                 |window| {
                     window.no_outline();
                     window.fill(Color::WHITE);
-                    window.ellipse(0., 0., 12.5, 12.5);
+                    window.ellipse(0., 0., BOID_SIZE, BOID_SIZE);
 
                     window.outline(Color::BLACK, 1.);
-                    window.line(0., 0., 12.5, 0.);
+                    window.line(0., 0., BOID_SIZE, 0.);
                 }
             );
         });
@@ -92,7 +96,7 @@ fn main() -> RendererResult<()> {
 
     let mut boids = Vec::new();
 
-    for _ in 0..500 {
+    for _ in 0..BOID_COUNT {
         boids.push(Boid::new(Vec2::new(random_range(0f32..1920.), random_range(0f32..1080.))));
     }
 
@@ -159,10 +163,16 @@ fn main() -> RendererResult<()> {
                     cohesion /= cohesion.length() / MAX_FORCE;
                 }
 
+                let wander_mag = (MAX_FORCE * WANDER_WEIGHT).sqrt();
+
                 boids[i].acceleration =
                     separation * SEPARATION_WEIGHT
                     + align * ALIGN_WEIGHT
-                    + cohesion * COHESION_WEIGHT;
+                    + cohesion * COHESION_WEIGHT
+                    + Vec2::new(
+                        random_range(-wander_mag..wander_mag),
+                        random_range(-wander_mag..wander_mag)
+                    );
             }
 
             for boid in &mut boids {
