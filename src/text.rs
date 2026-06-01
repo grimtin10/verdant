@@ -4,7 +4,7 @@ use std::{collections::HashMap, hash::{Hash, Hasher}, sync::{Arc, Mutex, RwLock,
 
 use fontdue::FontSettings;
 
-use crate::{RendererResult, errors::Error, image::{Bounds, Image}, shapes::Drawable, transform::Transform2d, types::{ByteSource, Color}, vec::Vec2, window::Window};
+use crate::{RendererResult, canvas::RenderSurface, errors::Error, image::{Bounds, Image}, shapes::Drawable, transform::Transform2d, types::{ByteSource, Color}, vec::Vec2};
 
 const MAX_ATLAS_SIZE: u32 = 8192;
 
@@ -514,11 +514,11 @@ impl Text {
 }
 
 impl Drawable for Text {
-    fn draw(&self, window: &mut Window) {
+    fn draw(&self, window: &mut impl RenderSurface) {
         self.draw_at(window, self.position.x, self.position.y);
     }
 
-    fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
+    fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32) {
         window.with_style(|window| {
             window.with_transform(
                 self.transform
@@ -570,11 +570,11 @@ impl RichText {
 }
 
 impl Drawable for RichText {
-    fn draw(&self, window: &mut Window) {
+    fn draw(&self, window: &mut impl RenderSurface) {
         self.draw_at(window, self.position.x, self.position.y);
     }
 
-    fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
+    fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32) {
         window.with_style(|window| {
             window.with_transform(
                 self.transform

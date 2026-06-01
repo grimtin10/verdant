@@ -27,7 +27,6 @@ struct Interpolated {
 }
 
 @group(0) @binding(0) var<uniform> projection: mat4x4<f32>;
-@group(1) @binding(0) var<uniform> transform: mat4x4<f32>;
 
 @group(2) @binding(0) var t_diffuse: texture_2d<f32>;
 @group(2) @binding(1) var s_diffuse: sampler;
@@ -35,7 +34,7 @@ struct Interpolated {
 @vertex
 fn vs_main(in: Vertex) -> Interpolated {
     var out: Interpolated;
-    out.clip_position = projection * transform * vec4<f32>(in.position, 0.0, 1.0);
+    out.clip_position = projection * vec4<f32>(in.position, 0.0, 1.0);
     out.uv            = in.uv;
     out.radii         = in.radii;
     out.fill_color    = in.fill_color;

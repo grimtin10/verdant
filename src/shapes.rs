@@ -2,16 +2,16 @@
 //       it could get optimized out but i'm unsure if it would be
 //       not a huge issue, just something to note
 
-use crate::{image::Image, text::{RichText, Text}, transform::Transform2d, types::Color, vec::Vec2, window::Window};
+use crate::{canvas::RenderSurface, image::Image, text::{RichText, Text}, transform::Transform2d, types::Color, vec::Vec2};
 
 /// Trait for types that can draw themselves onto a [`Window`].
 pub trait Drawable {
     /// Draws this shape onto the given window.
-    fn draw(&self, window: &mut Window);
+    fn draw(&self, window: &mut impl RenderSurface);
 
     /// Draws this shape onto the given window at the given position.
     /// Transforms are still applied.
-    fn draw_at(&self, window: &mut Window, x: f32, y: f32);
+    fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32);
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -181,11 +181,11 @@ impl Rect {
 }
 
 impl Drawable for Rect {
-    fn draw(&self, window: &mut Window) {
+    fn draw(&self, window: &mut impl RenderSurface) {
         self.draw_at(window, self.position.x, self.position.y);
     }
 
-    fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
+    fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32) {
         window.with_style(|window| {
             window.with_transform(
                 self.transform
@@ -227,11 +227,11 @@ impl Ellipse {
 }
 
 impl Drawable for Ellipse {
-    fn draw(&self, window: &mut Window) {
+    fn draw(&self, window: &mut impl RenderSurface) {
         self.draw_at(window, self.position.x, self.position.y);
     }
 
-    fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
+    fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32) {
         window.with_style(|window| {
             window.with_transform(
                 self.transform
@@ -326,12 +326,12 @@ impl Line {
 }
 
 impl Drawable for Line {
-    fn draw(&self, window: &mut Window) {
+    fn draw(&self, window: &mut impl RenderSurface) {
         self.draw_at(window, self.start.x, self.start.y);
     }
 
     /// Draws this line onto the given window at the given position, relative to the starting point.
-    fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
+    fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32) {
         let offset = self.end - self.start;
         window.with_style(|window| {
             window.with_transform(
@@ -407,11 +407,11 @@ impl ImageRect {
 }
 
 impl Drawable for ImageRect {
-    fn draw(&self, window: &mut Window) {
+    fn draw(&self, window: &mut impl RenderSurface) {
         self.draw_at(window, self.position.x, self.position.y);
     }
 
-    fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
+    fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32) {
         window.with_style(|window| {
             window.with_transform(
                 self.transform

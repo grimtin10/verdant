@@ -1,4 +1,4 @@
-use verdant::{Renderer, RendererResult, WindowEvent, rgba255, text::{Font, HorizontalAlign, Span, TextStyle, VerticalAlign, rich_text_size}, types::Color};
+use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, rgba255, text::{Font, HorizontalAlign, Span, TextStyle, VerticalAlign, rich_text_size}, types::Color};
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;

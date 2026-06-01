@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use verdant::{ElementState, Key, KeyEvent, NamedKey, Renderer, RendererResult, WindowEvent, text::Font, types::Color};
+use verdant::{ElementState, Key, KeyEvent, NamedKey, Renderer, RendererResult, WindowEvent, canvas::RenderSurface, text::Font, types::Color};
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
@@ -37,7 +37,7 @@ fn main() -> RendererResult<()> {
 
         if let Some(window) = renderer.get_window(atlas_window) {
             window.background(Color::BLACK);
-            window.image(&font.atlas(), 0., 0., 1024., 1024.);
+            window.image(font.atlas(), 0., 0., 1024., 1024.);
         }
 
         renderer.flush()?;

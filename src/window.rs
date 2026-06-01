@@ -1,19 +1,11 @@
-use std::{collections::HashMap, mem::take, ops::Range, sync::Arc};
+use std::sync::Arc;
 
-use bytemuck::cast_slice;
-use wgpu::{BindGroup, Buffer, BufferDescriptor, BufferUsages, CurrentSurfaceTexture, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
+use wgpu::{CurrentSurfaceTexture, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
-use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, shape_vertices::{ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::Style, text::{self, Font, HorizontalAlign, Span, VerticalAlign}, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
+use crate::{GpuContext, RendererResult, canvas::{Canvas, RenderSurface}, image::Image, text::{Font, HorizontalAlign, Span, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
 
 // TODO: the ability to toggle if you want stroke scaling or not with views/transforms
-
-#[derive(Debug, Clone)]
-pub(crate) struct DrawBatch {
-    pub transform: Transform2d,
-    pub texture: Option<Image>,
-    pub range: Range<u32>,
-}
 
 #[derive(Debug, Default)]
 pub(crate) struct WindowContext {
@@ -21,128 +13,37 @@ pub(crate) struct WindowContext {
     pub mouse_y: f64,
 
     pub focused: bool,
-
-    pub vertices: Vec<Vertex>,
-    pub transform: Transform2d,
-    pub local_transform: Transform2d,
-    pub batches: Vec<DrawBatch>,
-    pub current_texture: Option<Image>,
-
-    pub clear_color: Option<Color>,
-}
-
-impl WindowContext {
-    pub(crate) fn update_batch(&mut self) {
-        let start = if let Some(group) = self.batches.last() {
-            group.range.end
-        } else {
-            0
-        };
-
-        if self.vertices.len() as u32 != start {
-            self.batches.push(DrawBatch {
-                transform: self.transform,
-                texture: self.current_texture.clone(),
-                range: start..self.vertices.len() as u32,
-            });
-        }
-    }
-
-    pub(crate) fn update_texture(&mut self, texture: Option<Image>) {
-        if self.current_texture != texture {
-            self.update_batch();
-            self.current_texture = texture;
-        }
-    }
-
-    pub(crate) fn update_transform(&mut self, transform: Transform2d) {
-        self.update_batch();
-        self.transform = transform;
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct TextStyle {
-    size: f32,
-    horizontal_align: HorizontalAlign,
-    vertical_align: VerticalAlign,
-    line_align: HorizontalAlign,
-}
-
-impl Default for TextStyle {
-    fn default() -> Self {
-        Self {
-            size: 16.,
-            horizontal_align: HorizontalAlign::default(),
-            vertical_align: VerticalAlign::default(),
-            line_align: HorizontalAlign::default(),
-        }
-    }
 }
 
 pub struct Window {
     pub(crate) inner_window: Arc<Box<dyn winit::window::Window>>,
 
+    canvas: Canvas,
+
     surface: Surface<'static>,
     config: SurfaceConfiguration,
 
-    projection_buffer: Buffer,
-    projection_group: BindGroup,
-
-    transform_buffer: Buffer,
-    transform_group: BindGroup,
-    transform_buffer_capacity: u64,
-
-    vertex_buffer: Buffer,
-    vertex_buffer_size: u64,
-
     gpu_context: Arc<GpuContext>,
     context: WindowContext,
-    style: Style,
-    text_style: TextStyle,
-
-    view: View,
 }
 
 impl Window {
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         inner_window: Arc<Box<dyn winit::window::Window>>,
-
         surface: Surface<'static>,
         config: SurfaceConfiguration,
-
-        projection_buffer: Buffer,
-        projection_group: BindGroup,
-
-        transform_buffer: Buffer,
-        transform_group: BindGroup,
-
-        vertex_buffer: Buffer,
-
         gpu_context: Arc<GpuContext>,
     ) -> Self {
         Self {
             inner_window,
 
+            canvas: Canvas::new(config.width, config.height, config.format, gpu_context.clone()),
+
             surface,
             config,
 
-            projection_buffer,
-            projection_group,
-
-            transform_buffer,
-            transform_group,
-            transform_buffer_capacity: 0,
-
-            vertex_buffer,
-            vertex_buffer_size: 0,
-
             gpu_context,
             context: WindowContext::default(),
-            style: Style::default(),
-            text_style: TextStyle::default(),
-            view: View::default(),
         }
     }
 
@@ -197,10 +98,7 @@ impl Window {
         self.config.height = size.height;
         self.surface.configure(&self.gpu_context.device, &self.config);
 
-        self.view.set_window_size(Vec2::new(size.width as f32, size.height as f32), &mut self.context);
-
-        let projection: GpuTransform2d = ortho(size.width as f32, size.height as f32).into();
-        self.gpu_context.queue.write_buffer(&self.projection_buffer, 0, cast_slice(&[projection]));
+        self.canvas.resize(size.width, size.height);
     }
 
     pub(crate) fn on_mouse_move(&mut self, position: PhysicalPosition<f64>) {
@@ -212,36 +110,31 @@ impl Window {
         self.context.focused = focused;
     }
 
-    // troll function
-    pub(crate) fn push_vertices<const N: usize>(&mut self, vertices: [Vertex; N]) {
-        self.context.vertices.extend(vertices);
-    }
-
     /// Returns the current width of the window in pixels.
     pub fn get_width(&self) -> f32 {
-        self.view.window_size().x
+        self.canvas.view.window_size().x
     }
 
     /// Returns the current height of the window in pixels.
     pub fn get_height(&self) -> f32 {
-        self.view.window_size().y
+        self.canvas.view.window_size().y
     }
 
     /// Returns the current size of the window as `(width, height)` in pixels.
     pub fn get_size(&self) -> Vec2 {
-        self.view.window_size()
+        self.canvas.view.window_size()
     }
 
     /// Returns the mouse X position, adjusted for the current view transform and letterboxing.
     pub fn get_mouse_x(&self) -> f32 {
-        let letterbox = self.view.letterbox();
-        (self.context.mouse_x as f32 - letterbox.2) / letterbox.0 - self.view.origin().x
+        let letterbox = self.canvas.view.letterbox();
+        (self.context.mouse_x as f32 - letterbox.2) / letterbox.0 - self.canvas.view.origin().x
     }
 
     /// Returns the mouse Y position, adjusted for the current view transform and letterboxing.
     pub fn get_mouse_y(&self) -> f32 {
-        let letterbox = self.view.letterbox();
-        (self.context.mouse_y as f32 - letterbox.3) / letterbox.1 - self.view.origin().y
+        let letterbox = self.canvas.view.letterbox();
+        (self.context.mouse_y as f32 - letterbox.3) / letterbox.1 - self.canvas.view.origin().y
     }
 
     /// Returns the mouse position as a `Vec2`, adjusted for the current view transform and letterboxing.
@@ -269,309 +162,6 @@ impl Window {
         self.context.focused
     }
 
-    // TODO: this is *meant* to work by only clearing when you call it,
-    //       and keeping the current frame if you don't, processing style
-    //       however, due to how wgpu works, right now if you don't clear every frame, it freaks out
-    //       so i have to implement Canvas before it'll work right
-    pub fn background(&mut self, color: Color) {
-        // dont render things that are just getting cleared
-        self.context.vertices.clear();
-        self.context.clear_color = Some(color);
-    }
-
-    pub fn fill(&mut self, color: Color) {
-        self.style.fill_color = color;
-    }
-
-    pub fn no_fill(&mut self) {
-        self.style.fill_color = Color::TRANSPARENT;
-    }
-
-    pub fn outline_color(&mut self, color: Color) {
-        self.style.outline_color = color;
-    }
-
-    pub fn outline_width(&mut self, width: f32) {
-        self.style.outline_width = width;
-    }
-
-    pub fn outline(&mut self, color: Color, width: f32) {
-        self.style.outline_color = color;
-        self.style.outline_width = width;
-    }
-
-    pub fn no_outline(&mut self) {
-        self.style.outline_color = Color::TRANSPARENT;
-        self.style.outline_width = 0.;
-    }
-
-    pub fn rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.push_vertices(rect_vertices(
-            x,
-            y,
-            w,
-            h,
-            self.style.fill_color,
-            self.style.outline_color,
-            self.style.outline_width,
-            0.,
-        ))
-    }
-
-    pub fn round_rect(&mut self, x: f32, y: f32, w: f32, h: f32, corner_radius: f32) {
-        self.push_vertices(rect_vertices(
-            x,
-            y,
-            w,
-            h,
-            self.style.fill_color,
-            self.style.outline_color,
-            self.style.outline_width,
-            corner_radius,
-        ))
-    }
-
-    pub fn ellipse(&mut self, x: f32, y: f32, rx: f32, ry: f32) {
-        self.push_vertices(ellipse_vertices(
-            x,
-            y,
-            rx,
-            ry,
-            self.style.fill_color,
-            self.style.outline_color,
-            self.style.outline_width
-        ))
-    }
-
-    pub fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
-        self.push_vertices(line_vertices(
-            Vec2::new(x1, y1),
-            Vec2::new(x2, y2),
-            self.style.outline_color,
-            self.style.outline_width
-        ))
-    }
-
-    pub fn image(&mut self, image: &Image, x: f32, y: f32, w: f32, h: f32) {
-        self.context.update_texture(Some(image.clone()));
-
-        self.push_vertices(textured_vertices(
-            x,
-            y,
-            w,
-            h,
-            Vec2::ZERO,
-            Vec2::ONE,
-            self.style.fill_color
-        ));
-
-        self.context.update_texture(None);
-    }
-
-    pub fn horizontal_text_align(&mut self, horizontal: HorizontalAlign) {
-        self.text_style.horizontal_align = horizontal;
-    }
-
-    pub fn vertical_text_align(&mut self, vertical: VerticalAlign) {
-        self.text_style.vertical_align = vertical;
-    }
-
-    pub fn text_align(&mut self, horizontal: HorizontalAlign, vertical: VerticalAlign) {
-        self.text_style.horizontal_align = horizontal;
-        self.text_style.vertical_align = vertical;
-    }
-
-    pub fn line_align(&mut self, align: HorizontalAlign) {
-        self.text_style.line_align = align;
-    }
-
-    pub fn rich_text(&mut self, x: f32, y: f32, spans: &[Span]) {
-        // because the hash of a `Font` is just the `Arc` pointer, this is fine
-        #[allow(clippy::mutable_key_type)]
-        let mut fonts = HashMap::new();
-        let mut line_heights = Vec::new();
-
-        let mut total_width = 0.;
-        let mut line_width = 0.;
-        let mut line_widths = Vec::new();
-        for span in spans {
-            let key = (span.style, span.font.clone());
-            let glyphs: &mut HashMap<_, _> = fonts.entry(key).or_default();
-
-            let mut cx = 0.;
-            let mut width: f32 = 0.;
-            let mut line_height: f32 = 0.;
-
-            let mut retries = 0;
-            'outer: loop {
-                // TODO: probably put a warning here that the text was too big to fit in the atlas
-                //       i want to make a proper error handling/signaling system first,
-                //       that's why i'm not doing it now
-                if retries > 1 {
-                    break;
-                }
-
-                for char in span.text.chars() {
-                    let Ok(Some(glyph)) = span.font.get_or_load_glyph(char, span.style.size) else {
-                        glyphs.clear();
-                        retries += 1;
-                        continue 'outer;
-                    };
-
-                    cx += glyph.advance;
-                    line_width += glyph.advance;
-                    if char == '\n' {
-                        line_widths.push(line_width);
-                        line_width = 0.;
-                        cx = 0.;
-                    } else {
-                        line_height = line_height.max(glyph.height);
-                    }
-
-                    width = width.max(cx);
-
-                    glyphs.insert(char, glyph);
-                }
-                break;
-            }
-
-            total_width += width;
-            line_heights.push(line_height);
-        }
-        line_widths.push(line_width);
-
-        let total_x_offset = match self.text_style.horizontal_align {
-            HorizontalAlign::Left => 0.,
-            HorizontalAlign::Center => -total_width / 2.,
-            HorizontalAlign::Right => -total_width,
-        };
-
-        let mut line = 0;
-        let mut x_offset = match self.text_style.line_align {
-            HorizontalAlign::Left => 0.,
-            HorizontalAlign::Center => (total_width - line_widths[line]) / 2.,
-            HorizontalAlign::Right => total_width - line_widths[line],
-        };
-
-        let mut cx = x;
-        let mut cy = y;
-        for (span, line_height) in spans.iter().zip(line_heights) {
-            self.context.update_texture(Some(span.font.atlas().clone()));
-
-            let Some(glyphs) = fonts.get(&(span.style, span.font.clone())) else { continue };
-
-            let y_offset = match self.text_style.vertical_align {
-                VerticalAlign::Bottom => 0.,
-                VerticalAlign::Center => line_height / 2.,
-                VerticalAlign::Top => line_height,
-            };
-
-            for char in span.text.chars() {
-                if char == '\n' {
-                    if let Some(glyph) = glyphs.get(&char) {
-                        cx = x;
-                        cy += glyph.height;
-                    }
-
-                    line += 1;
-                    x_offset = match self.text_style.line_align {
-                        HorizontalAlign::Left => 0.,
-                        HorizontalAlign::Center => (total_width - line_widths[line]) / 2.,
-                        HorizontalAlign::Right => total_width - line_widths[line],
-                    };
-
-                    continue;
-                }
-
-                if char.is_whitespace() {
-                    if let Some(glyph) = glyphs.get(&char) {
-                        cx += glyph.advance;
-                    }
-                    continue;
-                }
-
-                let Some(glyph) = glyphs.get(&char) else { continue };
-
-                let char_x = cx + glyph.xmin + span.style.offset.x + total_x_offset + x_offset;
-                let char_y = cy - glyph.height - glyph.ymin + span.style.offset.y + y_offset;
-                let w = glyph.width;
-                let h = glyph.height;
-
-                self.push_vertices(textured_vertices(
-                    char_x,
-                    char_y,
-                    w,
-                    h,
-                    glyph.uv_min,
-                    glyph.uv_max,
-                    span.style.color,
-                ));
-
-                cx += glyph.advance;
-            }
-        }
-
-        self.context.update_texture(None);
-    }
-
-    pub fn text_size(&mut self, size_px: f32) {
-        self.text_style.size = size_px;
-    }
-
-    pub fn text(&mut self, font: impl AsRef<Font>, x: f32, y: f32, text: impl ToString) {
-        self.rich_text(x, y, &[Span {
-            text: text.to_string(),
-            font: font.as_ref().clone(),
-            style: text::TextStyle {
-                size: self.text_style.size,
-                color: self.style.fill_color,
-                ..Default::default()
-            },
-        }]);
-    }
-
-    pub fn set_view(&mut self, width: f32, height: f32, view_mode: ViewMode) {
-        self.view.set_size(Some(Vec2::new(width, height)), &mut self.context);
-        self.view.set_mode(view_mode, &mut self.context);
-    }
-
-    pub fn clear_view(&mut self) {
-        self.view.set_size(None, &mut self.context);
-        self.view.set_mode(ViewMode::Unscaled, &mut self.context);
-    }
-
-    pub fn set_origin(&mut self, x: f32, y: f32) {
-        self.view.set_origin(Vec2 { x, y }, &mut self.context);
-    }
-
-    pub fn with_style(&mut self, commands: impl FnOnce(&mut Self)) {
-        let style = self.style;
-        let text_style = self.text_style;
-        let view = self.view;
-
-        commands(self);
-
-        self.style = style;
-        self.text_style = text_style;
-        self.view.set(view, &mut self.context);
-    }
-
-    // TODO: i spent a bit of time getting these transforms rendering on the GPU, but honestly,
-    //       it's probably not worth it unless the group is large
-    //       we should implement smart batching, if the number of vertices per transform is enough,
-    //       do the matrix math on the GPU, otherwise, do it on the CPU to save on draw calls
-    pub fn with_transform(&mut self, transform: impl AsRef<Transform2d>, commands: impl FnOnce(&mut Self)) {
-        let old_local = self.context.local_transform;
-        let new_local = old_local * *transform.as_ref();
-
-        self.context.local_transform = new_local;
-        self.context.update_transform(self.view.transform() * new_local);
-        commands(self);
-
-        self.context.local_transform = old_local;
-        self.context.update_transform(self.view.transform() * old_local);
-    }
-
     /// Get the title of this window
     pub fn get_title(&mut self) -> String {
         self.inner_window.title()
@@ -581,106 +171,144 @@ impl Window {
     pub fn set_title(&mut self, title: impl ToString) {
         self.inner_window.set_title(&title.to_string());
     }
+}
 
-    pub fn flush(&mut self) -> RendererResult<()> {
+impl RenderSurface for Window {
+    fn background(&mut self, color: Color) {
+        self.canvas.background(color);
+    }
+
+    fn fill(&mut self, color: Color) {
+        self.canvas.fill(color);
+    }
+
+    fn no_fill(&mut self) {
+        self.canvas.no_fill();
+    }
+
+    fn outline_color(&mut self, color: Color) {
+        self.canvas.outline_color(color);
+    }
+
+    fn outline_width(&mut self, width: f32) {
+        self.canvas.outline_width(width);
+    }
+
+    fn outline(&mut self, color: Color, width: f32) {
+        self.canvas.outline(color, width);
+    }
+
+    fn no_outline(&mut self) {
+        self.canvas.no_outline();
+    }
+
+    fn clear_style(&mut self) {
+        self.canvas.clear_style();
+    }
+
+    fn rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
+        self.canvas.rect(x, y, w, h);
+    }
+
+    fn round_rect(&mut self, x: f32, y: f32, w: f32, h: f32, corner_radius: f32) {
+        self.canvas.round_rect(x, y, w, h, corner_radius);
+    }
+
+    fn ellipse(&mut self, x: f32, y: f32, rx: f32, ry: f32) {
+        self.canvas.ellipse(x, y, rx, ry);
+    }
+
+    fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
+        self.canvas.line(x1, y1, x2, y2);
+    }
+
+    fn image(&mut self, image: impl AsRef<Image>, x: f32, y: f32, w: f32, h: f32) {
+        self.canvas.image(image, x, y, w, h);
+    }
+
+    fn horizontal_text_align(&mut self, align: HorizontalAlign) {
+        self.canvas.horizontal_text_align(align);
+    }
+
+    fn vertical_text_align(&mut self, align: VerticalAlign) {
+        self.canvas.vertical_text_align(align);
+    }
+
+    fn text_align(&mut self, horizontal: HorizontalAlign, vertical: VerticalAlign) {
+        self.canvas.text_align(horizontal, vertical);
+    }
+
+    fn line_align(&mut self, align: HorizontalAlign) {
+        self.canvas.line_align(align);
+    }
+
+    fn text_size(&mut self, size_px: f32) {
+        self.canvas.text_size(size_px);
+    }
+
+    fn text(&mut self, font: impl AsRef<Font>, x: f32, y: f32, text: impl ToString) {
+        self.canvas.text(font, x, y, text);
+    }
+
+    fn rich_text(&mut self, x: f32, y: f32, spans: &[Span]) {
+        self.canvas.rich_text(x, y, spans);
+    }
+
+    fn set_view(&mut self, width: f32, height: f32, view_mode: ViewMode) {
+        self.canvas.set_view(width, height, view_mode);
+    }
+
+    fn clear_view(&mut self) {
+        self.canvas.clear_view();
+    }
+
+    fn set_origin(&mut self, x: f32, y: f32) {
+        self.canvas.set_origin(x, y);
+    }
+
+    fn clear_origin(&mut self) {
+        self.canvas.clear_origin();
+    }
+
+    fn with_style(&mut self, commands: impl FnOnce(&mut Self)) {
+        let style = self.canvas.style;
+        let text_style = self.canvas.text_style;
+        let view = self.canvas.view;
+
+        commands(self);
+
+        self.canvas.style = style;
+        self.canvas.text_style = text_style;
+        self.canvas.view.set(view, &mut self.canvas.context);
+    }
+
+    fn with_transform(&mut self, transform: impl AsRef<Transform2d>, commands: impl FnOnce(&mut Self)) {
+        let old_local = self.canvas.context.local_transform;
+        let new_local = old_local * *transform.as_ref();
+
+        self.canvas.context.local_transform = new_local;
+        self.canvas.context.update_transform(self.canvas.view.transform() * new_local);
+        commands(self);
+
+        self.canvas.context.local_transform = old_local;
+        self.canvas.context.update_transform(self.canvas.view.transform() * old_local);
+    }
+
+    fn flush(&mut self) -> RendererResult<()> {
         let mut encoder = self.gpu_context.device.create_command_encoder(&Default::default());
         let Some(frame) = self.get_frame() else { return Ok(()) };
 
-        let load = if let Some(color) = take(&mut self.context.clear_color) {
-            LoadOp::Clear(wgpu::Color::from(color.premultiplied().to_srgb()))
-        } else {
-            LoadOp::Load
-        };
+        self.canvas.flush_with_encoder(&mut encoder)?;
 
-        let view = frame.texture.create_view(&Default::default());
-
-        let vertices = take(&mut self.context.vertices);
-
-        // TODO: this should work with powers of two, or like how `Vec`s scale
-        let required = (vertices.len() * size_of::<Vertex>()) as u64;
-
-        if required > self.vertex_buffer_size {
-            self.vertex_buffer = self.gpu_context.device.create_buffer(&BufferDescriptor {
-                label: Some("vertex buffer"),
-                size: required,
-                usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-            self.vertex_buffer_size = required;
-        }
-
-        self.gpu_context.queue.write_buffer(&self.vertex_buffer, 0, cast_slice(&vertices));
-
-        let mut batches = take(&mut self.context.batches);
-
-        let last_group_end = if let Some(group) = batches.last() {
-            group.range.end
-        } else {
-            0
-        };
-
-        if last_group_end < vertices.len() as u32 {
-            batches.push(DrawBatch {
-                transform: self.context.transform,
-                texture: self.context.current_texture.clone(),
-                range: last_group_end..vertices.len() as u32,
-            });
-        }
-
-        let required_transforms = batches.len() as u64;
-
-        if required_transforms > self.transform_buffer_capacity {
-            (self.transform_buffer, self.transform_group) = self.gpu_context.create_transform_buffer(required_transforms);
-            self.transform_buffer_capacity = required_transforms;
-        }
-
-        let transforms: Vec<GpuTransform2d> = batches
-            .iter()
-            .map(|group| group.transform.into())
-            .collect();
-
-        let transform_stride = self.gpu_context.get_transform_stride();
-
-        for (i, transform) in transforms.iter().enumerate() {
-            self.gpu_context.queue.write_buffer(
-                &self.transform_buffer,
-                i as u64 * transform_stride,
-                cast_slice(&[*transform])
-            );
-        }
-
-        {
-            let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
-                color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &view,
-                    depth_slice: None,
-                    resolve_target: None,
-                    ops: Operations { load, store: StoreOp::Store }
-                })],
-                ..Default::default()
-            });
-
-            pass.set_pipeline(&self.gpu_context.pipeline);
-
-            if self.vertex_buffer_size > 0 {
-                pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-
-                for (i, batch) in batches.iter_mut().enumerate() {
-                    let offset = (i as u64 * transform_stride) as u32;
-                    pass.set_bind_group(0, Some(&self.projection_group), &[]);
-                    pass.set_bind_group(1, Some(&self.transform_group), &[offset]);
-
-                    if let Some(texture) = batch.texture.as_mut() {
-                        let data = texture.submit_to_gpu(&self.gpu_context)?;
-                        pass.set_bind_group(2, Some(&data.bind_group), &[]);
-                    } else {
-                        pass.set_bind_group(2, Some(&self.gpu_context.dummy_bind_group), &[]);
-                    }
-
-                    pass.draw(batch.range.start..batch.range.end, 0..1);
-                }
+        encoder.copy_texture_to_texture(
+            self.canvas.texture.as_image_copy(),
+            frame.texture.as_image_copy(),
+            Extent3d {
+                width: self.config.width,
+                height: self.config.height,
+                depth_or_array_layers: 1,
             }
-        }
+        );
 
         self.gpu_context.queue.submit([encoder.finish()]);
         frame.present();

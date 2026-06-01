@@ -9,16 +9,18 @@
 
 #![deny(clippy::unwrap_used)]
 
-use bytemuck::{Pod, Zeroable, cast_slice};
-
-use pollster::block_on;
-use wgpu::{Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferBinding, BufferBindingType, BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites, Device, DeviceDescriptor, Extent3d, FilterMode, FragmentState, FrontFace, Instance, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler, SamplerDescriptor, ShaderStages, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState, VertexStepMode, include_wgsl, util::{BufferInitDescriptor, DeviceExt}, vertex_attr_array, wgt::TextureDataOrder};
-use winit::{application::ApplicationHandler, dpi::PhysicalSize, event_loop::{ActiveEventLoop, EventLoop}, window::WindowAttributes};
+pub use wgpu::TextureFormat;
 pub use winit::{event::{ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent}, keyboard::{Key, KeyCode, NamedKey, PhysicalKey}};
 
-use std::{collections::{HashMap, VecDeque}, num::NonZeroU64, sync::Arc};
+use bytemuck::{Pod, Zeroable};
 
-use crate::{errors::Error, transform::{GpuTransform2d, Transform2d}, types::{Color, WindowId, WindowProperties}, vec::Vec2, window::Window};
+use pollster::block_on;
+use wgpu::{Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, BufferBindingType, ColorTargetState, ColorWrites, Device, DeviceDescriptor, Extent3d, FilterMode, FragmentState, FrontFace, Instance, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler, SamplerDescriptor, ShaderStages, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState, VertexStepMode, include_wgsl, util::{DeviceExt}, vertex_attr_array, wgt::TextureDataOrder};
+use winit::{application::ApplicationHandler, dpi::PhysicalSize, event_loop::{ActiveEventLoop, EventLoop}, window::WindowAttributes};
+
+use std::{collections::{HashMap, VecDeque}, sync::Arc};
+
+use crate::{canvas::RenderSurface, errors::Error, transform::Transform2d, types::{Color, WindowId, WindowProperties}, vec::Vec2, window::Window};
 
 pub mod canvas;
 pub mod errors;
@@ -79,13 +81,13 @@ struct Vertex {
     kind:          u32,
 }
 
+#[derive(Debug)]
 struct GpuContext {
     adapter: Adapter,
     device: Device,
     queue: Queue,
 
     projection_group_layout: BindGroupLayout,
-    transform_group_layout: BindGroupLayout,
     texture_group_layout: BindGroupLayout,
 
     sampler: Sampler,
@@ -95,37 +97,6 @@ struct GpuContext {
 }
 
 impl GpuContext {
-    pub(crate) fn get_transform_stride(&self) -> u64 {
-        let min_offset = self.device.limits().min_uniform_buffer_offset_alignment as u64;
-        min_offset.max(size_of::<GpuTransform2d>() as u64)
-    }
-
-    // TODO: apparently, uniform buffers have a size limit,
-    //       so we should switch to using a storage buffer
-    //       though, there are performance considerations to be had first
-    pub(crate) fn create_transform_buffer(&self, size: u64) -> (Buffer, BindGroup) {
-        let stride = self.get_transform_stride();
-        let buffer = self.device.create_buffer(&BufferDescriptor {
-            label: Some("transform"),
-            size: stride * size,
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-        let group = self.device.create_bind_group(&BindGroupDescriptor {
-            label: Some("transform bind group"),
-            layout: &self.transform_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: BindingResource::Buffer(BufferBinding {
-                    buffer: &buffer,
-                    offset: 0,
-                    size: NonZeroU64::new(size_of::<GpuTransform2d>() as u64),
-                }),
-            }],
-        });
-        (buffer, group)
-    }
-
     fn create_dummy_texture(
         device: &Device,
         queue: &Queue,
@@ -237,20 +208,6 @@ impl RendererContext {
                 }],
             });
 
-            let transform_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("transform layout"),
-                entries: &[BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
-
             let texture_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("texture layout"),
                 entries: &[
@@ -293,7 +250,6 @@ impl RendererContext {
                 label: None,
                 bind_group_layouts: &[
                     Some(&projection_group_layout),
-                    Some(&transform_group_layout),
                     Some(&texture_group_layout)
                 ],
                 immediate_size: 0,
@@ -370,7 +326,6 @@ impl RendererContext {
                 queue,
 
                 projection_group_layout,
-                transform_group_layout,
                 texture_group_layout,
 
                 sampler,
@@ -463,44 +418,10 @@ impl RendererContext {
 
         inner_window.request_redraw();
 
-        let projection = ortho(width as f32, height as f32);
-        let projection_buffer = context.device.create_buffer_init(&BufferInitDescriptor {
-            label: Some("projection"),
-            contents: cast_slice(&[GpuTransform2d::from(projection)]),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        });
-        let projection_group = context.device.create_bind_group(&BindGroupDescriptor {
-            label: Some("projection bind group"),
-            layout: &context.projection_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: projection_buffer.as_entire_binding(),
-            }],
-        });
-
-        let (transform_buffer, transform_group) = context.create_transform_buffer(1);
-
-        let vertex_buffer = context.device.create_buffer(&BufferDescriptor {
-            label: Some("vertex buffer"),
-            size: 0,
-            usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
-
         let window = Window::new(
             inner_window,
-
             surface,
             config,
-
-            projection_buffer,
-            projection_group,
-
-            transform_buffer,
-            transform_group,
-
-            vertex_buffer,
-
             context.clone()
         );
 

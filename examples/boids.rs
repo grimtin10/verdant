@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use rand::random_range;
-use verdant::{Renderer, RendererResult, WindowEvent, shapes::Drawable, text::{Font, VerticalAlign}, transform::Transform2d, types::{Color, WindowProperties}, vec::Vec2, view::ViewMode, window::Window};
+use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, shapes::Drawable, text::{Font, VerticalAlign}, transform::Transform2d, types::{Color, WindowProperties}, vec::Vec2, view::ViewMode};
 
 const NEIGHBORHOOD: f32 = 100.;
 const SEPARATION_DIST: f32 = 40.;
@@ -58,7 +58,7 @@ impl Boid {
 }
 
 impl Drawable for Boid {
-    fn draw_at(&self, window: &mut Window, x: f32, y: f32) {
+    fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32) {
         window.with_style(|window| {
             window.with_transform(
                 Transform2d::rotation_rad(self.velocity.angle_rad())
@@ -75,7 +75,7 @@ impl Drawable for Boid {
         });
     }
 
-    fn draw(&self, window: &mut Window) {
+    fn draw(&self, window: &mut impl RenderSurface) {
         self.draw_at(window, self.position.x, self.position.y);
     }
 }

@@ -1,6 +1,6 @@
 // TODO: optimize the case where someone loads the same image a bunch
 
-use std::{fmt::{self, Debug, Formatter}, sync::Arc};
+use std::{fmt::{self, Debug, Formatter}, sync::{Arc, RwLockReadGuard}};
 
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Extent3d, Origin3d, TexelCopyBufferLayout, TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor};
 
@@ -55,6 +55,18 @@ pub struct Image {
 
     image: Arc<Vec<u8>>,
     dirty_zone: Option<Bounds>,
+}
+
+impl AsRef<Image> for Image {
+    fn as_ref(&self) -> &Image {
+        self
+    }
+}
+
+impl AsRef<Image> for RwLockReadGuard<'_, Image> {
+    fn as_ref(&self) -> &Image {
+        self
+    }
 }
 
 impl Debug for Image {
