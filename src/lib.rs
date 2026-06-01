@@ -20,6 +20,7 @@ use std::{collections::{HashMap, VecDeque}, num::NonZeroU64, sync::Arc};
 
 use crate::{errors::Error, transform::{GpuTransform2d, Transform2d}, types::{Color, WindowId, WindowProperties}, vec::Vec2, window::Window};
 
+pub mod canvas;
 pub mod errors;
 pub mod image;
 pub mod shapes;

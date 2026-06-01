@@ -269,8 +269,6 @@ impl Window {
         self.context.focused
     }
 
-    /// Clears the window to the given color at the start of each frame.
-    /// Any vertices queued before this call are discarded, since they would be covered by the clear.
     // TODO: this is *meant* to work by only clearing when you call it,
     //       and keeping the current frame if you don't, processing style
     //       however, due to how wgpu works, right now if you don't clear every frame, it freaks out
@@ -281,40 +279,32 @@ impl Window {
         self.context.clear_color = Some(color);
     }
 
-    /// Sets the fill color for subsequent shapes.
     pub fn fill(&mut self, color: Color) {
         self.style.fill_color = color;
     }
 
-    /// Disables fill for subsequent shapes.
     pub fn no_fill(&mut self) {
         self.style.fill_color = Color::TRANSPARENT;
     }
 
-    /// Sets the outline color for subsequent shapes.
     pub fn outline_color(&mut self, color: Color) {
         self.style.outline_color = color;
     }
 
-    /// Sets the outline width for subsequent shapes.
     pub fn outline_width(&mut self, width: f32) {
         self.style.outline_width = width;
     }
 
-    /// Sets the outline color and width for subsequent shapes.
     pub fn outline(&mut self, color: Color, width: f32) {
         self.style.outline_color = color;
         self.style.outline_width = width;
     }
 
-    /// Disables the outline for subsequent shapes.
     pub fn no_outline(&mut self) {
         self.style.outline_color = Color::TRANSPARENT;
         self.style.outline_width = 0.;
     }
 
-    /// Draws a rectangle at `(x, y)` with the given width and height,
-    /// using the current fill and outline style.
     pub fn rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
         self.push_vertices(rect_vertices(
             x,
@@ -328,8 +318,6 @@ impl Window {
         ))
     }
 
-    /// Draws a rounded rectangle at `(x, y)` with the given width, height, and corner radius,
-    /// using the current fill and outline style.
     pub fn round_rect(&mut self, x: f32, y: f32, w: f32, h: f32, corner_radius: f32) {
         self.push_vertices(rect_vertices(
             x,
@@ -343,8 +331,6 @@ impl Window {
         ))
     }
 
-    /// Draws an ellipse centered at `(x, y)` with horizontal radius `rx` and vertical radius `ry`,
-    /// using the current fill and outline style.
     pub fn ellipse(&mut self, x: f32, y: f32, rx: f32, ry: f32) {
         self.push_vertices(ellipse_vertices(
             x,
@@ -357,7 +343,6 @@ impl Window {
         ))
     }
 
-    /// Draws a line from `(x1, y1)` to `(x2, y2)` using the current outline color and width.
     pub fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
         self.push_vertices(line_vertices(
             Vec2::new(x1, y1),
@@ -367,7 +352,6 @@ impl Window {
         ))
     }
 
-    /// Draws an image at `(x, y)` with the given width and height using the current fill color.
     pub fn image(&mut self, image: &Image, x: f32, y: f32, w: f32, h: f32) {
         self.context.update_texture(Some(image.clone()));
 
@@ -384,32 +368,23 @@ impl Window {
         self.context.update_texture(None);
     }
 
-    /// Sets the horizontal text alignment for subsequent text calls.
-    /// Effects rich text.
     pub fn horizontal_text_align(&mut self, horizontal: HorizontalAlign) {
         self.text_style.horizontal_align = horizontal;
     }
 
-    /// Sets the vertical text alignment for subsequent text calls.
-    /// Effects rich text.
     pub fn vertical_text_align(&mut self, vertical: VerticalAlign) {
         self.text_style.vertical_align = vertical;
     }
 
-    /// Sets the text alignment for subsequent text calls.
-    /// Effects rich text.
     pub fn text_align(&mut self, horizontal: HorizontalAlign, vertical: VerticalAlign) {
         self.text_style.horizontal_align = horizontal;
         self.text_style.vertical_align = vertical;
     }
 
-    /// Sets the alignment per-line for subsequent text calls.
-    /// Effects rich text.
     pub fn line_align(&mut self, align: HorizontalAlign) {
         self.text_style.line_align = align;
     }
 
-    /// Draws rich text at `(x, y)` with each span's font and style.
     pub fn rich_text(&mut self, x: f32, y: f32, spans: &[Span]) {
         // because the hash of a `Font` is just the `Arc` pointer, this is fine
         #[allow(clippy::mutable_key_type)]
@@ -539,13 +514,10 @@ impl Window {
         self.context.update_texture(None);
     }
 
-    /// Sets the text size (in pixels) for subsequent text calls.
-    /// Does not effect rich text.
     pub fn text_size(&mut self, size_px: f32) {
         self.text_style.size = size_px;
     }
 
-    /// Draws text at `(x, y)` with the given font using the current fill color and text size.
     pub fn text(&mut self, font: impl AsRef<Font>, x: f32, y: f32, text: impl ToString) {
         self.rich_text(x, y, &[Span {
             text: text.to_string(),
@@ -558,25 +530,20 @@ impl Window {
         }]);
     }
 
-    /// Sets the logical view size and scaling mode.
     pub fn set_view(&mut self, width: f32, height: f32, view_mode: ViewMode) {
         self.view.set_size(Some(Vec2::new(width, height)), &mut self.context);
         self.view.set_mode(view_mode, &mut self.context);
     }
 
-    /// Clears the logical view size and resets the scaling mode to `Stretch`.
     pub fn clear_view(&mut self) {
         self.view.set_size(None, &mut self.context);
-        self.view.set_mode(ViewMode::Stretch, &mut self.context);
+        self.view.set_mode(ViewMode::Unscaled, &mut self.context);
     }
 
-    /// Offsets the view origin, shifting where `(0, 0)` appears on screen.
     pub fn set_origin(&mut self, x: f32, y: f32) {
         self.view.set_origin(Vec2 { x, y }, &mut self.context);
     }
 
-    /// Temporarily isolates style and view state for the duration of `commands`.
-    /// Any changes to style or view made inside will be reverted when it returns.
     pub fn with_style(&mut self, commands: impl FnOnce(&mut Self)) {
         let style = self.style;
         let text_style = self.text_style;
@@ -589,7 +556,6 @@ impl Window {
         self.view.set(view, &mut self.context);
     }
 
-    /// Applies `transform` relative to the current transform for the duration of `commands`.
     // TODO: i spent a bit of time getting these transforms rendering on the GPU, but honestly,
     //       it's probably not worth it unless the group is large
     //       we should implement smart batching, if the number of vertices per transform is enough,
@@ -616,7 +582,6 @@ impl Window {
         self.inner_window.set_title(&title.to_string());
     }
 
-    /// Submits all queued draw calls to the GPU and presents the frame.
     pub fn flush(&mut self) -> RendererResult<()> {
         let mut encoder = self.gpu_context.device.create_command_encoder(&Default::default());
         let Some(frame) = self.get_frame() else { return Ok(()) };
