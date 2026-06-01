@@ -58,6 +58,24 @@ impl Color {
             a: self.a,
         }
     }
+
+    pub fn inverted(self) -> Self {
+        Self {
+            r: 1. - self.r,
+            g: 1. - self.g,
+            b: 1. - self.b,
+            a: self.a,
+        }
+    }
+
+    pub fn inverted_alpha(self) -> Self {
+        Self {
+            r: 1. - self.r,
+            g: 1. - self.g,
+            b: 1. - self.b,
+            a: 1. - self.a,
+        }
+    }
 }
 
 impl From<Color> for wgpu::Color {
