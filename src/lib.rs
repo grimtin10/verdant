@@ -405,7 +405,7 @@ impl RendererContext {
             .unwrap_or(wgpu::CompositeAlphaMode::Auto);
 
         let config = SurfaceConfiguration {
-            usage: TextureUsages::RENDER_ATTACHMENT,
+            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
             format,
             width,
             height,
