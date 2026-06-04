@@ -126,6 +126,7 @@ Add this to your `Cargo.toml`:
 verdant = "0.4"
 ```
 Currently, Verdant only supports desktop, though web/mobile support is planned soon.
+
 (Windows and Linux have been tested, and macOS is currently untested)
 
 ### Cargo Features
