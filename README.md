@@ -3,15 +3,15 @@
 [![Crates.io](https://img.shields.io/crates/v/verdant)](https://crates.io/crates/verdant)
 [![Docs.rs](https://docs.rs/verdant/badge.svg)](https://docs.rs/verdant)
 
-<img width="800" height="462" alt="boids" src="https://github.com/user-attachments/assets/50e31e90-9e4b-4cf3-8702-e27c5dd8bfd2" />
+<img width="800" alt="boids" src="https://github.com/user-attachments/assets/50e31e90-9e4b-4cf3-8702-e27c5dd8bfd2" style="max-width: 100%; height: auto" />
 
 *See [boids.rs](examples/boids.rs)*
 
-<img width="800" height="820" alt="clock" src="https://github.com/user-attachments/assets/1841ac1d-d3e1-4efc-b5d9-b8186a67dc53" />
+<img width="800" alt="clock" src="https://github.com/user-attachments/assets/1841ac1d-d3e1-4efc-b5d9-b8186a67dc53" style="max-width: 100%; height: auto" />
 
 *See [clock.rs](examples/clock.rs)*
 
-<img width="800" height="467" alt="verdant paint" src="https://github.com/user-attachments/assets/2a791f8a-c498-4676-bb05-6e68d398debd" />
+<img width="800" alt="verdant paint" src="https://github.com/user-attachments/assets/2a791f8a-c498-4676-bb05-6e68d398debd" style="max-width: 100%; height: auto" />
 
 *See [paint.rs](examples/paint.rs)*
 
@@ -99,7 +99,7 @@ Verdant provides both a basic text API and a rich text API, allowing you to mix 
 
 *See [rich_text.rs](examples/rich_text.rs)*
 
-<img width="753" height="255" alt="image" src="https://github.com/user-attachments/assets/859c9eff-11d6-4048-8791-f4cc7e25a23a" />
+<img width="800" src="https://github.com/user-attachments/assets/859c9eff-11d6-4048-8791-f4cc7e25a23a" style="max-width: 100%; height: auto" />
 
 ### Canvases are first-class
 
@@ -114,7 +114,7 @@ This allows you to create scalable applications without having to manually handl
 
 *See [views.rs](examples/views.rs)*
 
-<img width="1299" height="891" alt="image" src="https://github.com/user-attachments/assets/a28250a2-8b80-4e34-84d1-e130cae74957" />
+<img width="800" alt="image" src="https://github.com/user-attachments/assets/a28250a2-8b80-4e34-84d1-e130cae74957" style="max-width: 100%; height: auto" />
 
 ---
 
