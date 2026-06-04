@@ -1,7 +1,7 @@
 // TODO: currently, verdant doesn't allow for the full amount of low-level control that it should
 //       it makes a lot of assumptions and choices for the user
 //       i need to expose various functions that allow the user to choose things
-//       (do you want transparency? do you want window decorations? do you want linear filtering on images?)
+//       (do you want window decorations? do you want linear filtering on images? do you want anti-aliasing?)
 
 // TODO: the renderer expects a certain setup that might not be the real setup
 //       (premultiplied, non-srgb)
@@ -500,7 +500,7 @@ impl Renderer {
 
     /// Create a new canvas with the given width and height.
     pub fn create_canvas(&mut self, width: u32, height: u32) -> RendererResult<Canvas> {
-        Ok(Canvas::new(width, height))
+        Ok(Canvas::new(width, height, false))
     }
 
     /// Pumps the event loop and returns all window events since the last call.

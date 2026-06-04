@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, image::Image, rgb, rgba, shapes::{Drawable, Ellipse, Rect, Style}, transform::Transform2d, types::{Color, WindowProperties}, vec::Vec2, view::ViewMode};
 
 fn main() -> RendererResult<()> {

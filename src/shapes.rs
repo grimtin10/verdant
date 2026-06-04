@@ -58,7 +58,7 @@ impl Style {
 }
 
 macro_rules! impl_position {
-    ($name:ident) => {
+    ($name:ident, $map:expr) => {
         impl $name {
             #[doc = concat!("Creates a [`", stringify!($name), "`] at `(x, y)` with nothing else set.")]
             pub fn at(x: f32, y: f32) -> Self {
@@ -69,72 +69,72 @@ macro_rules! impl_position {
             }
 
             #[doc = concat!("Sets the position of this [`", stringify!($name), "`].")]
-            pub fn position(&mut self, x: f32, y: f32) -> &mut Self {
+            pub fn position(&mut self, x: f32, y: f32) -> Self {
                 self.position = Vec2 { x, y };
-                self
+                ($map)(self)
             }
         }
     };
 }
 
 macro_rules! impl_size {
-    ($name:ident) => {
+    ($name:ident, $map:expr) => {
         impl $name {
             #[doc = concat!("Sets the size of this [`", stringify!($name), "`].")]
-            pub fn size(&mut self, width: f32, height: f32) -> &mut Self {
+            pub fn size(&mut self, width: f32, height: f32) -> Self {
                 self.size = Vec2::new(width, height);
-                self
+                ($map)(self)
             }
         }
     };
 }
 
 macro_rules! impl_styled {
-    ($name:ident) => {
+    ($name:ident, $map:expr) => {
         impl $name {
             #[doc = concat!("Sets the fill color of this [`", stringify!($name), "`].")]
-            pub fn fill(&mut self, color: Color) -> &mut Self {
+            pub fn fill(&mut self, color: Color) -> Self {
                 self.style.fill_color = color;
-                self
+                ($map)(self)
             }
 
             #[doc = concat!("Sets the outline color of this [`", stringify!($name), "`].")]
-            pub fn outline_color(&mut self, color: Color) -> &mut Self {
+            pub fn outline_color(&mut self, color: Color) -> Self {
                 self.style.outline_color = color;
-                self
+                ($map)(self)
             }
 
             #[doc = concat!("Sets the outline width of this [`", stringify!($name), "`].")]
-            pub fn outline_width(&mut self, width: f32) -> &mut Self {
+            pub fn outline_width(&mut self, width: f32) -> Self {
                 self.style.outline_width = width;
-                self
+                ($map)(self)
             }
 
             #[doc = concat!("Sets the outline color and width of this [`", stringify!($name), "`].")]
-            pub fn outline(&mut self, color: Color, width: f32) -> &mut Self {
+            pub fn outline(&mut self, color: Color, width: f32) -> Self {
                 self.style.outline(color, width);
-                self
+                ($map)(self)
             }
         }
     };
-    ($name:ident, no_outline) => {
+    ($name:ident, no_outline, $map:expr) => {
         impl $name {
             #[doc = concat!("Sets the fill color of this [`", stringify!($name), "`].")]
-            pub fn fill(&mut self, color: Color) -> &mut Self {
+            pub fn fill(&mut self, color: Color) -> Self {
                 self.style.fill_color = color;
-                self
+                ($map)(self)
             }
         }
     };
 }
 
 macro_rules! impl_transformed {
-    ($name:ident) => {
+    ($name:ident, $map:expr) => {
         impl $name {
             #[doc = concat!("Sets the transform of this [`", stringify!($name), "`].")]
-            pub fn transform(&mut self, transform: Transform2d) -> &mut Self {
+            pub fn transform(&mut self, transform: Transform2d) -> Self {
                 self.transform = transform;
-                self
+                ($map)(self)
             }
         }
     };
@@ -149,10 +149,10 @@ pub struct Rect {
     pub transform: Transform2d,
 }
 
-impl_position!(Rect);
-impl_size!(Rect);
-impl_styled!(Rect);
-impl_transformed!(Rect);
+impl_position!(Rect, |s: &mut Rect| *s);
+impl_size!(Rect, |s: &mut Rect| *s);
+impl_styled!(Rect, |s: &mut Rect| *s);
+impl_transformed!(Rect, |s: &mut Rect| *s);
 
 impl Rect {
     #[allow(clippy::too_many_arguments)]
@@ -174,9 +174,9 @@ impl Rect {
     }
 
     /// Sets the corner radius of this [`Rect`].
-    pub fn corner_radius(&mut self, corner_radius: f32) -> &mut Self {
+    pub fn corner_radius(&mut self, corner_radius: f32) -> Self {
         self.corner_radius = corner_radius;
-        self
+        *self
     }
 }
 
@@ -247,10 +247,10 @@ impl Drawable for Ellipse {
     }
 }
 
-impl_position!(Ellipse);
-impl_size!(Ellipse);
-impl_styled!(Ellipse);
-impl_transformed!(Ellipse);
+impl_position!(Ellipse, |s: &mut Ellipse| *s);
+impl_size!(Ellipse, |s: &mut Ellipse| *s);
+impl_styled!(Ellipse, |s: &mut Ellipse| *s);
+impl_transformed!(Ellipse, |s: &mut Ellipse| *s);
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Line {
@@ -287,41 +287,41 @@ impl Line {
     }
 
     /// Sets the start point of this [`Line`].
-    pub fn start(&mut self, x: f32, y: f32) -> &mut Self {
+    pub fn start(&mut self, x: f32, y: f32) -> Self {
         self.start = Vec2 { x, y };
-        self
+        *self
     }
 
     /// Sets the end point of this [`Line`].
-    pub fn end(&mut self, x: f32, y: f32) -> &mut Self {
+    pub fn end(&mut self, x: f32, y: f32) -> Self {
         self.end = Vec2 { x, y };
-        self
+        *self
     }
 
     /// Sets the start and end points of this [`Line`].
-    pub fn points(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) -> &mut Self {
+    pub fn points(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) -> Self {
         self.start = Vec2::new(x1, y1);
         self.end = Vec2::new(x2, y2);
-        self
+        *self
     }
 
     /// Sets the color of this [`Line`].
-    pub fn color(&mut self, color: Color) -> &mut Self {
+    pub fn color(&mut self, color: Color) -> Self {
         self.style.outline_color = color;
-        self
+        *self
     }
 
     /// Sets the width of this [`Line`].
-    pub fn width(&mut self, width: f32) -> &mut Self {
+    pub fn width(&mut self, width: f32) -> Self {
         self.style.outline_width = width;
-        self
+        *self
     }
 
     /// Sets the color and width of this [`Line`].
-    pub fn style(&mut self, color: Color, width: f32) -> &mut Self {
+    pub fn style(&mut self, color: Color, width: f32) -> Self {
         self.style.outline_color = color;
         self.style.outline_width = width;
-        self
+        *self
     }
 }
 
@@ -355,8 +355,8 @@ pub struct ImageRect {
     pub transform: Transform2d,
 }
 
-impl_size!(ImageRect);
-impl_transformed!(ImageRect);
+impl_size!(ImageRect, |s: &mut ImageRect| s.clone());
+impl_transformed!(ImageRect, |s: &mut ImageRect| s.clone());
 
 impl ImageRect {
     /// Creates a fully specified [`ImageRect`] with start point, end point, color, image, and transform.
@@ -388,21 +388,21 @@ impl ImageRect {
     }
 
     /// Sets the position of this [`ImageRect`].
-    pub fn position(&mut self, x: f32, y: f32) -> &mut Self {
+    pub fn position(&mut self, x: f32, y: f32) -> Self {
         self.position = Vec2 { x, y };
-        self
+        self.clone()
     }
 
     /// Sets the image displayed by this [`ImageRect`].
-    pub fn image(&mut self, image: Image) -> &mut Self {
+    pub fn image(&mut self, image: Image) -> Self {
         self.image = image;
-        self
+        self.clone()
     }
 
     /// Sets the color of this [`ImageRect`].
-    pub fn color(&mut self, color: Color) -> &mut Self {
+    pub fn color(&mut self, color: Color) -> Self {
         self.color = color;
-        self
+        self.clone()
     }
 }
 
@@ -425,5 +425,6 @@ impl Drawable for ImageRect {
     }
 }
 
-impl_transformed!(Text);
-impl_transformed!(RichText);
+// TODO: something something performance....
+impl_transformed!(Text, |s: &mut Text| s.clone());
+impl_transformed!(RichText, |s: &mut RichText| s.clone());

@@ -2,14 +2,7 @@ use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, type
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
-    let window = renderer.create_window("canvas", 800, 600);
-
-    let canvas = renderer.create_canvas(400, 400)?;
-
-    // draw a white rectangle onto the canvas
-    canvas.draw(|canvas| {
-        canvas.rect(0., 0., 200., 200.);
-    });
+    let window = renderer.create_window("scoped state", 500, 500);
 
     while renderer.is_running() {
         for (id, event) in renderer.poll() {
@@ -21,13 +14,16 @@ fn main() -> RendererResult<()> {
         if let Some(window) = renderer.get_window(window) {
             window.background(Color::BLACK);
 
-            // composite the canvas onto the window
-            window.composite(&canvas, 100., 100., 400., 400.);
+            window.fill(Color::RED);
 
-            // canvases can composite to themselves for recursive effects
-            canvas.draw(|c| {
-                c.composite(&canvas, 300., 0., 100., 400.);
+            // all style changes are reset back to how they were before this is run
+            window.with_style(|window| {
+                window.fill(Color::GREEN);
+                window.rect(150., 150., 150., 150.);
             });
+
+            // this ellipse draws with Color::RED as the fill
+            window.ellipse(300., 300., 75., 75.);
         }
 
         renderer.flush()?;

@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use time::OffsetDateTime;
 use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, rgb, rgba, types::{Color, WindowProperties}, view::ViewMode};
 

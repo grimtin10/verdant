@@ -14,11 +14,11 @@ fn main() -> RendererResult<()> {
         if let Some(window) = renderer.get_window(window) {
             window.background(rgb(0.15, 0.15, 0.15));
 
-            // imperative
+            // imperative style
             window.fill(rgb(0.8, 0.3, 0.3));
             window.ellipse(400., 300., 100., 100.);
 
-            // declarative
+            // declarative style
             Rect::at(100., 100.)
                 .size(150., 150.)
                 .fill(rgb(0.3, 0.6, 0.8))

@@ -37,7 +37,7 @@ impl Window {
         Self {
             inner_window,
 
-            canvas: Canvas::new(config.width, config.height),
+            canvas: Canvas::new(config.width, config.height, true),
 
             surface,
             config,

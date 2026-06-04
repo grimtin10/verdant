@@ -1,7 +1,7 @@
 use std::{collections::{HashMap, HashSet}, mem::take, ops::Range, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicU64, Ordering}}};
 
 use bytemuck::cast_slice;
-use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, BufferDescriptor, BufferUsages, CommandEncoder, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, util::{BufferInitDescriptor, DeviceExt}};
+use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, BufferDescriptor, BufferUsages, CommandEncoder, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, util::{BufferInitDescriptor, DeviceExt}, wgt::TextureDataOrder};
 
 use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, shape_vertices::{canvas_vertices, ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::Style, text::{self, Font, HorizontalAlign, Span, VerticalAlign}, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
 
@@ -155,8 +155,8 @@ impl CanvasContext {
     }
 }
 
-fn create_texture(width: u32, height: u32, format: TextureFormat, gpu_context: &GpuContext) -> (Texture, TextureView) {
-    let texture = gpu_context.device.create_texture(&TextureDescriptor {
+fn create_texture(width: u32, height: u32, format: TextureFormat, gpu_context: &GpuContext, init_black: bool) -> (Texture, TextureView) {
+    let desc = TextureDescriptor {
         label: Some("canvas texture"),
         size: Extent3d {
             width,
@@ -169,7 +169,25 @@ fn create_texture(width: u32, height: u32, format: TextureFormat, gpu_context: &
         format,
         usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC | TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING,
         view_formats: &[],
-    });
+    };
+
+    let texture = if init_black {
+        let mut data = vec![0u8; (width * height * 4) as usize];
+
+        for chunk in data.chunks_exact_mut(4) {
+            chunk[3] = 255; 
+        }
+
+        gpu_context.device.create_texture_with_data(
+            &gpu_context.queue,
+            &desc,
+            TextureDataOrder::LayerMajor,
+            &data,
+        )
+    } else {
+        gpu_context.device.create_texture(&desc)
+    };
+
     let view = texture.create_view(&Default::default());
 
     (texture, view)
@@ -201,6 +219,7 @@ pub struct CanvasState {
     width: u32,
     height: u32,
 
+    init_black: bool,
     render_context: Option<CanvasRenderContext>,
 }
 
@@ -209,6 +228,7 @@ impl CanvasState {
         id: u64,
         width: u32,
         height: u32,
+        init_black: bool,
     ) -> Self {
         let mut view = View::default();
         view.set_window_size(Vec2::new(width as f32, height as f32));
@@ -228,6 +248,7 @@ impl CanvasState {
             width,
             height,
 
+            init_black,
             render_context: None,
         }
     }
@@ -235,7 +256,7 @@ impl CanvasState {
     pub(crate) fn init_render_context(&mut self, gpu_context: Arc<GpuContext>, format: TextureFormat) {
         if self.render_context.is_some() { return; }
 
-        let (texture, texture_view) = create_texture(self.width, self.height, format, &gpu_context);
+        let (texture, texture_view) = create_texture(self.width, self.height, format, &gpu_context, self.init_black);
 
         let projection = ortho(self.width as f32, self.height as f32);
         let projection_buffer = gpu_context.device.create_buffer_init(&BufferInitDescriptor {
@@ -314,7 +335,7 @@ impl CanvasState {
                     if !child_views.contains_key(&self.id) && let Some(rc) = self.render_context.as_ref() {
                         // TODO: this is incredibly inefficient, we should not be creating a new
                         //       canvas every frame for every recursive canvas
-                        let (texture, view) = create_texture(self.width, self.height, format, &gpu_context);
+                        let (texture, view) = create_texture(self.width, self.height, format, &gpu_context, false);
 
                         encoder.copy_texture_to_texture(
                             rc.texture.as_image_copy(),
@@ -428,7 +449,8 @@ impl CanvasState {
             width,
             height,
             render_context.texture.format(),
-            &render_context.gpu_context
+            &render_context.gpu_context,
+            self.init_black,
         );
         render_context.texture = texture;
         render_context.texture_view = texture_view;
@@ -800,11 +822,11 @@ impl AsRef<Canvas> for Canvas {
 }
 
 impl Canvas {
-    pub(crate) fn new(width: u32, height: u32) -> Self {
+    pub(crate) fn new(width: u32, height: u32, init_black: bool) -> Self {
         let id = CANVAS_ID.fetch_add(1, Ordering::Relaxed);
         Self {
             id,
-            inner: Arc::new(RwLock::new(CanvasState::new(id, width, height))),
+            inner: Arc::new(RwLock::new(CanvasState::new(id, width, height, init_black))),
         }
     }
 

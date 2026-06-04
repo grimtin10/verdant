@@ -3,17 +3,22 @@ use std::time::Instant;
 use rand::random_range;
 use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, shapes::Drawable, text::{Font, VerticalAlign}, transform::Transform2d, types::{Color, WindowProperties}, vec::Vec2, view::ViewMode};
 
+// all the parameters that control the simulation
+// boid settings
 const BOID_COUNT: usize = 1000;
 const BOID_SIZE: f32 = 10.;
 
+// distances
 const NEIGHBORHOOD: f32 = BOID_SIZE * 10.;
 const SEPARATION_DIST: f32 = BOID_SIZE * 3.5;
 
+// rule weights
 const SEPARATION_WEIGHT: f32 = 2.5;
 const ALIGN_WEIGHT: f32 = 1.0;
 const COHESION_WEIGHT: f32 = 1.0;
 const WANDER_WEIGHT: f32 = 2.5;
 
+// constraints
 const MAX_SPEED: f32 = 250.;
 const MAX_FORCE: f32 = 3.;
 
@@ -61,12 +66,18 @@ impl Boid {
     }
 }
 
+// we implement the Drawable traits for boids so we can just use `.draw(window)`
 impl Drawable for Boid {
     fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32) {
+        // we wrap it in `with_style` to avoid clobbering the state in the state machine
+        // and we use `with_transform` to apply a transform to both the ellipse and the line
         window.with_style(|window| {
             window.with_transform(
+                // the transform that will be applied to the draw commands
                 Transform2d::rotation_rad(self.velocity.angle_rad())
                     .translate(x, y),
+
+                // the draw commands
                 |window| {
                     window.no_outline();
                     window.fill(Color::WHITE);
@@ -96,6 +107,7 @@ fn main() -> RendererResult<()> {
 
     let mut boids = Vec::new();
 
+    // initialize all the boids at a random position
     for _ in 0..BOID_COUNT {
         boids.push(Boid::new(Vec2::new(random_range(0f32..1920.), random_range(0f32..1080.))));
     }
@@ -105,6 +117,7 @@ fn main() -> RendererResult<()> {
     let mut last_time = Instant::now();
 
     while renderer.is_running() {
+        // get the deltatime of the last frame for the FPS counter and updating the boids
         let now = Instant::now();
         let dt = now.duration_since(last_time).as_secs_f32();
         last_time = now;
@@ -119,6 +132,10 @@ fn main() -> RendererResult<()> {
             window.background(Color::BLACK);
 
             // TODO: should probably optimize this loop so we can handle more boids
+            //       O(n^2) is not the best for performance
+
+            // calculate all the rules to apply to the boids
+            // separation, alignment, and cohesion, plus a random wander vector
             for i in 0..boids.len() {
                 let boid = &boids[i];
 
@@ -175,11 +192,13 @@ fn main() -> RendererResult<()> {
                     );
             }
 
+            // update all the boids, applying "physics" to them
             for boid in &mut boids {
                 boid.update(dt);
             }
 
-
+            // draw the boids with a view set to crop
+            // we put it in with_style to prevent the FPS text from being cropped off the screen
             window.with_style(|window| {
                 window.set_view(1920., 1080., ViewMode::Crop);
 
