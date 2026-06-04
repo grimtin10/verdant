@@ -98,6 +98,8 @@ Verdant provides both a basic text API and a rich text API, allowing you to mix 
 
 *See [rich_text.rs](examples/rich_text.rs)*
 
+<img width="753" height="255" alt="image" src="https://github.com/user-attachments/assets/859c9eff-11d6-4048-8791-f4cc7e25a23a" />
+
 ### Canvases are first-class
 
 Verdant allows you to render to off-screen surfaces just as easily as rendering to a window.
@@ -110,6 +112,8 @@ Verdant allows you to define a logical rendering space, independent of the physi
 This allows you to create scalable applications without having to manually handle aspect-ratio math.
 
 *See [views.rs](examples/views.rs)*
+
+<img width="1299" height="891" alt="image" src="https://github.com/user-attachments/assets/a28250a2-8b80-4e34-84d1-e130cae74957" />
 
 ---
 
