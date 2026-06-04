@@ -33,6 +33,7 @@ fn main() -> RendererResult<()> {
     let window = renderer.create_window("verdant hello world", 800, 600);
 
     // main drawing loop
+    // `is_running` returns true while there is at least one window open
     while renderer.is_running() {
         // poll for events...
         for (id, event) in renderer.poll() {
