@@ -3,6 +3,7 @@ const KIND_ELLIPSE:  u32 = 1u;
 const KIND_LINE:     u32 = 2u;
 const KIND_TEXTURED: u32 = 3u;
 const KIND_SDF_TEXT: u32 = 4u; // TODO: this is unused for now until it's actually implemented
+const KIND_CANVAS:   u32 = 5u;
 
 struct Vertex {
     @location(0) position:      vec2<f32>,
@@ -112,6 +113,11 @@ fn fs_main(in: Interpolated) -> @location(0) vec4<f32> {
         let tex_color = textureSample(t_diffuse, s_diffuse, in.uv) * in.fill_color;
         let srgb = linear_to_srgb(tex_color.rgb);
         return vec4<f32>(srgb * tex_color.a, tex_color.a);
+    }
+
+    if in.kind == KIND_CANVAS {
+        let tex_color = textureSample(t_diffuse, s_diffuse, in.uv) * in.fill_color;
+        return vec4<f32>(tex_color.rgb * tex_color.a, tex_color.a);
     }
 
     // KIND_RECT

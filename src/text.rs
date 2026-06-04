@@ -436,44 +436,80 @@ impl Span {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TextAlignment {
+    pub horizontal_align: HorizontalAlign,
+    pub vertical_align: VerticalAlign,
+    pub line_align: HorizontalAlign,
+}
+
 #[derive(Debug, Clone)]
 pub struct Text {
     pub position: Vec2,
     pub style: TextStyle,
     pub transform: Transform2d,
 
+    pub align: TextAlignment,
+
     pub font: Font,
     pub text: String,
 }
 
 impl Text {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         position: Vec2,
         style: TextStyle,
         transform: Transform2d,
 
+        align: TextAlignment,
+
         font: impl AsRef<Font>,
-        text: String,
+        text: impl ToString,
     ) -> Self {
         Self {
             position,
             style,
             transform,
 
+            align,
+
             font: font.as_ref().clone(),
-            text,
+            text: text.to_string(),
         }
     }
 
-    pub fn with_font(&mut self, font: impl AsRef<Font>) -> Self {
+    pub fn with_font(font: impl AsRef<Font>) -> Self {
         Self {
             position: Vec2::default(),
             style: TextStyle::default(),
             transform: Transform2d::identity(),
 
+            align: TextAlignment::default(),
+
             font: font.as_ref().clone(),
             text: String::default(),
         }
+    }
+
+    pub fn align(&mut self, align: TextAlignment) -> &mut Self {
+        self.align = align;
+        self
+    }
+
+    pub fn horizontal_align(&mut self, align: HorizontalAlign) -> &mut Self {
+        self.align.horizontal_align = align;
+        self
+    }
+
+    pub fn vertical_align(&mut self, align: VerticalAlign) -> &mut Self {
+        self.align.vertical_align = align;
+        self
+    }
+
+    pub fn line_align(&mut self, align: HorizontalAlign) -> &mut Self {
+        self.align.line_align = align;
+        self
     }
 
     /// Sets the position of this [`Text`].
@@ -538,6 +574,8 @@ pub struct RichText {
     pub position: Vec2,
     pub transform: Transform2d,
     pub spans: Vec<Span>,
+
+    pub align: TextAlignment,
 }
 
 impl RichText {
@@ -545,21 +583,47 @@ impl RichText {
         position: Vec2,
         transform: Transform2d,
         spans: Vec<Span>,
+
+        align: TextAlignment,
     ) -> Self {
         Self {
             position,
             transform,
             spans,
+
+            align,
         }
     }
 
     /// Creates a new [`RichText`] with the given [`Span`]s.
-    pub fn with_spans(&mut self, spans: Vec<Span>) -> Self {
+    pub fn with_spans(spans: Vec<Span>) -> Self {
         Self {
             position: Vec2::default(),
             transform: Transform2d::identity(),
             spans,
+
+            align: TextAlignment::default(),
         }
+    }
+
+    pub fn align(&mut self, align: TextAlignment) -> &mut Self {
+        self.align = align;
+        self
+    }
+
+    pub fn horizontal_align(&mut self, align: HorizontalAlign) -> &mut Self {
+        self.align.horizontal_align = align;
+        self
+    }
+
+    pub fn vertical_align(&mut self, align: VerticalAlign) -> &mut Self {
+        self.align.vertical_align = align;
+        self
+    }
+
+    pub fn line_align(&mut self, align: HorizontalAlign) -> &mut Self {
+        self.align.line_align = align;
+        self
     }
 
     /// Sets the position of this [`RichText`].

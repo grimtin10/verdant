@@ -1,11 +1,9 @@
-use crate::{KIND_ELLIPSE, KIND_LINE, KIND_RECT, KIND_TEXTURED, Vertex, types::Color, vec::Vec2};
+use crate::{KIND_CANVAS, KIND_ELLIPSE, KIND_LINE, KIND_RECT, KIND_TEXTURED, Vertex, types::Color, vec::Vec2};
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn rect_vertices(
-    x: f32,
-    y: f32,
-    w: f32,
-    h: f32,
+    x: f32, y: f32,
+    w: f32, h: f32,
     fill_color: Color,
     outline_color: Color,
     outline_width: f32,
@@ -39,10 +37,8 @@ pub(crate) fn rect_vertices(
 }
 
 pub(crate) fn ellipse_vertices(
-    x: f32,
-    y: f32,
-    rx: f32,
-    ry: f32,
+    x: f32, y: f32,
+    rx: f32, ry: f32,
     fill_color: Color,
     outline_color: Color,
     outline_width: f32,
@@ -142,12 +138,9 @@ pub(crate) fn line_vertices(
 }
 
 pub(crate) fn textured_vertices(
-    x: f32,
-    y: f32,
-    w: f32,
-    h: f32,
-    uv_min: Vec2,
-    uv_max: Vec2,
+    x: f32, y: f32,
+    w: f32, h: f32,
+    uv_min: Vec2, uv_max: Vec2,
     fill_color: Color,
 ) -> [Vertex; 6] {
     let xs = [x, x + w];
@@ -173,4 +166,17 @@ pub(crate) fn textured_vertices(
         v(0, 0), v(1, 0), v(1, 1),
         v(0, 0), v(1, 1), v(0, 1),
     ]
+}
+
+pub fn canvas_vertices(
+    x: f32, y: f32,
+    w: f32, h: f32,
+    uv_min: Vec2, uv_max: Vec2,
+    fill_color: Color
+) -> [Vertex; 6] {
+    let mut vertices = textured_vertices(x, y, w, h, uv_min, uv_max, fill_color);
+    for v in &mut vertices {
+        v.kind = KIND_CANVAS;
+    }
+    vertices
 }

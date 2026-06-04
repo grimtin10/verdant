@@ -7,6 +7,13 @@
 //       (premultiplied, non-srgb)
 //       and i don't think it'll look right if you're not on that setup
 
+// TODO: while the library aims to be performant, i'm yet to actually do any optimization passes or
+//       profiling, so i know there's a long way to go
+//       though i am currently happy with its performance as it *is* in a pre-1.0 state
+//       honestly, it does pretty well for what it is
+
+// TODO: another documentation pass...
+
 #![deny(clippy::unwrap_used)]
 
 pub use wgpu::TextureFormat;
@@ -20,7 +27,7 @@ use winit::{application::ApplicationHandler, dpi::PhysicalSize, event_loop::{Act
 
 use std::{collections::{HashMap, VecDeque}, sync::Arc};
 
-use crate::{canvas::RenderSurface, errors::Error, transform::Transform2d, types::{Color, WindowId, WindowProperties}, vec::Vec2, window::Window};
+use crate::{canvas::{Canvas, RenderSurface}, errors::Error, transform::Transform2d, types::{Color, WindowId, WindowProperties}, vec::Vec2, window::Window};
 
 pub mod canvas;
 pub mod errors;
@@ -43,6 +50,9 @@ const KIND_RECT:     u32 = 0;
 const KIND_ELLIPSE:  u32 = 1;
 const KIND_LINE:     u32 = 2;
 const KIND_TEXTURED: u32 = 3;
+#[allow(unused)]
+const KIND_SDF_TEXT: u32 = 4;
+const KIND_CANVAS:   u32 = 5;
 
 /// Constructs a `Color` from RGB components in the range `0.0..=1.0`, with full opacity.
 #[inline(always)]
@@ -486,6 +496,11 @@ impl Renderer {
         self.context.window_queue.push_back((id, props));
 
         id
+    }
+
+    /// Create a new canvas with the given width and height.
+    pub fn create_canvas(&mut self, width: u32, height: u32) -> RendererResult<Canvas> {
+        Ok(Canvas::new(width, height))
     }
 
     /// Pumps the event loop and returns all window events since the last call.

@@ -1,9 +1,11 @@
-use std::{collections::HashMap, mem::take, ops::Range, sync::Arc};
+use std::{collections::{HashMap, HashSet}, mem::take, ops::Range, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicU64, Ordering}}};
 
 use bytemuck::cast_slice;
-use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, Buffer, BufferDescriptor, BufferUsages, CommandEncoder, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, util::{BufferInitDescriptor, DeviceExt}};
+use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, BufferDescriptor, BufferUsages, CommandEncoder, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, util::{BufferInitDescriptor, DeviceExt}};
 
-use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, shape_vertices::{ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::Style, text::{self, Font, HorizontalAlign, Span, VerticalAlign}, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
+use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, shape_vertices::{canvas_vertices, ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::Style, text::{self, Font, HorizontalAlign, Span, VerticalAlign}, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
+
+static CANVAS_ID: AtomicU64 = AtomicU64::new(0);
 
 pub trait RenderSurface {
     /// Clears the window to the given color at the start of each frame.
@@ -41,6 +43,8 @@ pub trait RenderSurface {
     fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32);
     /// Draws an image at `(x, y)` with the given width and height using the current fill color.
     fn image(&mut self, image: impl AsRef<Image>, x: f32, y: f32, w: f32, h: f32);
+    /// Draws a canvas at `(x, y)` with the given width and height using the current fill color.
+    fn composite(&mut self, canvas: impl AsRef<Canvas>, x: f32, y: f32, w: f32, h: f32);
 
     // text
     /// Sets the horizontal text alignment for subsequent text calls.
@@ -106,6 +110,7 @@ impl Default for TextStyle {
 #[derive(Debug, Clone)]
 struct DrawBatch {
     pub texture: Option<Image>,
+    pub canvas: Option<Canvas>,
     pub range: Range<u32>,
 }
 
@@ -132,6 +137,7 @@ impl CanvasContext {
         if self.vertices.len() as u32 != start {
             self.batches.push(DrawBatch {
                 texture: self.current_texture.clone(),
+                canvas: None,
                 range: start..self.vertices.len() as u32,
             });
         }
@@ -161,7 +167,7 @@ fn create_texture(width: u32, height: u32, format: TextureFormat, gpu_context: &
         sample_count: 1,
         dimension: TextureDimension::D2,
         format,
-        usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC,
+        usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC | TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING,
         view_formats: &[],
     });
     let view = texture.create_view(&Default::default());
@@ -170,14 +176,8 @@ fn create_texture(width: u32, height: u32, format: TextureFormat, gpu_context: &
 }
 
 #[derive(Debug)]
-pub struct Canvas {
-    pub(crate) context: CanvasContext,
-
-    pub(crate) style: Style,
-    pub(crate) text_style: TextStyle,
-    pub(crate) view: View,
-
-    pub(crate) texture: Texture,
+struct CanvasRenderContext {
+    texture: Texture,
     texture_view: TextureView,
 
     projection_buffer: Buffer,
@@ -189,16 +189,55 @@ pub struct Canvas {
     gpu_context: Arc<GpuContext>,
 }
 
-impl Canvas {
+#[derive(Debug)]
+pub struct CanvasState {
+    pub id: u64,
+    pub(crate) context: CanvasContext,
+
+    pub(crate) style: Style,
+    pub(crate) text_style: TextStyle,
+    pub(crate) view: View,
+
+    width: u32,
+    height: u32,
+
+    render_context: Option<CanvasRenderContext>,
+}
+
+impl CanvasState {
     pub(crate) fn new(
+        id: u64,
         width: u32,
         height: u32,
-        format: TextureFormat,
-        gpu_context: Arc<GpuContext>,
     ) -> Self {
-        let (texture, texture_view) = create_texture(width, height, format, &gpu_context);
+        let mut view = View::default();
+        view.set_window_size(Vec2::new(width as f32, height as f32));
 
-        let projection = ortho(width as f32, height as f32);
+        let mut context = CanvasContext::default();
+        context.update_transform(view.transform() * context.local_transform);
+
+        Self {
+            id,
+
+            context,
+
+            style: Style::default(),
+            text_style: TextStyle::default(),
+            view,
+
+            width,
+            height,
+
+            render_context: None,
+        }
+    }
+
+    pub(crate) fn init_render_context(&mut self, gpu_context: Arc<GpuContext>, format: TextureFormat) {
+        if self.render_context.is_some() { return; }
+
+        let (texture, texture_view) = create_texture(self.width, self.height, format, &gpu_context);
+
+        let projection = ortho(self.width as f32, self.height as f32);
         let projection_buffer = gpu_context.device.create_buffer_init(&BufferInitDescriptor {
             label: Some("projection"),
             contents: cast_slice(&[GpuTransform2d::from(projection)]),
@@ -220,23 +259,15 @@ impl Canvas {
             mapped_at_creation: false,
         });
 
-        Self {
+        self.render_context = Some(CanvasRenderContext {
             texture,
             texture_view,
-
             projection_buffer,
             projection_group,
-
             vertex_buffer,
             vertex_buffer_size: 0,
-
-            context: CanvasContext::default(),
             gpu_context,
-
-            style: Style::default(),
-            text_style: TextStyle::default(),
-            view: View::default(),
-        }
+        });
     }
 
     fn push_vertices<const N: usize>(&mut self, mut vertices: [Vertex; N]) {
@@ -246,32 +277,18 @@ impl Canvas {
         self.context.vertices.extend(vertices);
     }
 
-    pub(crate) fn flush_with_encoder(&mut self, encoder: &mut CommandEncoder) -> RendererResult<()> {
-        let load = if let Some(color) = take(&mut self.context.clear_color) {
-            LoadOp::Clear(wgpu::Color::from(color))
-        } else {
-            LoadOp::Load
-        };
+    pub(crate) fn flush_with_encoder(
+        &mut self,
+        encoder: &mut CommandEncoder,
+        gpu_context: Arc<GpuContext>,
+        flushing: &mut HashSet<u64>,
+        format: TextureFormat,
+    ) -> RendererResult<()> {
+        if !flushing.insert(self.id) { return Ok(()) }
+
+        self.init_render_context(gpu_context.clone(), format);
 
         let vertices = take(&mut self.context.vertices);
-
-        let required = (vertices.len() * size_of::<Vertex>()) as u64;
-        while required > self.vertex_buffer_size {
-            if self.vertex_buffer_size == 0 {
-                self.vertex_buffer_size = required;
-            } else {
-                self.vertex_buffer_size *= 2;
-            }
-            self.vertex_buffer = self.gpu_context.device.create_buffer(&BufferDescriptor {
-                label: Some("vertex buffer"),
-                size: self.vertex_buffer_size,
-                usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            });
-        }
-
-        self.gpu_context.queue.write_buffer(&self.vertex_buffer, 0, cast_slice(&vertices));
-
         let mut batches = take(&mut self.context.batches);
 
         let last_group_end = if let Some(group) = batches.last() {
@@ -283,14 +300,75 @@ impl Canvas {
         if last_group_end < vertices.len() as u32 {
             batches.push(DrawBatch {
                 texture: self.context.current_texture.clone(),
+                canvas: None,
                 range: last_group_end..vertices.len() as u32,
             });
         }
 
+        let mut child_views = HashMap::new();
+        for batch in &batches {
+            if let Some(child_canvas) = &batch.canvas {
+                // genuinely terrible suggestion from clippy
+                #[allow(clippy::map_entry)]
+                if child_canvas.id == self.id {
+                    if !child_views.contains_key(&self.id) && let Some(rc) = self.render_context.as_ref() {
+                        // TODO: this is incredibly inefficient, we should not be creating a new
+                        //       canvas every frame for every recursive canvas
+                        let (texture, view) = create_texture(self.width, self.height, format, &gpu_context);
+
+                        encoder.copy_texture_to_texture(
+                            rc.texture.as_image_copy(),
+                            texture.as_image_copy(),
+                            Extent3d {
+                                width: self.width,
+                                height: self.height,
+                                depth_or_array_layers: 1
+                            }
+                        );
+                        child_views.insert(self.id, view);
+                    }
+                } else if !child_views.contains_key(&child_canvas.id) {
+                    let mut child_state = child_canvas.write();
+                    child_state.flush_with_encoder(encoder, gpu_context.clone(), flushing, format)?;
+                    if let Some(rc) = child_state.render_context.as_ref() {
+                        child_views.insert(child_canvas.id, rc.texture_view.clone());
+                    }
+                }
+            }
+        }
+
+        let Some(render_context) = self.render_context.as_mut() else {
+            flushing.remove(&self.id);
+            return Ok(());
+        };
+
+        let load = if let Some(color) = take(&mut self.context.clear_color) {
+            LoadOp::Clear(wgpu::Color::from(color.to_srgb()))
+        } else {
+            LoadOp::Load
+        };
+
+        let required = (vertices.len() * size_of::<Vertex>()) as u64;
+        while required > render_context.vertex_buffer_size {
+            if render_context.vertex_buffer_size == 0 {
+                render_context.vertex_buffer_size = required;
+            } else {
+                render_context.vertex_buffer_size *= 2;
+            }
+            render_context.vertex_buffer = render_context.gpu_context.device.create_buffer(&BufferDescriptor {
+                label: Some("vertex buffer"),
+                size: render_context.vertex_buffer_size,
+                usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+        }
+
+        render_context.gpu_context.queue.write_buffer(&render_context.vertex_buffer, 0, cast_slice(&vertices));
+
         {
             let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 color_attachments: &[Some(RenderPassColorAttachment {
-                    view: &self.texture_view,
+                    view: &render_context.texture_view,
                     depth_slice: None,
                     resolve_target: None,
                     ops: Operations { load, store: StoreOp::Store },
@@ -298,19 +376,33 @@ impl Canvas {
                 ..Default::default()
             });
 
-            pass.set_pipeline(&self.gpu_context.pipeline);
+            pass.set_pipeline(&render_context.gpu_context.pipeline);
 
-            if self.vertex_buffer_size > 0 {
-                pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            if render_context.vertex_buffer_size > 0 {
+                pass.set_vertex_buffer(0, render_context.vertex_buffer.slice(..));
 
                 for batch in batches.iter_mut() {
-                    pass.set_bind_group(0, Some(&self.projection_group), &[]);
+                    pass.set_bind_group(0, Some(&render_context.projection_group), &[]);
 
                     if let Some(texture) = batch.texture.as_mut() {
-                        let data = texture.submit_to_gpu(&self.gpu_context)?;
+                        let data = texture.submit_to_gpu(&render_context.gpu_context)?;
                         pass.set_bind_group(1, Some(&data.bind_group), &[]);
+                    } else if let Some(child_canvas) = &batch.canvas {
+                        if let Some(view) = child_views.get(&child_canvas.id) {
+                            let bind_group = render_context.gpu_context.device.create_bind_group(&BindGroupDescriptor {
+                                layout: &render_context.gpu_context.texture_group_layout,
+                                entries: &[
+                                    BindGroupEntry { binding: 0, resource: BindingResource::TextureView(view) },
+                                    BindGroupEntry { binding: 1, resource: BindingResource::Sampler(&render_context.gpu_context.sampler)},
+                                ],
+                                label: Some("canvas bind group"),
+                            });
+                            pass.set_bind_group(1, Some(&bind_group), &[]);
+                        } else {
+                            pass.set_bind_group(1, Some(&render_context.gpu_context.dummy_bind_group), &[]);
+                        }
                     } else {
-                        pass.set_bind_group(1, Some(&self.gpu_context.dummy_bind_group), &[]);
+                        pass.set_bind_group(1, Some(&render_context.gpu_context.dummy_bind_group), &[]);
                     }
 
                     pass.draw(batch.range.clone(), 0..1);
@@ -321,24 +413,36 @@ impl Canvas {
         Ok(())
     }
 
+    pub(crate) fn get_texture(&self) -> Option<Texture> {
+        self.render_context.as_ref().map(|c| c.texture.clone())
+    }
+
+    pub(crate) fn sync_view_transform(&mut self) {
+        self.context.update_transform(self.view.transform() * self.context.local_transform);
+    }
+
     pub fn resize(&mut self, width: u32, height: u32) {
+        let Some(render_context) = self.render_context.as_mut() else { return };
+
         let (texture, texture_view) = create_texture(
             width,
             height,
-            self.texture.format(),
-            &self.gpu_context
+            render_context.texture.format(),
+            &render_context.gpu_context
         );
-        self.texture = texture;
-        self.texture_view = texture_view;
+        render_context.texture = texture;
+        render_context.texture_view = texture_view;
 
-        self.view.set_window_size(Vec2::new(width as f32, height as f32), &mut self.context);
+        self.view.set_window_size(Vec2::new(width as f32, height as f32));
+        self.sync_view_transform();
 
+        let Some(render_context) = self.render_context.as_mut() else { return };
         let projection: GpuTransform2d = ortho(width as f32, height as f32).into();
-        self.gpu_context.queue.write_buffer(&self.projection_buffer, 0, cast_slice(&[projection]));
+        render_context.gpu_context.queue.write_buffer(&render_context.projection_buffer, 0, cast_slice(&[projection]));
     }
 }
 
-impl RenderSurface for Canvas {
+impl RenderSurface for CanvasState {
     fn background(&mut self, color: Color) {
         self.context.vertices.clear();
         self.context.clear_color = Some(color);
@@ -435,6 +539,25 @@ impl RenderSurface for Canvas {
         ));
 
         self.context.update_texture(None);
+    }
+
+    fn composite(&mut self, canvas: impl AsRef<Canvas>, x: f32, y: f32, w: f32, h: f32) {
+        self.context.update_batch();
+        let len = self.context.vertices.len() as u32;
+        self.push_vertices(canvas_vertices(
+            x,
+            y,
+            w,
+            h,
+            Vec2::ZERO,
+            Vec2::ONE,
+            self.style.fill_color
+        ));
+        self.context.batches.push(DrawBatch {
+            texture: None,
+            canvas: Some(canvas.as_ref().clone()),
+            range: len..len+6,
+        });
     }
 
     fn horizontal_text_align(&mut self, align: HorizontalAlign) {
@@ -600,21 +723,25 @@ impl RenderSurface for Canvas {
     }
 
     fn set_view(&mut self, width: f32, height: f32, view_mode: ViewMode) {
-        self.view.set_size(Some(Vec2::new(width, height)), &mut self.context);
-        self.view.set_mode(view_mode, &mut self.context);
+        self.view.set_size(Some(Vec2::new(width, height)));
+        self.view.set_mode(view_mode);
+        self.sync_view_transform();
     }
 
     fn clear_view(&mut self) {
-        self.view.set_size(None, &mut self.context);
-        self.view.set_mode(ViewMode::Unscaled, &mut self.context);
+        self.view.set_size(None);
+        self.view.set_mode(ViewMode::Unscaled);
+        self.sync_view_transform();
     }
 
     fn set_origin(&mut self, x: f32, y: f32) {
-        self.view.set_origin(Vec2 { x, y }, &mut self.context);
+        self.view.set_origin(Vec2 { x, y });
+        self.sync_view_transform();
     }
 
     fn clear_origin(&mut self) {
-        self.view.set_origin(Vec2::ZERO, &mut self.context);
+        self.view.set_origin(Vec2::ZERO);
+        self.sync_view_transform();
     }
 
     fn with_style(&mut self, commands: impl FnOnce(&mut Self)) {
@@ -626,7 +753,8 @@ impl RenderSurface for Canvas {
 
         self.style = style;
         self.text_style = text_style;
-        self.view.set(view, &mut self.context);
+        self.view.set(view);
+        self.sync_view_transform();
     }
 
     fn with_transform(&mut self, transform: impl AsRef<Transform2d>, commands: impl FnOnce(&mut Self)) {
@@ -642,12 +770,53 @@ impl RenderSurface for Canvas {
     }
 
     fn flush(&mut self) -> RendererResult<()> {
-        let mut encoder = self.gpu_context.device.create_command_encoder(&Default::default());
+        let (mut encoder, gpu_context, format) = {
+            let Some(render_context) = self.render_context.as_ref() else { return Ok(()) };
+            (
+                render_context.gpu_context.device.create_command_encoder(&Default::default()),
+                render_context.gpu_context.clone(),
+                render_context.texture.format(),
+            )
+        };
+        self.flush_with_encoder(&mut encoder, gpu_context, &mut HashSet::new(), format)?;
 
-        self.flush_with_encoder(&mut encoder)?;
-
-        self.gpu_context.queue.submit([encoder.finish()]);
+        let Some(render_context) = self.render_context.as_ref() else { return Ok(()) };
+        render_context.gpu_context.queue.submit([encoder.finish()]);
 
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Canvas {
+    id: u64,
+    inner: Arc<RwLock<CanvasState>>,
+}
+
+impl AsRef<Canvas> for Canvas {
+    fn as_ref(&self) -> &Canvas {
+        self
+    }
+}
+
+impl Canvas {
+    pub(crate) fn new(width: u32, height: u32) -> Self {
+        let id = CANVAS_ID.fetch_add(1, Ordering::Relaxed);
+        Self {
+            id,
+            inner: Arc::new(RwLock::new(CanvasState::new(id, width, height))),
+        }
+    }
+
+    pub fn draw(&self, commands: impl FnOnce(&mut CanvasState)) {
+        commands(&mut self.write())
+    }
+
+    pub fn write(&self) -> RwLockWriteGuard<'_, CanvasState> {
+        self.inner.write().expect("canvas inner lock is poisoned")
+    }
+
+    pub fn read(&self) -> RwLockReadGuard<'_, CanvasState> {
+        self.inner.read().expect("canvas inner lock is poisoned")
     }
 }

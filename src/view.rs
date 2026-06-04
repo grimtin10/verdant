@@ -1,8 +1,4 @@
-// this is put in a separate file to prevent being able to just directly set the variables
-// "why not just set the variables?"
-// because i wanna make it impossible to forget to update the state
-
-use crate::{canvas::CanvasContext, transform::Transform2d, vec::Vec2};
+use crate::{transform::Transform2d, vec::Vec2};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ViewMode {
@@ -65,7 +61,7 @@ impl View {
         (scale, scale, x, y)
     }
 
-    fn update(&mut self, context: &mut CanvasContext) {
+    fn update(&mut self) {
         let origin = self.origin;
         self.letterbox = self.get_view();
         let (scale_x, scale_y, x, y) = self.letterbox;
@@ -73,35 +69,33 @@ impl View {
         self.transform = *Transform2d::translation(origin.x, origin.y)
             .scale(scale_x, scale_y)
             .translate(x, y);
-
-        context.update_transform(self.transform * context.local_transform);
     }
 
-    pub(crate) fn set(&mut self, view: View, context: &mut CanvasContext) {
+    pub(crate) fn set(&mut self, view: View) {
         self.origin = view.origin;
         self.size = view.size;
         self.mode = view.mode;
-        self.update(context);
+        self.update();
     }
 
-    pub(crate) fn set_origin(&mut self, origin: Vec2, context: &mut CanvasContext) {
+    pub(crate) fn set_origin(&mut self, origin: Vec2) {
         self.origin = origin;
-        self.update(context);
+        self.update();
     }
 
-    pub(crate) fn set_size(&mut self, size: Option<Vec2>, context: &mut CanvasContext) {
+    pub(crate) fn set_size(&mut self, size: Option<Vec2>) {
         self.size = size;
-        self.update(context);
+        self.update();
     }
 
-    pub(crate) fn set_mode(&mut self, mode: ViewMode, context: &mut CanvasContext) {
+    pub(crate) fn set_mode(&mut self, mode: ViewMode) {
         self.mode = mode;
-        self.update(context);
+        self.update();
     }
 
-    pub(crate) fn set_window_size(&mut self, window_size: Vec2, context: &mut CanvasContext) {
+    pub(crate) fn set_window_size(&mut self, window_size: Vec2) {
         self.window_size = window_size;
-        self.update(context);
+        self.update();
     }
 
     pub(crate) fn origin(&self) -> Vec2 {

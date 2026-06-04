@@ -194,7 +194,7 @@ impl Drawable for Rect {
                     window.fill(self.style.fill_color);
                     window.outline_color(self.style.outline_color);
                     window.outline_width(self.style.outline_width);
-                    window.round_rect(x, y, self.size.x, self.size.y, self.corner_radius);
+                    window.round_rect(0., 0., self.size.x, self.size.y, self.corner_radius);
                 }
             );
         });
@@ -240,7 +240,7 @@ impl Drawable for Ellipse {
                     window.fill(self.style.fill_color);
                     window.outline_color(self.style.outline_color);
                     window.outline_width(self.style.outline_width);
-                    window.ellipse(x, y, self.size.x, self.size.y);
+                    window.ellipse(0., 0., self.size.x, self.size.y);
                 }
             );
         });

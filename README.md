@@ -66,7 +66,7 @@ use verdant::{Renderer, RendererResult, WindowEvent, rgb, shapes::{Drawable, Rec
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
-    let window_id = renderer.create_window("minimal shapes", 800, 600);
+    let window = renderer.create_window("minimal shapes", 800, 600);
 
     while renderer.is_running() {
         for (id, event) in renderer.poll() {
@@ -75,7 +75,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(window_id) {
+        if let Some(window) = renderer.get_window(window) {
             window.background(rgb(0.15, 0.15, 0.15));
 
             // imperative
