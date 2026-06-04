@@ -11,6 +11,10 @@
 
 *See [clock.rs](examples/clock.rs)*
 
+<img width="800" height="467" alt="verdant paint" src="https://github.com/user-attachments/assets/2a791f8a-c498-4676-bb05-6e68d398debd" />
+
+*See [paint.rs](examples/paint.rs)*
+
 > Verdant is a work-in-progress. The API may change at any time.
 
 ---
