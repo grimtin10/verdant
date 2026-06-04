@@ -1,6 +1,6 @@
 [package]
 name = "verdant"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 description = "A WIP windowing and rendering library, aiming to be lightweight, performant, and powerful."
 license = "MPL-2.0"
