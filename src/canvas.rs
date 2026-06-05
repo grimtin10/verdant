@@ -48,19 +48,19 @@ pub trait RenderSurface {
 
     // text
     /// Sets the horizontal text alignment for subsequent text calls.
-    /// Effects rich text.
+    /// Affects rich text.
     fn horizontal_text_align(&mut self, align: HorizontalAlign);
     /// Sets the vertical text alignment for subsequent text calls.
-    /// Effects rich text.
+    /// Affects rich text.
     fn vertical_text_align(&mut self, align: VerticalAlign);
     /// Sets the text alignment for subsequent text calls.
-    /// Effects rich text.
+    /// Affects rich text.
     fn text_align(&mut self, horizontal: HorizontalAlign, vertical: VerticalAlign);
     /// Sets the alignment per-line for subsequent text calls.
-    /// Effects rich text.
+    /// Affects rich text.
     fn line_align(&mut self, align: HorizontalAlign);
     /// Sets the text size (in pixels) for subsequent text calls.
-    /// Does not effect rich text.
+    /// Does not affect rich text.
     fn text_size(&mut self, size_px: f32);
     /// Draws text at `(x, y)` with the given font using the current fill color and text size.
     fn text(&mut self, font: impl AsRef<Font>, x: f32, y: f32, text: impl ToString);

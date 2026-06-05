@@ -438,9 +438,9 @@ impl Span {
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TextAlignment {
-    pub horizontal_align: HorizontalAlign,
-    pub vertical_align: VerticalAlign,
-    pub line_align: HorizontalAlign,
+    pub horizontal: HorizontalAlign,
+    pub vertical: VerticalAlign,
+    pub line: HorizontalAlign,
 }
 
 #[derive(Debug, Clone)]
@@ -498,17 +498,17 @@ impl Text {
     }
 
     pub fn horizontal_align(&mut self, align: HorizontalAlign) -> &mut Self {
-        self.align.horizontal_align = align;
+        self.align.horizontal = align;
         self
     }
 
     pub fn vertical_align(&mut self, align: VerticalAlign) -> &mut Self {
-        self.align.vertical_align = align;
+        self.align.vertical = align;
         self
     }
 
     pub fn line_align(&mut self, align: HorizontalAlign) -> &mut Self {
-        self.align.line_align = align;
+        self.align.line = align;
         self
     }
 
@@ -562,6 +562,8 @@ impl Drawable for Text {
                 |window| {
                     window.fill(self.style.color);
                     window.text_size(self.style.size);
+                    window.text_align(self.align.horizontal, self.align.vertical);
+                    window.line_align(self.align.line);
                     window.text(&self.font, 0., 0., &self.text);
                 }
             );
@@ -612,17 +614,17 @@ impl RichText {
     }
 
     pub fn horizontal_align(&mut self, align: HorizontalAlign) -> &mut Self {
-        self.align.horizontal_align = align;
+        self.align.horizontal = align;
         self
     }
 
     pub fn vertical_align(&mut self, align: VerticalAlign) -> &mut Self {
-        self.align.vertical_align = align;
+        self.align.vertical = align;
         self
     }
 
     pub fn line_align(&mut self, align: HorizontalAlign) -> &mut Self {
-        self.align.line_align = align;
+        self.align.line = align;
         self
     }
 
@@ -644,6 +646,8 @@ impl Drawable for RichText {
                 self.transform
                     .then(Transform2d::translation(x, y)),
                 |window| {
+                    window.text_align(self.align.horizontal, self.align.vertical);
+                    window.line_align(self.align.line);
                     window.rich_text(0., 0., &self.spans);
                 }
             );
