@@ -3,6 +3,8 @@
 [![Crates.io](https://img.shields.io/crates/v/verdant)](https://crates.io/crates/verdant)
 [![Docs.rs](https://docs.rs/verdant/badge.svg)](https://docs.rs/verdant)
 
+> **Verdant is a work-in-progress. The API may change at any time.**
+
 <img width="800" alt="boids" src="https://github.com/user-attachments/assets/50e31e90-9e4b-4cf3-8702-e27c5dd8bfd2" style="max-width: 100%; height: auto" />
 
 *See [boids.rs](examples/boids.rs)*
@@ -14,8 +16,6 @@
 <img width="800" alt="verdant paint" src="https://github.com/user-attachments/assets/2a791f8a-c498-4676-bb05-6e68d398debd" style="max-width: 100%; height: auto" />
 
 *See [paint.rs](examples/paint.rs)*
-
-> Verdant is a work-in-progress. The API may change at any time.
 
 ---
 
@@ -30,21 +30,21 @@ use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, rgb,
 fn main() -> RendererResult<()> {
     // initialize the renderer and create a window
     let mut renderer = Renderer::new()?;
-    let window = renderer.create_window("verdant hello world", 800, 600);
+    let window_id = renderer.create_window("verdant hello world", 800, 600);
 
     // main drawing loop
     // `is_running` returns true while there is at least one window open
     while renderer.is_running() {
         // poll for events...
         for (id, event) in renderer.poll() {
-            // ...handling window closing
+            // ...and handle window closing
             if event == WindowEvent::CloseRequested {
                 renderer.close_window(id);
             }
         }
 
         // start drawing by getting a window
-        if let Some(window) = renderer.get_window(window) {
+        if let Some(window) = renderer.get_window(window_id) {
             // clearing the background to a neutral color
             window.background(rgb(0.15, 0.15, 0.15));
 
@@ -90,6 +90,18 @@ Verdant prevents this by providing scoped state through closures.
 ### Pick your API
 
 Verdant doesn't force you to stick to a state machine API or a more "retained" builder pattern API, instead allowing you to choose between either one.
+
+```rs
+// imperative, state-machine API
+window.fill(Color::RED);
+window.rect(500., 250., 250., 250.);
+
+// more "declarative", builder pattern API
+Rect::at(250., 500.)
+    .size(250., 250.)
+    .fill(Color::BLUE)
+    .draw(window);
+```
 
 *See [drawing.rs](examples/drawing.rs)*
 

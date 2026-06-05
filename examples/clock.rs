@@ -4,7 +4,7 @@ use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, rgb,
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
 
-    let window = renderer.create_window_ext(WindowProperties {
+    let window_id = renderer.create_window_ext(WindowProperties {
         title: "clock".into(),
         width: 1000,
         height: 1000,
@@ -19,7 +19,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(window) {
+        if let Some(window) = renderer.get_window(window_id) {
             window.set_view(1000., 1000., ViewMode::Letterbox);
             window.set_origin(500., 500.);
 

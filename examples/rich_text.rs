@@ -2,7 +2,7 @@ use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, rgba
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
-    let window = renderer.create_window("rich text", 750, 230);
+    let window_id = renderer.create_window("rich text", 750, 230);
 
     // with Font::load (or any function that takes a `ByteSource`)
     // you can either use `include_bytes` or just give the path
@@ -16,7 +16,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(window) {
+        if let Some(window) = renderer.get_window(window_id) {
             window.background(Color::BLACK);
 
             window.text_align(HorizontalAlign::Center, VerticalAlign::Top);

@@ -2,7 +2,7 @@ use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, type
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
-    let window = renderer.create_window("paint", 1280, 720);
+    let window_id = renderer.create_window("paint", 1280, 720);
 
     let canvas = renderer.create_canvas(1280, 720)?;
 
@@ -25,7 +25,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(window) {
+        if let Some(window) = renderer.get_window(window_id) {
             let (mouse_x, mouse_y) = window.get_mouse_pos().into();
 
             // draw the canvas onto the window

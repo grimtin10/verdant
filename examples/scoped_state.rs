@@ -2,7 +2,7 @@ use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, type
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
-    let window = renderer.create_window("scoped state", 500, 500);
+    let window_id = renderer.create_window("scoped state", 500, 500);
 
     while renderer.is_running() {
         for (id, event) in renderer.poll() {
@@ -11,7 +11,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(window) {
+        if let Some(window) = renderer.get_window(window_id) {
             window.background(Color::BLACK);
 
             window.fill(Color::RED);

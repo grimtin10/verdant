@@ -2,13 +2,13 @@ use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, type
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
-    let window = renderer.create_window("canvas", 800, 600);
+    let window_id = renderer.create_window("canvas", 800, 600);
 
     let canvas = renderer.create_canvas(400, 400)?;
 
     // draw a white rectangle onto the canvas
-    canvas.draw(|canvas| {
-        canvas.rect(0., 0., 200., 200.);
+    canvas.draw(|c| {
+        c.rect(0., 0., 200., 200.);
     });
 
     while renderer.is_running() {
@@ -18,7 +18,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(window) {
+        if let Some(window) = renderer.get_window(window_id) {
             window.background(Color::BLACK);
 
             // composite the canvas onto the window

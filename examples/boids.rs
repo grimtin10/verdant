@@ -97,7 +97,7 @@ impl Drawable for Boid {
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
-    let window = renderer.create_window_ext(WindowProperties {
+    let window_id = renderer.create_window_ext(WindowProperties {
         title: "boids".into(),
         width: 1920,
         height: 1080,
@@ -128,7 +128,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(window) {
+        if let Some(window) = renderer.get_window(window_id) {
             window.background(Color::BLACK);
 
             // TODO: should probably optimize this loop so we can handle more boids

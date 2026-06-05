@@ -2,7 +2,7 @@ use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, shap
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
-    let window = renderer.create_window("drawing API example", 1000, 1000);
+    let window_id = renderer.create_window("drawing API example", 1000, 1000);
 
     // shape that persists between frames
     let mut mouse_ellipse = Ellipse::at(0., 0.)
@@ -17,7 +17,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(window) {
+        if let Some(window) = renderer.get_window(window_id) {
             window.background(Color::GRAY);
 
             // imperative, state-machine API
