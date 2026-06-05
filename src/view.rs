@@ -27,14 +27,12 @@ pub(crate) struct View {
     size: Option<Vec2>,
     mode: ViewMode,
 
-    // TODO: this variable name is a little wrong...
-    letterbox: (f32,  f32, f32, f32),
+    scale_offset: (f32, f32, f32, f32),
     transform: Transform2d,
 }
 
 impl View {
-    // TODO: ...and this function name is dumb
-    fn get_view(&self) -> (f32, f32, f32, f32) {
+    fn get_scale_offset(&self) -> (f32, f32, f32, f32) {
         if self.mode == ViewMode::Unscaled { return (1., 1., 0., 0.) };
 
         let Some(view_size) = self.size else { return (1., 1., 0., 0.) };
@@ -63,8 +61,8 @@ impl View {
 
     fn update(&mut self) {
         let origin = self.origin;
-        self.letterbox = self.get_view();
-        let (scale_x, scale_y, x, y) = self.letterbox;
+        self.scale_offset = self.get_scale_offset();
+        let (scale_x, scale_y, x, y) = self.scale_offset;
 
         self.transform = *Transform2d::translation(origin.x, origin.y)
             .scale(scale_x, scale_y)
@@ -107,7 +105,7 @@ impl View {
     }
 
     pub(crate) fn letterbox(&self) -> (f32, f32, f32, f32) {
-        self.letterbox
+        self.scale_offset
     }
 
     pub(crate) fn transform(&self) -> Transform2d {

@@ -41,6 +41,8 @@ pub struct Color {
 }
 
 impl Color {
+    /// Returns the color with its RGB channels multiplied by its alpha to be used in contexts that
+    /// expect premultiplied color.
     pub fn premultiplied(self) -> Self {
         Self {
             r: self.r * self.a,
@@ -50,6 +52,7 @@ impl Color {
         }
     }
 
+    /// Converts the color from linear to sRGB color space using a 2.2 gamma.
     pub fn to_srgb(self) -> Self {
         Self {
             r: self.r.powf(1. / 2.2),
@@ -59,6 +62,7 @@ impl Color {
         }
     }
 
+    /// Returns the color with its RGB channels inverted, preserving the alpha.
     pub fn inverted(self) -> Self {
         Self {
             r: 1. - self.r,
@@ -68,7 +72,8 @@ impl Color {
         }
     }
 
-    pub fn inverted_alpha(self) -> Self {
+    /// Returns the color with all channels inverted, including alpha.
+    pub fn fully_inverted(self) -> Self {
         Self {
             r: 1. - self.r,
             g: 1. - self.g,
@@ -190,7 +195,11 @@ where
     }
 }
 
+/// A source of raw bytes, either from a file path or existing byte data.
+/// Accepts strings and paths (read from disk) and byte slices, arrays, and vecs (used directly).
+/// This means you can pass either a file path or `include_bytes!(...)` anywhere this is accepted.
 pub trait ByteSource {
+    /// Returns the bytes from this source.
     fn load(self) -> RendererResult<Vec<u8>>;
 }
 

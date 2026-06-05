@@ -8,6 +8,7 @@ use crate::{RendererResult, canvas::RenderSurface, errors::Error, image::{Bounds
 
 const MAX_ATLAS_SIZE: u32 = 8192;
 
+/// Get the width and height of a set of [`Span`]s.
 pub fn rich_text_size(spans: &[Span]) -> RendererResult<(f32, f32)> {
     // because the hash of a `Font` is just the `Arc` pointer, this is fine
     #[allow(clippy::mutable_key_type)]
@@ -62,14 +63,17 @@ pub fn rich_text_size(spans: &[Span]) -> RendererResult<(f32, f32)> {
     Ok((total_width, total_height))
 }
 
+/// Get the width of a set of [`Span`]s.
 pub fn rich_text_width(spans: &[Span]) -> RendererResult<f32> {
     Ok(rich_text_size(spans)?.0)
 }
 
+/// Get the height of a set of [`Span`]s.
 pub fn rich_text_height(spans: &[Span]) -> RendererResult<f32> {
     Ok(rich_text_size(spans)?.1)
 }
 
+/// Get the width and height of text as rendered by the given [`Font`] at the given size.
 pub fn text_size(text: impl ToString, font: impl AsRef<Font>, size_px: f32) -> RendererResult<(f32, f32)> {
     rich_text_size(&[
         Span {
@@ -83,10 +87,12 @@ pub fn text_size(text: impl ToString, font: impl AsRef<Font>, size_px: f32) -> R
     ])
 }
 
+/// Get the width of text as rendered by the given [`Font`] at the given size.
 pub fn text_width(text: impl ToString, font: impl AsRef<Font>, size_px: f32) -> RendererResult<f32> {
     Ok(text_size(text, font, size_px)?.0)
 }
 
+/// Get the height of text as rendered by the given [`Font`] at the given size.
 pub fn text_height(text: impl ToString, font: impl AsRef<Font>, size_px: f32) -> RendererResult<f32> {
     Ok(text_size(text, font, size_px)?.1)
 }
@@ -299,23 +305,29 @@ impl Font {
         })
     }
 
+    /// Returns a read guard for the texture atlas, locking the atlas until the guard is dropped.
     // TODO: i'm not a fan of using `.expect` here but it's a sacrifice
-    //       i'm willing to make to make the API nice and consistent
+    //       i'm willing to make so the API can be nice and consistent
     pub fn atlas(&self) -> RwLockReadGuard<'_, Image> {
         self.inner.atlas.read().expect("text atlas lock is poisoned")
     }
 
+    /// Returns a write guard for the texture atlas, locking the atlas until the guard is dropped.
     pub fn atlas_mut(&self) -> RwLockWriteGuard<'_, Image> {
         self.inner.atlas.write().expect("text atlas lock is poisoned")
     }
 
+    /// Returns a [`CachedGlyph`] for the `char` at `size_px`, rasterizing it if it hasn't been loaded yet.
+    /// Returns `None` if the atlas overflowed and was cleared; re-request all glyphs from scratch.
     pub fn get_or_load_glyph(&self, char: char, size_px: f32) -> RendererResult<Option<CachedGlyph>> {
         let key = GlyphInfo(char, size_px);
 
         self.inner.get_or_load_glyph(key)
     }
 
-    pub fn line_distance(&self, size_px: f32) -> f32 {
+    /// Returns the line height for text at `size_px`.
+    /// Falls back to `size_px` if the font doesn't provide horizontal line metrics.
+    pub fn line_spacing(&self, size_px: f32) -> f32 {
         if let Some(metrics) = self.inner.font.horizontal_line_metrics(size_px) {
             metrics.new_line_size
         } else {
@@ -457,6 +469,7 @@ pub struct Text {
 
 impl Text {
     #[allow(clippy::too_many_arguments)]
+    /// Creates a fully specified [`Text`] with position, style, transform, alignment, font, and text.
     pub fn new(
         position: Vec2,
         style: TextStyle,
@@ -479,6 +492,8 @@ impl Text {
         }
     }
 
+    /// Creates a new [`Text`] with the given font.
+    /// Everything else is set to defaults.
     pub fn with_font(font: impl AsRef<Font>) -> Self {
         Self {
             position: Vec2::default(),
@@ -492,21 +507,25 @@ impl Text {
         }
     }
 
+    /// Sets the alignment of this [`Text`].
     pub fn align(&mut self, align: TextAlignment) -> &mut Self {
         self.align = align;
         self
     }
 
+    /// Sets the horizontal alignment of this [`Text`].
     pub fn horizontal_align(&mut self, align: HorizontalAlign) -> &mut Self {
         self.align.horizontal = align;
         self
     }
 
+    /// Sets the vertical alignment of this [`Text`].
     pub fn vertical_align(&mut self, align: VerticalAlign) -> &mut Self {
         self.align.vertical = align;
         self
     }
 
+    /// Sets the line alignment of this [`Text`].
     pub fn line_align(&mut self, align: HorizontalAlign) -> &mut Self {
         self.align.line = align;
         self
@@ -576,23 +595,21 @@ pub struct RichText {
     pub position: Vec2,
     pub transform: Transform2d,
     pub spans: Vec<Span>,
-
     pub align: TextAlignment,
 }
 
 impl RichText {
+    /// Creates a fully specified [`Text`] with position, transform, spans, and alignment.
     pub fn new(
         position: Vec2,
         transform: Transform2d,
         spans: Vec<Span>,
-
         align: TextAlignment,
     ) -> Self {
         Self {
             position,
             transform,
             spans,
-
             align,
         }
     }
@@ -608,21 +625,25 @@ impl RichText {
         }
     }
 
+    /// Sets the alignment of this [`RichText`].
     pub fn align(&mut self, align: TextAlignment) -> &mut Self {
         self.align = align;
         self
     }
 
+    /// Sets the horizontal alignment of this [`RichText`].
     pub fn horizontal_align(&mut self, align: HorizontalAlign) -> &mut Self {
         self.align.horizontal = align;
         self
     }
 
+    /// Sets the vertical alignment of this [`RichText`].
     pub fn vertical_align(&mut self, align: VerticalAlign) -> &mut Self {
         self.align.vertical = align;
         self
     }
 
+    /// Sets the line alignment of this [`RichText`].
     pub fn line_align(&mut self, align: HorizontalAlign) -> &mut Self {
         self.align.line = align;
         self

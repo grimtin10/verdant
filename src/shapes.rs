@@ -4,7 +4,7 @@
 
 use crate::{canvas::RenderSurface, image::Image, text::{RichText, Text}, transform::Transform2d, types::Color, vec::Vec2};
 
-/// Trait for types that can draw themselves onto a [`Window`].
+/// Trait for types that can draw themselves onto a [`RenderSurface`].
 pub trait Drawable {
     /// Draws this shape onto the given window.
     fn draw(&self, window: &mut impl RenderSurface);
@@ -39,11 +39,13 @@ impl Style {
         self
     }
 
+    /// Sets the outline color.
     pub fn outline_color(&mut self, color: Color) -> &mut Self {
         self.outline_color = color;
         self
     }
 
+    /// Sets the outline width.
     pub fn outline_width(&mut self, width: f32) -> &mut Self {
         self.outline_width = width;
         self

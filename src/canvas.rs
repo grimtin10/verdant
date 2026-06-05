@@ -7,6 +7,14 @@ use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, shape_verti
 
 static CANVAS_ID: AtomicU64 = AtomicU64::new(0);
 
+/// A surface that can be drawn onto.
+///
+/// [`RenderSurface`] uses a stateful model; style properties like fill color, outline, and text
+/// alignment are set once and apply to all subsequent draw calls until changed. Use [`with_style`]
+/// to scope state changes so they don't leak into the surrounding context.
+///
+/// The coordinate origin is at the top-left by default and can be shifted with [`set_origin`].
+/// Use [`set_view`] to define a logical coordinate space independent of the physical surface size.
 pub trait RenderSurface {
     /// Clears the window to the given color at the start of each frame.
     /// Any vertices queued before this call are discarded, since they would be covered by the clear.
@@ -41,9 +49,9 @@ pub trait RenderSurface {
     fn ellipse(&mut self, x: f32, y: f32, rx: f32, ry: f32);
     /// Draws a line from `(x1, y1)` to `(x2, y2)` using the current outline color and width.
     fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32);
-    /// Draws an image at `(x, y)` with the given width and height using the current fill color.
+    /// Draws an image at `(x, y)` with the given width and height, tinting with the current fill color.
     fn image(&mut self, image: impl AsRef<Image>, x: f32, y: f32, w: f32, h: f32);
-    /// Draws a canvas at `(x, y)` with the given width and height using the current fill color.
+    /// Draws a canvas at `(x, y)` with the given width and height, tinting with the current fill color.
     fn composite(&mut self, canvas: impl AsRef<Canvas>, x: f32, y: f32, w: f32, h: f32);
 
     // text
@@ -442,6 +450,9 @@ impl CanvasState {
         self.context.update_transform(self.view.transform() * self.context.local_transform);
     }
 
+    /// Resize this canvas using the given width and height.
+    ///
+    /// Note: this function clears the canvas whenever called.
     pub fn resize(&mut self, width: u32, height: u32) {
         let Some(render_context) = self.render_context.as_mut() else { return };
 

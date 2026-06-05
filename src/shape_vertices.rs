@@ -168,7 +168,7 @@ pub(crate) fn textured_vertices(
     ]
 }
 
-pub fn canvas_vertices(
+pub(crate) fn canvas_vertices(
     x: f32, y: f32,
     w: f32, h: f32,
     uv_min: Vec2, uv_max: Vec2,
