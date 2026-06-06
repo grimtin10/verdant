@@ -12,8 +12,6 @@
 //       though i am currently happy with its performance as it *is* in a pre-1.0 state
 //       honestly, it does pretty well for what it is
 
-// TODO: another documentation pass...
-
 #![deny(clippy::unwrap_used)]
 
 pub use wgpu::TextureFormat;

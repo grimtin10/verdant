@@ -1,6 +1,6 @@
 [package]
 name = "verdant"
-version = "0.4.6"
+version = "0.4.7"
 edition = "2024"
 description = "A WIP windowing and rendering library, built on a modern foundation, aiming to be lightweight, performant, and powerful."
 license = "MPL-2.0"
@@ -15,7 +15,7 @@ text = ["dep:fontdue"]
 bytemuck = "1.25.0"
 pollster = "0.4.0"
 thiserror = "2.0.18"
-wgpu = "29.0.3"
+wgpu = { version = "29.0.3", default-features = false, features = ["dx12", "metal", "vulkan", "gles", "wgsl", "std", "parking_lot"] }
 winit = "0.31.0-beta.2"
 
 fontdue = { version = "0.9.3", optional = true }

@@ -21,8 +21,8 @@
 
 ## What is Verdant?
 
-Verdant is a rendering and windowing library for Rust.
-Built on top of `wgpu` and `winit`, Verdant focuses on a clean, expressive, and easy-to-use API that makes common rendering tasks easy and difficult mistakes hard to make.
+Verdant is a rendering and windowing library for Rust, inspired by Processing, made to be accessible.
+Built on top of `wgpu` and `winit`, Verdant focuses on a clean, expressive, and easy-to-use API that makes common rendering tasks easy and mistakes difficult.
 
 ```rust
 use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, rgb, shapes::{Drawable, Rect}};
@@ -116,6 +116,7 @@ Verdant provides both a basic text API and a rich text API, allowing you to mix 
 ### Canvases are first-class
 
 Verdant allows you to render to off-screen surfaces just as easily as rendering to a window.
+It even lets you render a canvas to itself, allowing for recursive effects!
 
 *See [canvas.rs](examples/canvas.rs) and [paint.rs](examples/paint.rs)*
 
