@@ -129,6 +129,12 @@ This allows you to create scalable applications without having to manually handl
 
 <img width="800" alt="image" src="https://github.com/user-attachments/assets/a28250a2-8b80-4e34-84d1-e130cae74957" style="max-width: 100%; height: auto" />
 
+### Configurable scaling
+Verdant lets you choose how outlines and corner radii scale. They can behave like physical geometry, remain at a constant pixel size, or respond independently to transforms and view scaling.
+This makes it easy to build everything from scalable interfaces to interactive visualizations without sacrificing visual consistency.
+
+*See [outline_scaling.rs](examples/outline_scaling.rs)*
+
 ---
 
 ## Installation

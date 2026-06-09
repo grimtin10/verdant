@@ -14,6 +14,12 @@ pub trait Drawable {
     fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32);
 }
 
+/// The scaling mode for outlines and corner radii.
+///
+/// Use `Geometric` if you don't want any visual correction for scaling.
+/// Use `Constant` if you want full visual correction, keeping pixel values constant.
+/// Use `Transform` if you only want to correct against view scaling.
+/// Use `View` if you only want to correct against local transform scaling.
 // TODO: proper shape API for this feature
 //       i'm just lazy right now okay
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -22,10 +28,10 @@ pub enum ScalingMode {
     #[default]
     Geometric,
 
-    /// Scales only with local transforms, remaining unaffected by camera zoom.
+    /// Scales only with local transforms, remaining unaffected by view scaling.
     Transform,
 
-    /// Scales only with camera zoom, remaining unaffected by local transforms.
+    /// Scales only with view scaling, remaining unaffected by local transforms.
     View,
 
     /// Stays at a constant screen pixel size, completely unaffected by zoom or transforms.
