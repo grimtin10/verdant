@@ -570,6 +570,12 @@ impl Text {
         self.text = text.to_string().into();
         self.clone()
     }
+
+    /// Mutates the underlying [`String`] of this [`Text`] in-place.
+    pub fn mutate(&mut self, f: impl FnOnce(&mut String)) -> Self {
+        f(Arc::make_mut(&mut self.text));
+        self.clone()
+    }
 }
 
 impl Drawable for Text {
@@ -598,7 +604,7 @@ impl Drawable for Text {
 pub struct RichText {
     pub position: Vec2,
     pub transform: Transform2d,
-    pub spans: Arc<[Span]>,
+    pub spans: Arc<Vec<Span>>,
     pub align: TextAlignment,
 }
 
@@ -650,6 +656,18 @@ impl RichText {
     /// Sets the line alignment of this [`RichText`].
     pub fn line_align(&mut self, align: HorizontalAlign) -> Self {
         self.align.line = align;
+        self.clone()
+    }
+
+    /// Pushes a new [`Span`] to this [`RichText`].
+    pub fn push_span(&mut self, span: Span) -> Self {
+        Arc::make_mut(&mut self.spans).push(span);
+        self.clone()
+    }
+
+    /// Modifies the underlying [`Span`]s of this [`RichText`].
+    pub fn modify(&mut self, f: impl FnOnce(&mut Vec<Span>)) -> Self {
+        f(Arc::make_mut(&mut self.spans));
         self.clone()
     }
 }

@@ -902,15 +902,21 @@ impl Canvas {
         }
     }
 
-    pub fn draw(&self, commands: impl FnOnce(&mut CanvasState)) {
-        commands(&mut self.write())
+    pub fn read(&self) -> RwLockReadGuard<'_, CanvasState> {
+        match self.inner.read() {
+            Ok(guard) => guard,
+            Err(err) => err.into_inner(),
+        }
     }
 
     pub fn write(&self) -> RwLockWriteGuard<'_, CanvasState> {
-        self.inner.write().expect("canvas inner lock is poisoned")
+        match self.inner.write() {
+            Ok(guard) => guard,
+            Err(err) => err.into_inner(),
+        }
     }
 
-    pub fn read(&self) -> RwLockReadGuard<'_, CanvasState> {
-        self.inner.read().expect("canvas inner lock is poisoned")
+    pub fn draw(&self, commands: impl FnOnce(&mut CanvasState)) {
+        commands(&mut self.write())
     }
 }
