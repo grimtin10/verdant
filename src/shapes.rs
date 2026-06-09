@@ -14,11 +14,40 @@ pub trait Drawable {
     fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32);
 }
 
+// TODO: proper shape API for this feature
+//       i'm just lazy right now okay
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ScalingMode {
+    /// Scales with both local transforms and camera zoom, behaving like physical geometry.
+    #[default]
+    Geometric,
+
+    /// Scales only with local transforms, remaining unaffected by camera zoom.
+    Transform,
+
+    /// Scales only with camera zoom, remaining unaffected by local transforms.
+    View,
+
+    /// Stays at a constant screen pixel size, completely unaffected by zoom or transforms.
+    Constant,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Style {
+    /// The fill color of this shape.
     pub fill_color: Color,
+
+    /// The outline color of this shape.
     pub outline_color: Color,
+    /// The outline width of this shape.
     pub outline_width: f32,
+    /// How the outline of this shape scales with local transform and zoom (default: None).
+    pub outline_scaling: ScalingMode,
+
+    /// The corner radius of this shape.
+    pub corner_radius: f32,
+    /// How the corner radius of this shape scales with local transform and zoom (default: None).
+    pub corner_scaling: ScalingMode,
 }
 
 impl Default for Style {
@@ -28,34 +57,56 @@ impl Default for Style {
 
             outline_color: Color::default(),
             outline_width: f32::default(),
+            outline_scaling: ScalingMode::default(),
+
+            corner_radius: f32::default(),
+            corner_scaling: ScalingMode::default(),
         }
     }
 }
 
 impl Style {
     /// Sets the fill color.
-    pub fn fill(&mut self, color: Color) -> &mut Self {
+    pub fn fill(&mut self, color: Color) -> Self {
         self.fill_color = color;
-        self
+        *self
     }
 
     /// Sets the outline color.
-    pub fn outline_color(&mut self, color: Color) -> &mut Self {
+    pub fn outline_color(&mut self, color: Color) -> Self {
         self.outline_color = color;
-        self
+        *self
     }
 
     /// Sets the outline width.
-    pub fn outline_width(&mut self, width: f32) -> &mut Self {
+    pub fn outline_width(&mut self, width: f32) -> Self {
         self.outline_width = width;
-        self
+        *self
     }
 
     /// Sets the outline color and width.
-    pub fn outline(&mut self, color: Color, width: f32) -> &mut Self {
+    pub fn outline(&mut self, color: Color, width: f32) -> Self {
         self.outline_color = color;
         self.outline_width = width;
-        self
+        *self
+    }
+
+    /// Sets the outline scaling mode.
+    pub fn outline_scaling(&mut self, scaling: ScalingMode) -> Self {
+        self.outline_scaling = scaling;
+        *self
+    }
+
+    /// Sets the corner radius.
+    pub fn corner_radius(&mut self, radius: f32) -> Self {
+        self.corner_radius = radius;
+        *self
+    }
+
+    /// Sets the corner scaling mode.
+    pub fn corner_scaling(&mut self, scaling: ScalingMode) -> Self {
+        self.corner_scaling = scaling;
+        *self
     }
 }
 
@@ -196,7 +247,8 @@ impl Drawable for Rect {
                     window.fill(self.style.fill_color);
                     window.outline_color(self.style.outline_color);
                     window.outline_width(self.style.outline_width);
-                    window.round_rect(0., 0., self.size.x, self.size.y, self.corner_radius);
+                    window.corner_radius(self.style.corner_radius);
+                    window.rect(0., 0., self.size.x, self.size.y);
                 }
             );
         });
@@ -357,6 +409,7 @@ pub struct ImageRect {
     pub transform: Transform2d,
 }
 
+// `.clone()` here is fine, because it's just cloning an `Arc` and everything else is `Copy`
 impl_size!(ImageRect, |s: &mut ImageRect| s.clone());
 impl_transformed!(ImageRect, |s: &mut ImageRect| s.clone());
 
@@ -427,6 +480,6 @@ impl Drawable for ImageRect {
     }
 }
 
-// TODO: something something performance....
+// `.clone()` here is fine, because it's just cloning an `Arc` and everything else is `Copy`
 impl_transformed!(Text, |s: &mut Text| s.clone());
 impl_transformed!(RichText, |s: &mut RichText| s.clone());

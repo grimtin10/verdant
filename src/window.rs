@@ -1,11 +1,154 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::{Arc, atomic::{AtomicUsize, Ordering}}};
 
 use wgpu::{CurrentSurfaceTexture, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
-use winit::dpi::{PhysicalPosition, PhysicalSize};
+use winit::{dpi::{PhysicalPosition, PhysicalSize}, monitor::Fullscreen, window::WindowLevel};
 
-use crate::{GpuContext, RendererResult, canvas::{Canvas, RenderSurface}, image::Image, text::{Font, HorizontalAlign, Span, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
+use crate::{AdvancedWindowProperties, GpuContext, Renderer, RendererResult, canvas::{Canvas, RenderSurface}, image::Image, shapes::ScalingMode, text::{Font, HorizontalAlign, Span, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
 
-// TODO: the ability to toggle if you want stroke scaling or not with views/transforms
+static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct WindowId(pub(crate) usize);
+
+impl WindowId {
+    pub(crate) fn new() -> Self {
+        Self(NEXT_ID.fetch_add(1, Ordering::Relaxed))
+    }
+}
+
+// TODO: windows have quite a few more properties than this
+#[derive(Debug, Clone)]
+pub struct WindowProperties {
+    /// The title of the window.
+    pub title: String,
+
+    /// The width of the window in pixels.
+    pub width: u32,
+
+    /// The height of the window in pixels.
+    pub height: u32,
+
+    /// Whether the window can be resized by the user.
+    pub resizable: bool,
+
+    /// Whether the window background is transparent (on platforms that support it).
+    pub transparent: bool,
+
+    /// Whether the window should launch in borderless fullscreen mode.
+    pub fullscreen: bool,
+
+    /// Whether the window should launch maximized.
+    pub maximized: bool,
+
+    /// Whether the window should always render on top of other windows.
+    pub always_on_top: bool,
+}
+
+impl WindowProperties {
+    /// Create a new [`WindowProperties`] with a `title`, `width`, and `height`.
+    pub fn new(title: impl Into<String>, width: u32, height: u32) -> Self {
+        Self {
+            title: title.into(),
+            width,
+            height,
+            ..Default::default()
+        }
+    }
+
+    /// Set the title of the window.
+    pub fn title(mut self, title: impl Into<String>) -> Self {
+        self.title = title.into();
+        self
+    }
+
+    /// Set the width of the window.
+    pub fn width(mut self, width: u32) -> Self {
+        self.width = width;
+        self
+    }
+
+    /// Set the height of the window.
+    pub fn height(mut self, height: u32) -> Self {
+        self.height = height;
+        self
+    }
+
+    /// Set the size of the window.
+    pub fn size(mut self, width: u32, height: u32) -> Self {
+        self.width = width;
+        self.height = height;
+        self
+    }
+
+    /// Set whether the window is resizable.
+    pub fn resizable(mut self, resizable: bool) -> Self {
+        self.resizable = resizable;
+        self
+    }
+
+    /// Set whether the window background is transparent (on platforms that support it).
+    pub fn transparent(mut self, transparent: bool) -> Self {
+        self.transparent = transparent;
+        self
+    }
+
+    /// Set whether the window should launch in borderless fullscreen mode.
+    pub fn fullscreen(mut self, fullscreen: bool) -> Self {
+        self.fullscreen = fullscreen;
+        self
+    }
+
+    /// Set whether the window should launch maximized.
+    pub fn maximized(mut self, maximized: bool) -> Self {
+        self.maximized = maximized;
+        self
+    }
+
+    /// Set whether the window should always render on top of other windows.
+    pub fn always_on_top(mut self, always_on_top: bool) -> Self {
+        self.always_on_top = always_on_top;
+        self
+    }
+
+    pub fn build(self, renderer: &mut Renderer) -> WindowId {
+        renderer.create_window_ext(self)
+    }
+}
+
+impl From<WindowProperties> for AdvancedWindowProperties {
+    fn from(props: WindowProperties) -> Self {
+        let mut attributes = AdvancedWindowProperties::default()
+            .with_title(props.title)
+            .with_surface_size(PhysicalSize::new(props.width, props.height))
+            .with_resizable(props.resizable)
+            .with_transparent(props.transparent)
+            .with_maximized(props.maximized);
+
+        if props.fullscreen {
+            attributes = attributes.with_fullscreen(Some(Fullscreen::Borderless(None)));
+        }
+
+        if props.always_on_top {
+            attributes = attributes.with_window_level(WindowLevel::AlwaysOnTop);
+        }
+
+        attributes
+    }
+}
+
+impl Default for WindowProperties {
+    fn default() -> Self {
+        Self {
+            title: "verdant window".into(),
+            width: 800,
+            height: 600,
+            resizable: true,
+            transparent: false,
+            fullscreen: false,
+            maximized: false,
+            always_on_top: false,
+        }
+    }
+}
 
 #[derive(Debug, Default)]
 pub(crate) struct WindowContext {
@@ -202,16 +345,24 @@ impl RenderSurface for Window {
         self.canvas.write().no_outline();
     }
 
+    fn outline_scaling(&mut self, mode: ScalingMode) {
+        self.canvas.write().outline_scaling(mode);
+    }
+
+    fn corner_radius(&mut self, radius: f32) {
+        self.canvas.write().corner_radius(radius);
+    }
+
+    fn corner_scaling(&mut self, mode: ScalingMode) {
+        self.canvas.write().corner_scaling(mode);
+    }
+
     fn clear_style(&mut self) {
         self.canvas.write().clear_style();
     }
 
     fn rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
         self.canvas.write().rect(x, y, w, h);
-    }
-
-    fn round_rect(&mut self, x: f32, y: f32, w: f32, h: f32, corner_radius: f32) {
-        self.canvas.write().round_rect(x, y, w, h, corner_radius);
     }
 
     fn ellipse(&mut self, x: f32, y: f32, rx: f32, ry: f32) {

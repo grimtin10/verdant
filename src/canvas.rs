@@ -3,7 +3,7 @@ use std::{collections::{HashMap, HashSet}, mem::take, ops::Range, sync::{Arc, Rw
 use bytemuck::cast_slice;
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, BufferDescriptor, BufferUsages, CommandEncoder, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, util::{BufferInitDescriptor, DeviceExt}, wgt::TextureDataOrder};
 
-use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, shape_vertices::{canvas_vertices, ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::Style, text::{self, Font, HorizontalAlign, Span, VerticalAlign}, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
+use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, shape_vertices::{canvas_vertices, ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::{ScalingMode, Style}, text::{self, Font, HorizontalAlign, Span, VerticalAlign}, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
 
 static CANVAS_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -33,6 +33,14 @@ pub trait RenderSurface {
     fn outline(&mut self, color: Color, width: f32);
     /// Disables the outline for subsequent shapes.
     fn no_outline(&mut self);
+    /// Sets the outline scaling mode for subsequent shapes.
+    // TODO: i feel like this is poorly documented and explained
+    //       it's a useful feature, but i need to improve it
+    fn outline_scaling(&mut self, mode: ScalingMode);
+    /// Sets the corner radius for subsequent shapes.
+    fn corner_radius(&mut self, radius: f32);
+    /// Sets the corner radius scaling mode for subsequent shapes.
+    fn corner_scaling(&mut self, mode: ScalingMode);
     /// Resets the current style back to the default.
     /// ([`Color::WHITE`] fill, no outline)
     fn clear_style(&mut self);
@@ -41,9 +49,6 @@ pub trait RenderSurface {
     /// Draws a rectangle at `(x, y)` with the given width and height,
     /// using the current fill and outline style.
     fn rect(&mut self, x: f32, y: f32, w: f32, h: f32);
-    /// Draws a rounded rectangle at `(x, y)` with the given width, height, and corner radius,
-    /// using the current fill and outline style.
-    fn round_rect(&mut self, x: f32, y: f32, w: f32, h: f32, corner_radius: f32);
     /// Draws an ellipse centered at `(x, y)` with horizontal radius `rx` and vertical radius `ry`,
     /// using the current fill and outline style.
     fn ellipse(&mut self, x: f32, y: f32, rx: f32, ry: f32);
@@ -112,6 +117,15 @@ impl Default for TextStyle {
             vertical_align: VerticalAlign::default(),
             line_align: HorizontalAlign::default(),
         }
+    }
+}
+
+fn resolve_scale(value: f32, mode: ScalingMode, model_scale: f32, view_scale: f32) -> f32 {
+    match mode {
+        ScalingMode::Constant => value,
+        ScalingMode::Transform => value * model_scale,
+        ScalingMode::View => value * view_scale,
+        ScalingMode::Geometric => value * model_scale * view_scale,
     }
 }
 
@@ -304,6 +318,17 @@ impl CanvasState {
             v.position = self.context.transform.transform_point(v.position);
         }
         self.context.vertices.extend(vertices);
+    }
+
+    fn get_scales(&self) -> (f32, f32, Vec2) {
+        let model_scale = self.context.local_transform.get_safe_scale();
+        let view_scale = self.view.transform().get_safe_scale();
+
+        (
+            (model_scale.x + model_scale.y) / 2.,
+            (view_scale.x + view_scale.y) / 2.,
+            self.context.transform.get_safe_scale(),
+        )
     }
 
     pub(crate) fn flush_with_encoder(
@@ -507,24 +532,39 @@ impl RenderSurface for CanvasState {
         self.style.outline_width = 0.;
     }
 
+    fn outline_scaling(&mut self, mode: ScalingMode) {
+        self.style.outline_scaling = mode;
+    }
+
+    fn corner_radius(&mut self, radius: f32) {
+        self.style.corner_radius = radius;
+    }
+
+    fn corner_scaling(&mut self, mode: ScalingMode) {
+        self.style.corner_scaling = mode;
+    }
+
     fn clear_style(&mut self) {
         self.style = Style::default();
     }
 
-        fn rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.push_vertices(rect_vertices(
-            x,
-            y,
-            w,
-            h,
-            self.style.fill_color,
-            self.style.outline_color,
-            self.style.outline_width,
-            0.,
-        ))
-    }
+    fn rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
+        let (model_scale, view_scale, total_scale) = self.get_scales();
 
-    fn round_rect(&mut self, x: f32, y: f32, w: f32, h: f32, corner_radius: f32) {
+        let outline_width = resolve_scale(
+            self.style.outline_width,
+            self.style.outline_scaling,
+            model_scale,
+            view_scale
+        );
+
+        let corner_radius = resolve_scale(
+            self.style.corner_radius,
+            self.style.corner_scaling,
+            model_scale,
+            view_scale
+        );
+
         self.push_vertices(rect_vertices(
             x,
             y,
@@ -532,12 +572,22 @@ impl RenderSurface for CanvasState {
             h,
             self.style.fill_color,
             self.style.outline_color,
-            self.style.outline_width,
+            outline_width,
             corner_radius,
+            total_scale,
         ))
     }
 
     fn ellipse(&mut self, x: f32, y: f32, rx: f32, ry: f32) {
+        let (model_scale, view_scale, total_scale) = self.get_scales();
+
+        let outline_width = resolve_scale(
+            self.style.outline_width,
+            self.style.outline_scaling,
+            model_scale,
+            view_scale
+        );
+
         self.push_vertices(ellipse_vertices(
             x,
             y,
@@ -545,16 +595,27 @@ impl RenderSurface for CanvasState {
             ry,
             self.style.fill_color,
             self.style.outline_color,
-            self.style.outline_width
+            outline_width,
+            total_scale,
         ))
     }
 
     fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
+        let (model_scale, view_scale, _) = self.get_scales();
+
+        let outline_width = resolve_scale(
+            self.style.outline_width,
+            self.style.outline_scaling,
+            model_scale,
+            view_scale
+        );
+
         self.push_vertices(line_vertices(
             Vec2::new(x1, y1),
             Vec2::new(x2, y2),
             self.style.outline_color,
-            self.style.outline_width
+            outline_width,
+            self.context.transform,
         ))
     }
 

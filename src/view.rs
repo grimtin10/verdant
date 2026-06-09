@@ -64,7 +64,7 @@ impl View {
         self.scale_offset = self.get_scale_offset();
         let (scale_x, scale_y, x, y) = self.scale_offset;
 
-        self.transform = *Transform2d::translation(origin.x, origin.y)
+        self.transform = Transform2d::translation(origin.x, origin.y)
             .scale(scale_x, scale_y)
             .translate(x, y);
     }

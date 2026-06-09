@@ -21,11 +21,11 @@ use bytemuck::{Pod, Zeroable};
 
 use pollster::block_on;
 use wgpu::{Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, BufferBindingType, ColorTargetState, ColorWrites, Device, DeviceDescriptor, Extent3d, FilterMode, FragmentState, FrontFace, Instance, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler, SamplerDescriptor, ShaderStages, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState, VertexStepMode, include_wgsl, util::{DeviceExt}, vertex_attr_array, wgt::TextureDataOrder};
-use winit::{application::ApplicationHandler, dpi::PhysicalSize, event_loop::{ActiveEventLoop, EventLoop}, window::WindowAttributes};
+use winit::{application::ApplicationHandler, dpi::PhysicalSize, event_loop::{ActiveEventLoop, EventLoop}};
 
 use std::{collections::{HashMap, VecDeque}, sync::Arc};
 
-use crate::{canvas::{Canvas, RenderSurface}, errors::Error, transform::Transform2d, types::{Color, WindowId, WindowProperties}, vec::Vec2, window::Window};
+use crate::{canvas::{Canvas, RenderSurface}, errors::Error, transform::Transform2d, types::Color, vec::Vec2, window::{Window, WindowId, WindowProperties}};
 
 pub mod canvas;
 pub mod errors;
@@ -43,6 +43,13 @@ mod shape_vertices;
 pub mod text;
 
 pub type RendererResult<T> = Result<T, Error>;
+
+/// This is for if you need to do things that verdant's [`WindowProperties`] doesn't support.
+/// Use [`WindowProperties`] for normal use cases.
+///
+/// Note: This type is a direct re-export of `winit::window::WindowAttributes`; under a different
+/// name to avoid confusion with [`WindowProperties`].
+pub type AdvancedWindowProperties = winit::window::WindowAttributes;
 
 const KIND_RECT:     u32 = 0;
 const KIND_ELLIPSE:  u32 = 1;
@@ -159,7 +166,7 @@ struct RendererContext {
     virtual_to_real: HashMap<WindowId, winit::window::WindowId>,
     real_to_virtual: HashMap<winit::window::WindowId, WindowId>,
 
-    window_queue: VecDeque<(WindowId, WindowProperties)>,
+    window_queue: VecDeque<(WindowId, AdvancedWindowProperties)>,
 
     events: Vec<(WindowId, WindowEvent)>,
 
@@ -348,13 +355,7 @@ impl RendererContext {
     }
 
     fn process_queued_windows(&mut self, event_loop: &dyn ActiveEventLoop) -> RendererResult<()> {
-        while let Some((id, props)) = self.window_queue.pop_front() {
-            let mut attributes = WindowAttributes::default()
-                .with_title(props.title)
-                .with_resizable(props.resizable)
-                .with_surface_size(PhysicalSize::new(props.width, props.height))
-                .with_transparent(props.transparent);
-
+        while let Some((id, mut attributes)) = self.window_queue.pop_front() {
             #[cfg(linux_platform)]
             {
                 use winit::platform::wayland::WindowAttributesWayland;
@@ -378,11 +379,13 @@ impl RendererContext {
                 attributes = attributes.with_platform_attributes(Box::new(platform_attributes));
             }
 
+            let size = attributes.surface_size.map_or(PhysicalSize::default(), |s| s.to_physical(1.));
+
             let inner_window = Arc::new(event_loop.create_window(attributes)?);
             let surface = self.instance.create_surface(inner_window.clone())?;
 
             let context = block_on(self.get_or_init_context(&surface))?;
-            let window = Self::configure_window(inner_window, surface, context, props.width, props.height)?;
+            let window = Self::configure_window(inner_window, surface, context, size.width, size.height)?;
 
             let real_id = window.inner_window.id();
             self.virtual_to_real.insert(id, real_id);
@@ -445,7 +448,7 @@ pub struct Renderer {
 }
 
 fn ortho(width: f32, height: f32) -> Transform2d {
-    *Transform2d::scaling(2. / width, -2. / height).translate(-1., 1.)
+    Transform2d::scaling(2. / width, -2. / height).translate(-1., 1.)
 }
 
 impl Renderer {
@@ -488,10 +491,12 @@ impl Renderer {
     /// Creates a new window with the given properties.
     /// Returns a [`WindowId`] that can be used to interact with the window.
     /// Initializes the GPU context if this is the first window created.
-    pub fn create_window_ext(&mut self, props: WindowProperties) -> WindowId {
+    ///
+    /// Use [`WindowProperties`] for normal cases and use [`AdvancedWindowProperties`] for advanced cases.
+    pub fn create_window_ext(&mut self, props: impl Into<AdvancedWindowProperties>) -> WindowId {
         let id = WindowId::new();
 
-        self.context.window_queue.push_back((id, props));
+        self.context.window_queue.push_back((id, props.into()));
 
         id
     }

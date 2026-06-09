@@ -1,4 +1,4 @@
-use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, image::Image, rgb, rgba, shapes::{Drawable, Ellipse, Rect, Style}, transform::Transform2d, types::{Color, WindowProperties}, vec::Vec2, view::ViewMode};
+use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, image::Image, rgb, rgba, shapes::{Drawable, Ellipse, Rect, Style}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode, window::WindowProperties};
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
@@ -20,6 +20,7 @@ fn main() -> RendererResult<()> {
             fill_color: Color::RED,
             outline_color: Color::BLACK,
             outline_width: 5.,
+            ..Default::default()
         },
         Transform2d::identity(),
     );
@@ -90,7 +91,6 @@ fn main() -> RendererResult<()> {
                 .size(800., 400.)
                 .fill(rgba(0., 0., 0., 0.5))
                 .outline(Color::BLACK, 5.0)
-                .corner_radius(0.)
                 .draw(window);
         }
 
@@ -106,7 +106,11 @@ fn main() -> RendererResult<()> {
             window.outline_width(2.0);
 
             window.fill(rgb(0.7, 0.7, 0.3));
-            window.round_rect(-200., -200., 400., 400., 100.);
+
+            window.with_style(|window| {
+                window.corner_radius(100.);
+                window.rect(-200., -200., 400., 400.);
+            });
 
             window.with_transform(Transform2d::rotation_deg(window.get_mouse_x() / 800. * 360.), |window| {
                 window.outline_color(rgb(1.0, 0.0, 0.0));

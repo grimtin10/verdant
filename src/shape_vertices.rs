@@ -1,4 +1,4 @@
-use crate::{KIND_CANVAS, KIND_ELLIPSE, KIND_LINE, KIND_RECT, KIND_TEXTURED, Vertex, types::Color, vec::Vec2};
+use crate::{KIND_CANVAS, KIND_ELLIPSE, KIND_LINE, KIND_RECT, KIND_TEXTURED, Vertex, transform::Transform2d, types::Color, vec::Vec2};
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn rect_vertices(
@@ -8,24 +8,24 @@ pub(crate) fn rect_vertices(
     outline_color: Color,
     outline_width: f32,
     corner_radius: f32,
+    total_scale: Vec2,
 ) -> [Vertex; 6] {
-    let (hw, hh) = (w / 2.0, h / 2.0);
+    let (hw, hh) = (w / 2., h / 2.);
     let (center_x, center_y) = (x + hw, y + hh);
 
     // half the outline width + an extra 1.5 for anti-aliasing
-    let padding = (outline_width / 2.0) + 1.5;
-    let pad_x = hw + padding;
-    let pad_y = hh + padding;
+    let padding = (outline_width / 2.) + 1.5;
+    let pad_x = hw + (padding / total_scale.x);
+    let pad_y = hh + (padding / total_scale.y);
 
     let v = |x, y| Vertex {
         position: Vec2::new(x + center_x, y + center_y),
-        uv:       Vec2::new(x, y),
-        radii:    Vec2::new(hw, hh),
+        uv:       Vec2::new(x, y) * total_scale,
+        radii:    Vec2::new(hw, hh) * total_scale,
 
         fill_color,
         outline_color,
         outline_width,
-
         corner_radius,
 
         kind: KIND_RECT,
@@ -36,24 +36,26 @@ pub(crate) fn rect_vertices(
     ]
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn ellipse_vertices(
     x: f32, y: f32,
     rx: f32, ry: f32,
     fill_color: Color,
     outline_color: Color,
     outline_width: f32,
+    total_scale: Vec2,
 ) -> [Vertex; 6] {
     // half the outline width + an extra 1.5 for anti-aliasing
     let padding = (outline_width / 2.0) + 1.5;
-    let pad_x = rx + padding;
-    let pad_y = ry + padding;
+    let pad_x = rx + (padding / total_scale.x);
+    let pad_y = ry + (padding / total_scale.y);
 
     let (x1, y1, x2, y2) = (x - pad_x, y - pad_y, x + pad_x, y + pad_y);
 
     let v = |x, y, ux, uy| Vertex {
         position: Vec2::new(x, y),
-        uv:       Vec2::new(ux, uy),
-        radii:    Vec2::new(rx, ry),
+        uv:       Vec2::new(ux, uy) * total_scale,
+        radii:    Vec2::new(rx, ry) * total_scale,
 
         fill_color,
         outline_color,
@@ -74,10 +76,22 @@ pub(crate) fn line_vertices(
     b: Vec2,
     color: Color,
     width: f32,
+    transform: Transform2d,
 ) -> [Vertex; 6] {
     let displacement = b - a;
     let length = displacement.length();
     const EPSILON: f32 = 1e-6;
+
+    let dir = if length < EPSILON {
+        Vec2::new(1.0, 0.0)
+    } else {
+        displacement / length
+    };
+    let perp = Vec2::new(-dir.y, dir.x);
+
+    let scale_x = transform.transform_vector(dir).length().max(1e-5);
+    let scale_y = transform.transform_vector(perp).length().max(1e-5);
+    let scale = Vec2::new(scale_x, scale_y);
 
     if length < EPSILON {
         let radius = width / 2.;
@@ -89,18 +103,16 @@ pub(crate) fn line_vertices(
             color,
             Color::TRANSPARENT,
             0.,
+            scale,
         )
     }
-
-    let dir = displacement.normalize();
-    let perp = Vec2::new(-dir.y, dir.x);
 
     let hw = width / 2.;
     let hl = length / 2.;
 
     let padding = 1.5;
-    let pad_hw = hw + padding;
-    let pad_hl = hl + hw + padding;
+    let pad_hw = hw + (padding / scale.x);
+    let pad_hl = hl + hw + (padding / scale.y);
 
     let offset_x = dir * pad_hl;
     let offset_y = perp * pad_hw;
@@ -122,8 +134,8 @@ pub(crate) fn line_vertices(
 
     let v = |i: usize| Vertex {
         position: corners[i],
-        uv:       uvs[i],
-        radii:    Vec2::new(hl, 0.),
+        uv:       uvs[i] * scale,
+        radii:    Vec2::new(hl, 0.) * scale,
 
         fill_color: color,
         outline_color: color,

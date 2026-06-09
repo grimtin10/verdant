@@ -1,31 +1,8 @@
-use std::{fs, path::{Path, PathBuf}, sync::atomic::{AtomicUsize, Ordering}};
+use std::{fs, path::{Path, PathBuf}};
 
 use bytemuck::{Pod, Zeroable};
 
 use crate::{RendererResult, rgb, rgba, vec::Vec4};
-
-static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct WindowId(pub(crate) usize);
-
-impl WindowId {
-    pub(crate) fn new() -> Self {
-        Self(NEXT_ID.fetch_add(1, Ordering::Relaxed))
-    }
-}
-
-// TODO: windows have quite a few more properties than this
-#[derive(Debug, Clone, Default)]
-pub struct WindowProperties {
-    pub width: u32,
-    pub height: u32,
-
-    pub title: String,
-
-    pub resizable: bool,
-
-    pub transparent: bool,
-}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable, PartialEq)]

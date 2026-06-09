@@ -1,7 +1,7 @@
 use std::time::Instant;
 
 use rand::random_range;
-use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, shapes::Drawable, text::{Font, VerticalAlign}, transform::Transform2d, types::{Color, WindowProperties}, vec::Vec2, view::ViewMode};
+use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, shapes::Drawable, text::{Font, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode, window::WindowProperties};
 
 // all the parameters that control the simulation
 // boid settings
@@ -97,13 +97,9 @@ impl Drawable for Boid {
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
-    let window_id = renderer.create_window_ext(WindowProperties {
-        title: "boids".into(),
-        width: 1920,
-        height: 1080,
-        resizable: true,
-        ..Default::default()
-    });
+    let window_id = WindowProperties::new("boids", 1920, 1080)
+        .resizable(true)
+        .build(&mut renderer);
 
     let mut boids = Vec::new();
 

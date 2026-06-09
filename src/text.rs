@@ -306,15 +306,19 @@ impl Font {
     }
 
     /// Returns a read guard for the texture atlas, locking the atlas until the guard is dropped.
-    // TODO: i'm not a fan of using `.expect` here but it's a sacrifice
-    //       i'm willing to make so the API can be nice and consistent
     pub fn atlas(&self) -> RwLockReadGuard<'_, Image> {
-        self.inner.atlas.read().expect("text atlas lock is poisoned")
+        match self.inner.atlas.read() {
+            Ok(guard) => guard,
+            Err(err) => err.into_inner(),
+        }
     }
 
     /// Returns a write guard for the texture atlas, locking the atlas until the guard is dropped.
     pub fn atlas_mut(&self) -> RwLockWriteGuard<'_, Image> {
-        self.inner.atlas.write().expect("text atlas lock is poisoned")
+        match self.inner.atlas.write() {
+            Ok(guard) => guard,
+            Err(err) => err.into_inner(),
+        }
     }
 
     /// Returns a [`CachedGlyph`] for the `char` at `size_px`, rasterizing it if it hasn't been loaded yet.
@@ -390,19 +394,19 @@ impl PartialEq for TextStyle {
 impl Eq for TextStyle {}
 
 impl TextStyle {
-    /// Sets the font size (in pixels).
+    /// Sets the font size (in pixels) of this [`TextStyle`].
     pub fn size(&mut self, size_px: f32) -> &mut Self {
         self.size = size_px;
         self
     }
 
-    /// Sets the color.
+    /// Sets the color of this [`TextStyle`].
     pub fn color(&mut self, color: Color) -> &mut Self {
         self.color = color;
         self
     }
 
-    /// Sets the offset.
+    /// Sets the offset of this [`TextStyle`].
     pub fn offset(&mut self, offset: Vec2) -> &mut Self {
         self.offset = offset;
         self
@@ -464,7 +468,7 @@ pub struct Text {
     pub align: TextAlignment,
 
     pub font: Font,
-    pub text: String,
+    pub text: Arc<String>,
 }
 
 impl Text {
@@ -488,7 +492,7 @@ impl Text {
             align,
 
             font: font.as_ref().clone(),
-            text: text.to_string(),
+            text: text.to_string().into(),
         }
     }
 
@@ -503,68 +507,68 @@ impl Text {
             align: TextAlignment::default(),
 
             font: font.as_ref().clone(),
-            text: String::default(),
+            text: Arc::default(),
         }
     }
 
     /// Sets the alignment of this [`Text`].
-    pub fn align(&mut self, align: TextAlignment) -> &mut Self {
+    pub fn align(&mut self, align: TextAlignment) -> Self {
         self.align = align;
-        self
+        self.clone() // this is fine, because everything is either `Arc` or implements `Copy`
     }
 
     /// Sets the horizontal alignment of this [`Text`].
-    pub fn horizontal_align(&mut self, align: HorizontalAlign) -> &mut Self {
+    pub fn horizontal_align(&mut self, align: HorizontalAlign) -> Self {
         self.align.horizontal = align;
-        self
+        self.clone()
     }
 
     /// Sets the vertical alignment of this [`Text`].
-    pub fn vertical_align(&mut self, align: VerticalAlign) -> &mut Self {
+    pub fn vertical_align(&mut self, align: VerticalAlign) -> Self {
         self.align.vertical = align;
-        self
+        self.clone()
     }
 
     /// Sets the line alignment of this [`Text`].
-    pub fn line_align(&mut self, align: HorizontalAlign) -> &mut Self {
+    pub fn line_align(&mut self, align: HorizontalAlign) -> Self {
         self.align.line = align;
-        self
+        self.clone()
     }
 
     /// Sets the position of this [`Text`].
-    pub fn position(&mut self, x: f32, y: f32) -> &mut Self {
+    pub fn position(&mut self, x: f32, y: f32) -> Self {
         self.position = Vec2 { x, y };
-        self
+        self.clone()
     }
 
     /// Sets the font of this [`Text`].
-    pub fn font(&mut self, font: impl AsRef<Font>) -> &mut Self {
+    pub fn font(&mut self, font: impl AsRef<Font>) -> Self {
         self.font = font.as_ref().clone();
-        self
+        self.clone()
     }
 
     /// Sets the font size (in pixels) of this [`Text`].
-    pub fn size(&mut self, size_px: f32) -> &mut Self {
+    pub fn size(&mut self, size_px: f32) -> Self {
         self.style.size = size_px;
-        self
+        self.clone()
     }
 
     /// Sets the color of this [`Text`].
-    pub fn color(&mut self, color: Color) -> &mut Self {
+    pub fn color(&mut self, color: Color) -> Self {
         self.style.color = color;
-        self
+        self.clone()
     }
 
     /// Sets the style of this [`Text`].
-    pub fn style(&mut self, style: TextStyle) -> &mut Self {
+    pub fn style(&mut self, style: TextStyle) -> Self {
         self.style = style;
-        self
+        self.clone()
     }
 
     /// Sets the text of this [`Text`].
-    pub fn text(&mut self, text: impl ToString) -> &mut Self {
-        self.text = text.to_string();
-        self
+    pub fn text(&mut self, text: impl ToString) -> Self {
+        self.text = text.to_string().into();
+        self.clone()
     }
 }
 
@@ -594,12 +598,12 @@ impl Drawable for Text {
 pub struct RichText {
     pub position: Vec2,
     pub transform: Transform2d,
-    pub spans: Vec<Span>,
+    pub spans: Arc<[Span]>,
     pub align: TextAlignment,
 }
 
 impl RichText {
-    /// Creates a fully specified [`Text`] with position, transform, spans, and alignment.
+    /// Creates a fully specified [`RichText`] with position, transform, spans, and alignment.
     pub fn new(
         position: Vec2,
         transform: Transform2d,
@@ -609,7 +613,7 @@ impl RichText {
         Self {
             position,
             transform,
-            spans,
+            spans: spans.into(),
             align,
         }
     }
@@ -619,40 +623,34 @@ impl RichText {
         Self {
             position: Vec2::default(),
             transform: Transform2d::identity(),
-            spans,
+            spans: spans.into(),
 
             align: TextAlignment::default(),
         }
     }
 
     /// Sets the alignment of this [`RichText`].
-    pub fn align(&mut self, align: TextAlignment) -> &mut Self {
+    pub fn align(&mut self, align: TextAlignment) -> Self {
         self.align = align;
-        self
+        self.clone() // this is fine, because everything is either `Arc` or implements `Copy`
     }
 
     /// Sets the horizontal alignment of this [`RichText`].
-    pub fn horizontal_align(&mut self, align: HorizontalAlign) -> &mut Self {
+    pub fn horizontal_align(&mut self, align: HorizontalAlign) -> Self {
         self.align.horizontal = align;
-        self
+        self.clone()
     }
 
     /// Sets the vertical alignment of this [`RichText`].
-    pub fn vertical_align(&mut self, align: VerticalAlign) -> &mut Self {
+    pub fn vertical_align(&mut self, align: VerticalAlign) -> Self {
         self.align.vertical = align;
-        self
+        self.clone()
     }
 
     /// Sets the line alignment of this [`RichText`].
-    pub fn line_align(&mut self, align: HorizontalAlign) -> &mut Self {
+    pub fn line_align(&mut self, align: HorizontalAlign) -> Self {
         self.align.line = align;
-        self
-    }
-
-    /// Sets the position of this [`RichText`].
-    pub fn position(&mut self, x: f32, y: f32) -> &mut Self {
-        self.position = Vec2 { x, y };
-        self
+        self.clone()
     }
 }
 

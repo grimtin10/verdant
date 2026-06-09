@@ -118,9 +118,9 @@ impl Transform2d {
     /// let t2 = t.translate(3., 1.);
     /// assert_eq!(t2.transform_point(Vec2::new(1., 1.)), Vec2::new(5., 3.));
     /// ```
-    pub fn translate(&mut self, x: f32, y: f32) -> &mut Self {
+    pub fn translate(&mut self, x: f32, y: f32) -> Self {
         *self = self.then(Self::translation(x, y));
-        self
+        *self
     }
 
     /// Returns a transform that rotates by `rad` radians, counter-clockwise.
@@ -157,9 +157,9 @@ impl Transform2d {
     /// assert!((p.x - 0.).abs() < 1e-6);
     /// assert!((p.y - 1.).abs() < 1e-6);
     /// ```
-    pub fn rotate_rad(&mut self, rad: f32) -> &mut Self {
+    pub fn rotate_rad(&mut self, rad: f32) -> Self {
         *self = self.then(Self::rotation_rad(rad));
-        self
+        *self
     }
 
     /// Returns a transform that rotates by `deg` degrees, counter-clockwise.
@@ -196,9 +196,9 @@ impl Transform2d {
     /// assert!((p.x - 0.).abs() < 1e-6);
     /// assert!((p.y - 1.).abs() < 1e-6);
     /// ```
-    pub fn rotate_deg(&mut self, deg: f32) -> &mut Self {
+    pub fn rotate_deg(&mut self, deg: f32) -> Self {
         *self = self.then(Self::rotation_deg(deg));
-        self
+        *self
     }
 
     /// Returns a transform that scales by `sx` horizontally and `sy` vertically.
@@ -229,9 +229,9 @@ impl Transform2d {
     /// let t = Transform2d::translation(1., 1.).scale(2., 3.);
     /// assert_eq!(t.transform_point(Vec2::new(0., 0.)), Vec2::new(2., 3.));
     /// ```
-    pub fn scale(&mut self, sx: f32, sy: f32) -> &mut Self {
+    pub fn scale(&mut self, sx: f32, sy: f32) -> Self {
         *self = self.then(Transform2d::scaling(sx, sy));
-        self
+        *self
     }
 
     /// Applies this transform to a 2D point.
@@ -267,6 +267,37 @@ impl Transform2d {
         Vec2::new(
             (self.matrix[0] * self.matrix[0] + self.matrix[1] * self.matrix[1]).sqrt(),
             (self.matrix[2] * self.matrix[2] + self.matrix[3] * self.matrix[3]).sqrt(),
+        )
+    }
+
+    /// Returns the scale factors encoded in this transform as a [`Vec2`], clamped to a small
+    /// epsilon (1e-5) to prevent division by zero in internal rendering calculations.
+    ///
+    /// # Example
+    /// ```
+    /// use verdant::{transform::Transform2d, vec::Vec2};
+    ///
+    /// let t = Transform2d::scaling(0., 5.);
+    /// let s = t.get_safe_scale();
+    /// assert!((s.x - 1e-5).abs() < 1e-6); // clamped to epsilon
+    /// assert!((s.y - 5.).abs() < 1e-6);
+    pub fn get_safe_scale(self) -> Vec2 {
+        let s = self.get_scale();
+        Vec2::new(s.x.max(1e-5), s.y.max(1e-5))
+    }
+
+    /// Applies this transform to a directional 2D vector, ignoring any translation.
+    /// This is useful for scaling and rotating directional vectors or distances.
+    ///
+    /// # Example
+    /// ```
+    /// use verdant::{transform::Transform2d, vec::Vec2};
+    /// ```
+    pub fn transform_vector(self, v: Vec2) -> Vec2 {
+        let [m11, m21, m12, m22, _, _] = self.matrix;
+        Vec2::new(
+            m11 * v.x + m12 * v.y,
+            m21 * v.x + m22 * v.y,
         )
     }
 }
