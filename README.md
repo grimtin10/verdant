@@ -135,6 +135,8 @@ This makes it easy to build everything from scalable interfaces to interactive v
 
 *See [outline_scaling.rs](examples/outline_scaling.rs)*
 
+<img width="800" alt="scaling" src="https://github.com/user-attachments/assets/135db8d2-92c5-4a2b-a369-b5ecbb68c2ad" style="max-width: 100%; height: auto" />
+
 ---
 
 ## Installation
