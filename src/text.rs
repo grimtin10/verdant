@@ -1,12 +1,11 @@
-// TODO: font fallback
-
 use std::{collections::HashMap, hash::{Hash, Hasher}, sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard}};
 
-use fontdue::FontSettings;
+use fontdue::{FontSettings, Metrics};
 
 use crate::{RendererResult, canvas::RenderSurface, errors::Error, image::{Bounds, Image}, shapes::Drawable, transform::Transform2d, types::{ByteSource, Color}, vec::Vec2};
 
 const MAX_ATLAS_SIZE: u32 = 8192;
+const PADDING: u32 = 2;
 
 /// Get the width and height of a set of [`Span`]s.
 pub fn rich_text_size(spans: &[Span]) -> RendererResult<(f32, f32)> {
@@ -139,9 +138,9 @@ struct FontInner {
 
     font: fontdue::Font,
 
-    position: Mutex<FontPosition>,
-    padding: u32,
+    fallback: RwLock<Vec<Font>>,
 
+    position: Mutex<FontPosition>,
     cache: RwLock<HashMap<GlyphInfo, CachedGlyph>>,
 }
 
@@ -172,12 +171,24 @@ impl FontInner {
         Ok(())
     }
 
-    fn get_or_load_glyph(&self, key: GlyphInfo) -> RendererResult<Option<CachedGlyph>> {
-        if let Some(glyph) = self.cache.read()?.get(&key) {
+    fn rasterize(&self, glyph: GlyphInfo) -> RendererResult<(Metrics, Vec<u8>)> {
+        if !self.font.has_glyph(glyph.0) {
+            for font in self.fallback.read()?.iter() {
+                if font.has_glyph(glyph.0) {
+                    return font.inner.rasterize(glyph);
+                }
+            }
+        }
+
+        Ok(self.font.rasterize(glyph.0, glyph.1))
+    }
+
+    fn get_or_load_glyph(&self, glyph: GlyphInfo) -> RendererResult<Option<CachedGlyph>> {
+        if let Some(glyph) = self.cache.read()?.get(&glyph) {
             return Ok(Some(*glyph));
         }
 
-        if key.0 == '\n' && let Some(metrics) = self.font.horizontal_line_metrics(key.1) {
+        if glyph.0 == '\n' && let Some(metrics) = self.font.horizontal_line_metrics(glyph.1) {
             let newline_glyph = CachedGlyph {
                 uv_min: Vec2::ZERO,
                 uv_max: Vec2::ZERO,
@@ -187,15 +198,11 @@ impl FontInner {
                 ymin: 0.,
                 advance: 0.,
             };
-            self.cache.write()?.insert(key, newline_glyph);
+            self.cache.write()?.insert(glyph, newline_glyph);
             return Ok(Some(newline_glyph));
         }
 
-        // TODO: technically we could decide to not hold this lock for the whole function to
-        //       allow for two glyphs to be rasterized at the same time, but for now, i'm lazy
-        let mut position = self.position.lock()?;
-
-        let (metrics, bitmap) = self.font.rasterize(key.0, key.1);
+        let (metrics, bitmap) = self.rasterize(glyph)?;
 
         let width = metrics.width as u32;
         let height = metrics.height as u32;
@@ -210,17 +217,19 @@ impl FontInner {
                 ymin: 0.,
                 advance: metrics.advance_width,
             };
-            self.cache.write()?.insert(key, empty_glyph);
+            self.cache.write()?.insert(glyph, empty_glyph);
             return Ok(Some(empty_glyph));
         }
 
-        if position.current_x + width + self.padding > self.atlas.read()?.width {
+        let mut position = self.position.lock()?;
+
+        if position.current_x + width + PADDING > self.atlas.read()?.width {
             position.current_x = 0;
-            position.current_y += position.row_height + self.padding;
+            position.current_y += position.row_height + PADDING;
             position.row_height = 0;
         }
 
-        while position.current_y + height + self.padding > self.atlas.read()?.height {
+        while position.current_y + height + PADDING > self.atlas.read()?.height {
             if self.atlas.read()?.height >= MAX_ATLAS_SIZE {
                 *self.atlas.write()? = Image::new_empty(1024, 1024);
                 self.cache.write()?.clear();
@@ -253,11 +262,25 @@ impl FontInner {
             advance: metrics.advance_width,
         };
 
-        position.current_x += width + self.padding;
+        position.current_x += width + PADDING;
         position.row_height = position.row_height.max(height);
 
-        self.cache.write()?.insert(key, cached);
+        self.cache.write()?.insert(glyph, cached);
         Ok(Some(cached))
+    }
+
+    fn fallbacks(&self) -> RwLockReadGuard<'_, Vec<Font>> {
+        match self.fallback.read() {
+            Ok(guard) => guard,
+            Err(err) => err.into_inner(),
+        }
+    }
+
+    fn fallbacks_mut(&self) -> RwLockWriteGuard<'_, Vec<Font>> {
+        match self.fallback.write() {
+            Ok(guard) => guard,
+            Err(err) => err.into_inner(),
+        }
     }
 }
 
@@ -294,13 +317,14 @@ impl Font {
 
         Ok(Self {
             inner: Arc::new(FontInner {
-                font,
-
                 atlas: RwLock::new(atlas),
 
-                position: Mutex::new(FontPosition::default()),
-                padding: 2,
-                cache: RwLock::new(HashMap::new()),
+                font,
+
+                fallback: RwLock::default(),
+
+                position: Mutex::default(),
+                cache: RwLock::default(),
             }),
         })
     }
@@ -337,6 +361,28 @@ impl Font {
         } else {
             size_px
         }
+    }
+
+    /// Returns whether or not this [`Font`] has this glyph or not.
+    /// Includes fallback fonts.
+    pub fn has_glyph(&self, glyph: char) -> bool {
+        if !self.inner.font.has_glyph(glyph) {
+            for font in self.inner.fallbacks().iter() {
+                if font.has_glyph(glyph) {
+                    return true;
+                }
+            }
+
+            false
+        } else { true }
+    }
+
+    /// Adds a fallback font to this [`Font`].
+    /// Used whenever the main font doesn't support a given glyph.
+    /// If no fallback fonts support the glyph, the main font's `notdef` glyph will be displayed instead.
+    // TODO: if someone adds cycling fallbacks it will probably explode
+    pub fn add_fallback(&self, font: impl AsRef<Font>) {
+        self.inner.fallbacks_mut().push(font.as_ref().clone());
     }
 }
 

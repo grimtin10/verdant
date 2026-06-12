@@ -49,6 +49,7 @@ pub type RendererResult<T> = Result<T, Error>;
 ///
 /// Note: This type is a direct re-export of `winit::window::WindowAttributes`; under a different
 /// name to avoid confusion with [`WindowProperties`].
+// TODO: ...should probably re-export all the things that `WindowAttributes` functions need, too
 pub type AdvancedWindowProperties = winit::window::WindowAttributes;
 
 const KIND_RECT:     u32 = 0;
@@ -404,9 +405,11 @@ impl RendererContext {
         height: u32,
     ) -> RendererResult<Window> {
         let surface_capabilities = surface.get_capabilities(&context.adapter);
+
         let format = surface_capabilities.formats.iter().copied()
             .find(|f| !f.is_srgb())
             .unwrap_or(surface_capabilities.formats[0]);
+
         let alpha_mode = [
             wgpu::CompositeAlphaMode::PreMultiplied,
             wgpu::CompositeAlphaMode::Inherit,
@@ -436,6 +439,7 @@ impl RendererContext {
             context.clone()
         );
 
+        // we have to do this because some WMs just don't display a window until you draw something!
         window.present_blank_frame()?;
 
         Ok(window)

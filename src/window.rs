@@ -15,7 +15,8 @@ impl WindowId {
     }
 }
 
-// TODO: windows have quite a few more properties than this
+// TODO: window should expose more mouse and input functions
+
 #[derive(Debug, Clone)]
 pub struct WindowProperties {
     /// The title of the window.

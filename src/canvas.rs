@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet}, mem::take, ops::Range, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicU64, Ordering}}};
+use std::{collections::{HashMap, HashSet, hash_map::Entry}, mem::take, ops::Range, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicU64, Ordering}}};
 
 use bytemuck::cast_slice;
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, BufferDescriptor, BufferUsages, CommandEncoder, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, util::{BufferInitDescriptor, DeviceExt}, wgt::TextureDataOrder};
@@ -156,11 +156,17 @@ impl CanvasContext {
             0
         };
 
+        let len = self.vertices.len() as u32;
+        if let Some(last_batch) = self.batches.last_mut() && last_batch.texture == self.current_texture {
+            last_batch.range.end = len;
+            return;
+        }
+
         if self.vertices.len() as u32 != start {
             self.batches.push(DrawBatch {
                 texture: self.current_texture.clone(),
                 canvas: None,
-                range: start..self.vertices.len() as u32,
+                range: start..len,
             });
         }
     }
@@ -197,7 +203,7 @@ fn create_texture(width: u32, height: u32, format: TextureFormat, gpu_context: &
         let mut data = vec![0u8; (width * height * 4) as usize];
 
         for chunk in data.chunks_exact_mut(4) {
-            chunk[3] = 255; 
+            chunk[3] = 255;
         }
 
         gpu_context.device.create_texture_with_data(
@@ -219,6 +225,7 @@ fn create_texture(width: u32, height: u32, format: TextureFormat, gpu_context: &
 struct CanvasRenderContext {
     texture: Texture,
     texture_view: TextureView,
+    texture_bind_group: BindGroup,
 
     projection_buffer: Buffer,
     projection_group: BindGroup,
@@ -226,7 +233,32 @@ struct CanvasRenderContext {
     vertex_buffer: Buffer,
     vertex_buffer_size: u64,
 
+    scratch_texture: Option<(Texture, BindGroup)>,
+
     gpu_context: Arc<GpuContext>,
+}
+
+impl CanvasRenderContext {
+    fn scratch_texture(&mut self, width: u32, height: u32, format: TextureFormat) -> (Texture, BindGroup) {
+        if let Some(scratch) = &self.scratch_texture {
+            scratch.clone()
+        } else {
+            let (texture, view) = create_texture(width, height, format, &self.gpu_context, false);
+
+            let bind_group = self.gpu_context.device.create_bind_group(&BindGroupDescriptor {
+                layout: &self.gpu_context.texture_group_layout,
+                entries: &[
+                    BindGroupEntry { binding: 0, resource: BindingResource::TextureView(&view) },
+                    BindGroupEntry { binding: 1, resource: BindingResource::Sampler(&self.gpu_context.sampler)},
+                ],
+                label: Some("canvas bind group"),
+            });
+
+            let scratch = (texture, bind_group);
+            self.scratch_texture = Some(scratch.clone());
+            scratch
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -280,6 +312,15 @@ impl CanvasState {
 
         let (texture, texture_view) = create_texture(self.width, self.height, format, &gpu_context, self.init_black);
 
+        let texture_bind_group = gpu_context.device.create_bind_group(&BindGroupDescriptor {
+            layout: &gpu_context.texture_group_layout,
+            entries: &[
+                BindGroupEntry { binding: 0, resource: BindingResource::TextureView(&texture_view) },
+                BindGroupEntry { binding: 1, resource: BindingResource::Sampler(&gpu_context.sampler)},
+            ],
+            label: Some("canvas bind group"),
+        });
+
         let projection = ortho(self.width as f32, self.height as f32);
         let projection_buffer = gpu_context.device.create_buffer_init(&BufferInitDescriptor {
             label: Some("projection"),
@@ -305,10 +346,16 @@ impl CanvasState {
         self.render_context = Some(CanvasRenderContext {
             texture,
             texture_view,
+            texture_bind_group,
+
             projection_buffer,
             projection_group,
+
             vertex_buffer,
             vertex_buffer_size: 0,
+
+            scratch_texture: None,
+
             gpu_context,
         });
     }
@@ -320,6 +367,7 @@ impl CanvasState {
         self.context.vertices.extend(vertices);
     }
 
+    // this function name sucks because i wrote it tired and i'm bad at naming things
     fn get_scales(&self) -> (f32, f32, Vec2) {
         let model_scale = self.context.local_transform.get_safe_scale();
         let view_scale = self.view.transform().get_safe_scale();
@@ -362,13 +410,9 @@ impl CanvasState {
         let mut child_views = HashMap::new();
         for batch in &batches {
             if let Some(child_canvas) = &batch.canvas {
-                // genuinely terrible suggestion from clippy
-                #[allow(clippy::map_entry)]
                 if child_canvas.id == self.id {
-                    if !child_views.contains_key(&self.id) && let Some(rc) = self.render_context.as_ref() {
-                        // TODO: this is incredibly inefficient, we should not be creating a new
-                        //       canvas every frame for every recursive canvas
-                        let (texture, view) = create_texture(self.width, self.height, format, &gpu_context, false);
+                    if let Entry::Vacant(e) = child_views.entry(self.id) && let Some(rc) = self.render_context.as_mut() {
+                        let (texture, bind_group) = rc.scratch_texture(self.width, self.height, format);
 
                         encoder.copy_texture_to_texture(
                             rc.texture.as_image_copy(),
@@ -379,13 +423,17 @@ impl CanvasState {
                                 depth_or_array_layers: 1
                             }
                         );
-                        child_views.insert(self.id, view);
+                        e.insert(bind_group);
                     }
-                } else if !child_views.contains_key(&child_canvas.id) {
+                } else if let Entry::Vacant(e) = child_views.entry(child_canvas.id) {
                     let mut child_state = child_canvas.write();
                     child_state.flush_with_encoder(encoder, gpu_context.clone(), flushing, format)?;
+
+                    // TODO: these `let Some(render_context)` blocks are stupid
+                    //       we know for a fact they exist by this point, so the code should really be
+                    //       organized in such a way that we don't have to do this check ever
                     if let Some(rc) = child_state.render_context.as_ref() {
-                        child_views.insert(child_canvas.id, rc.texture_view.clone());
+                        e.insert(rc.texture_bind_group.clone());
                     }
                 }
             }
@@ -442,16 +490,8 @@ impl CanvasState {
                         let data = texture.submit_to_gpu(&render_context.gpu_context)?;
                         pass.set_bind_group(1, Some(&data.bind_group), &[]);
                     } else if let Some(child_canvas) = &batch.canvas {
-                        if let Some(view) = child_views.get(&child_canvas.id) {
-                            let bind_group = render_context.gpu_context.device.create_bind_group(&BindGroupDescriptor {
-                                layout: &render_context.gpu_context.texture_group_layout,
-                                entries: &[
-                                    BindGroupEntry { binding: 0, resource: BindingResource::TextureView(view) },
-                                    BindGroupEntry { binding: 1, resource: BindingResource::Sampler(&render_context.gpu_context.sampler)},
-                                ],
-                                label: Some("canvas bind group"),
-                            });
-                            pass.set_bind_group(1, Some(&bind_group), &[]);
+                        if let Some(bind_group) = child_views.get(&child_canvas.id) {
+                            pass.set_bind_group(1, Some(bind_group), &[]);
                         } else {
                             pass.set_bind_group(1, Some(&render_context.gpu_context.dummy_bind_group), &[]);
                         }

@@ -103,6 +103,8 @@ Rect::at(250., 500.)
     .draw(window);
 ```
 
+You can use the imperative, stateful API for quick prototyping or things that change every frame, or you can pick the declarative, builder API for things that hold state between frames.
+
 *See [drawing.rs](examples/drawing.rs)*
 
 ### Rich text

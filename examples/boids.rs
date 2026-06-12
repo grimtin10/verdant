@@ -1,6 +1,6 @@
-use std::time::Instant;
+use std::{ops::Range, time::Instant};
 
-use rand::random_range;
+use fastrand::f32;
 use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, shapes::Drawable, text::{Font, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode, window::WindowProperties};
 
 // all the parameters that control the simulation
@@ -21,6 +21,10 @@ const WANDER_WEIGHT: f32 = 2.5;
 // constraints
 const MAX_SPEED: f32 = 250.;
 const MAX_FORCE: f32 = 3.;
+
+fn random_range(range: Range<f32>) -> f32 {
+    range.start + f32() * (range.start + range.end)
+}
 
 #[derive(Default)]
 struct Boid {

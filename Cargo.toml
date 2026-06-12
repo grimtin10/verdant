@@ -2,28 +2,44 @@
 name = "verdant"
 version = "0.5.0"
 edition = "2024"
-description = "A WIP windowing and rendering library, built on a modern foundation, aiming to be lightweight, performant, and powerful."
+description = "A windowing and rendering library, inspired by Processing. Clean API, SDF-based rendering, multi-window support, built on wgpu and winit."
 license = "MPL-2.0"
 repository = "https://github.com/grimtin10/verdant"
 
 [features]
-default = ["image", "text"]
-image = ["dep:image"]
+default = ["text", "image-png", "image-jpeg", "dx12", "metal", "vulkan"]
+
+image = []
+
 text = ["dep:fontdue"]
+
+image-png  = ["image", "dep:image", "image/png"]
+image-jpeg = ["image", "dep:image", "image/jpeg"]
+image-webp = ["image", "dep:image", "image/webp"]
+image-gif  = ["image", "dep:image", "image/gif"]
+image-all  = ["image", "dep:image", "image/default"]
+
+dx12 = ["wgpu/dx12"]
+metal = ["wgpu/metal"]
+vulkan = ["wgpu/vulkan"]
+gles = ["wgpu/gles"]
+
+linux-wayland-csd = ["winit/wayland-csd-adwaita"]
 
 [dependencies]
 bytemuck = "1.25.0"
 pollster = "0.4.0"
-thiserror = "2.0.18"
-wgpu = { version = "29.0.3", default-features = false, features = ["dx12", "metal", "vulkan", "gles", "wgsl", "std", "parking_lot"] }
-winit = "0.31.0-beta.2"
 
-fontdue = { version = "0.9.3", optional = true }
-image = { version = "0.25.10", optional = true }
+winit = { version = "0.31.0-beta.2", default-features = false, features = ["x11", "wayland", "wayland-dlopen"] }
+
+wgpu = { version = "29.0.3", default-features = false, features = ["wgsl", "std", "parking_lot"] }
+
+fontdue = { version = "0.9.3", optional = true, default-features = false, features = ["simd", "std"] }
+image = { version = "0.25.10", optional = true, default-features = false }
 
 [build-dependencies]
 cfg_aliases = "0.2.0"
 
 [dev-dependencies]
-rand = "0.10.1"
+fastrand = "2.0"
 time = { version = "0.3", features = ["local-offset"] }

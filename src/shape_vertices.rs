@@ -1,5 +1,7 @@
 use crate::{KIND_CANVAS, KIND_ELLIPSE, KIND_LINE, KIND_RECT, KIND_TEXTURED, Vertex, transform::Transform2d, types::Color, vec::Vec2};
 
+// TODO: an index buffer is a good idea, probably
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn rect_vertices(
     x: f32, y: f32,
