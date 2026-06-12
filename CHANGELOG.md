@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] - 2026-06-12
 
 ### Added
-- `RenderSurface::corner_radius` (and equiv. on `Style`)
+- `RenderSurface::corner_radius`, `RenderSurface::corner_style` (and equiv. on `Style`)
 - Scale-independent sizing, `RenderSurface::outline_scaling` and `RenderSurface::corner_scaling`, etc. (and equiv. on `Style`)
 - Exposed `AdvancedWindowProperties` (`winit::window::WindowAttributes` re-exported under a different name)
 - Added more properties to `WindowProperties`
@@ -16,13 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Transform::get_safe_scale` and `Transform::transform_vector`
 - Documented all `VecN` functions
 - Font fallback
-- More granular image features to Cargo.toml
+- More granular image/wgpu backend features to Cargo.toml
 - Started tracking changelog
 
 ### Changed
 - `Renderer::create_window_ext` now takes either `WindowProperties` or `AdvancedWindowProperties`
 - All functions that returned `&mut Self` now return `Self` so you don't need to dereference/clone
-- When using `ViewMode::Stretch`, outlines don't stretch unevenly anymore
+- When using `ViewMode::Stretch`, outlines and corner radii don't stretch unevenly anymore
 - Cloning `Text` and `RichText` is now cheap and reference-counted
 - Moved `WindowId` and `WindowProperties` from `types` to `window`
 - README update
