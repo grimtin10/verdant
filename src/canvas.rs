@@ -31,16 +31,20 @@ pub trait RenderSurface {
     fn outline_width(&mut self, width: f32);
     /// Sets the outline color and width for subsequent shapes.
     fn outline(&mut self, color: Color, width: f32);
+    /// Sets the outline scaling mode for subsequent shapes.
+    fn outline_scaling(&mut self, scaling: ScalingMode);
+    /// Sets the outline color, width, and scaling for subsequent shapes.
+    fn outline_style(&mut self, color: Color, width: f32, scaling: ScalingMode);
     /// Disables the outline for subsequent shapes.
     fn no_outline(&mut self);
-    /// Sets the outline scaling mode for subsequent shapes.
-    // TODO: i feel like this is poorly documented and explained
-    //       it's a useful feature, but i need to improve it
-    fn outline_scaling(&mut self, mode: ScalingMode);
     /// Sets the corner radius for subsequent shapes.
     fn corner_radius(&mut self, radius: f32);
-    /// Sets the corner radius scaling mode for subsequent shapes.
-    fn corner_scaling(&mut self, mode: ScalingMode);
+    /// Sets the corner scaling mode for subsequent shapes.
+    fn corner_scaling(&mut self, scaling: ScalingMode);
+    /// Sets the corner radius and scaling mode for subsequent shapes.
+    fn corner_style(&mut self, radius: f32, scaling: ScalingMode);
+    /// Sets the outline and corner scaling modes for subsequent shapes.
+    fn scaling_modes(&mut self, outline_scaling: ScalingMode, corner_scaling: ScalingMode);
     /// Resets the current style back to the default.
     /// ([`Color::WHITE`] fill, no outline)
     fn clear_style(&mut self);
@@ -122,10 +126,10 @@ impl Default for TextStyle {
 
 fn resolve_scale(value: f32, mode: ScalingMode, model_scale: f32, view_scale: f32) -> f32 {
     match mode {
-        ScalingMode::Constant => value,
-        ScalingMode::Transform => value * model_scale,
-        ScalingMode::View => value * view_scale,
         ScalingMode::Geometric => value * model_scale * view_scale,
+        ScalingMode::Constant => value,
+        ScalingMode::WithTransform => value * model_scale,
+        ScalingMode::WithView => value * view_scale,
     }
 }
 
@@ -429,9 +433,6 @@ impl CanvasState {
                     let mut child_state = child_canvas.write();
                     child_state.flush_with_encoder(encoder, gpu_context.clone(), flushing, format)?;
 
-                    // TODO: these `let Some(render_context)` blocks are stupid
-                    //       we know for a fact they exist by this point, so the code should really be
-                    //       organized in such a way that we don't have to do this check ever
                     if let Some(rc) = child_state.render_context.as_ref() {
                         e.insert(rc.texture_bind_group.clone());
                     }
@@ -537,6 +538,15 @@ impl CanvasState {
         let Some(render_context) = self.render_context.as_mut() else { return };
         let projection: GpuTransform2d = ortho(width as f32, height as f32).into();
         render_context.gpu_context.queue.write_buffer(&render_context.projection_buffer, 0, cast_slice(&[projection]));
+
+        render_context.texture_bind_group = render_context.gpu_context.device.create_bind_group(&BindGroupDescriptor {
+            layout: &render_context.gpu_context.texture_group_layout,
+            entries: &[
+                BindGroupEntry { binding: 0, resource: BindingResource::TextureView(&render_context.texture_view) },
+                BindGroupEntry { binding: 1, resource: BindingResource::Sampler(&render_context.gpu_context.sampler)},
+            ],
+            label: Some("canvas bind group"),
+        });
     }
 }
 
@@ -567,21 +577,37 @@ impl RenderSurface for CanvasState {
         self.style.outline_width = width;
     }
 
+    fn outline_style(&mut self, color: Color, width: f32, scaling: ScalingMode) {
+        self.style.outline_color = color;
+        self.style.outline_width = width;
+        self.style.outline_scaling = scaling;
+    }
+
     fn no_outline(&mut self) {
         self.style.outline_color = Color::TRANSPARENT;
         self.style.outline_width = 0.;
     }
 
-    fn outline_scaling(&mut self, mode: ScalingMode) {
-        self.style.outline_scaling = mode;
+    fn outline_scaling(&mut self, scaling: ScalingMode) {
+        self.style.outline_scaling = scaling;
     }
 
     fn corner_radius(&mut self, radius: f32) {
         self.style.corner_radius = radius;
     }
 
-    fn corner_scaling(&mut self, mode: ScalingMode) {
-        self.style.corner_scaling = mode;
+    fn corner_scaling(&mut self, scaling: ScalingMode) {
+        self.style.corner_scaling = scaling;
+    }
+
+    fn corner_style(&mut self, radius: f32, scaling: ScalingMode) {
+        self.style.corner_radius = radius;
+        self.style.corner_scaling = scaling;
+    }
+
+    fn scaling_modes(&mut self, outline_scaling: ScalingMode, corner_scaling: ScalingMode) {
+        self.style.outline_scaling = outline_scaling;
+        self.style.corner_scaling = corner_scaling;
     }
 
     fn clear_style(&mut self) {

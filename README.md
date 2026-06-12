@@ -22,7 +22,10 @@
 ## What is Verdant?
 
 Verdant is a rendering and windowing library for Rust, inspired by Processing, made to be accessible.
+
 Built on top of `wgpu` and `winit`, Verdant focuses on a clean, expressive, and easy-to-use API that makes common rendering tasks easy and mistakes difficult.
+
+Finally, a foundational rendering library that is easy to use.
 
 ```rust
 use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, rgb, shapes::{Drawable, Rect}};
@@ -62,6 +65,13 @@ fn main() -> RendererResult<()> {
 ```
 
 Verdant aims to be performant and powerful, while still remaining lightweight and nice to use.
+
+---
+
+## What Verdant is *not*
+Verdant is a rendering/windowing library. It is not a game engine or a UI framework, it does not handle audio, it does not handle physics.
+
+It is a foundation you can build those things on top of.
 
 ---
 
@@ -135,7 +145,7 @@ This allows you to create scalable applications without having to manually handl
 Verdant lets you choose how outlines and corner radii scale. They can behave like physical geometry, remain at a constant pixel size, or respond independently to transforms and view scaling.
 This makes it easy to build everything from scalable interfaces to interactive visualizations without sacrificing visual consistency.
 
-*See [outline_scaling.rs](examples/outline_scaling.rs)*
+*See [scaling_modes.rs](examples/scaling_modes.rs)*
 
 <img width="800" alt="scaling" src="https://github.com/user-attachments/assets/135db8d2-92c5-4a2b-a369-b5ecbb68c2ad" style="max-width: 100%; height: auto" />
 
@@ -149,20 +159,36 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-verdant = "0.4"
+verdant = "0.5"
 ```
 Currently, Verdant only supports desktop, though web/mobile support is planned soon.
 
-(Windows and Linux have been tested, and macOS is currently untested)
+Windows and Linux have been tested, and macOS is currently untested; if you are on macOS and try Verdant, please let us know how it works or open an issue if you encounter and platform-specific bugs.
 
 ### Cargo Features
 
-By default, Verdant includes `image` and `text` features. If you don't need asset loading and/or text and want a lighter dependency tree, you can disable them:
+By default, Verdant includes granular features to control what gets built. If you don't need asset loading and/or text and want a lighter dependency tree, you can disable them:
 
 ```toml
 [dependencies]
-verdant = { version = "0.4", default-features = false }
+verdant = { version = "0.5", default-features = false, features = ["vulkan", "dx12", "metal"] }
 ```
+
+If you want legacy OpenGL support:
+
+```toml
+[dependencies]
+verdant = { version = "0.5", default-features = false, features = ["vulkan", "dx12", "metal", "gles"] }
+```
+
+It also has granular features for different image formats:
+
+```toml
+[dependencies]
+verdant = { version = "0.5", default-features = false, features = ["vulkan", "dx12", "metal", "image-png", "image-jpeg", "image-webp"] }
+```
+
+By default, `image-png` and `image-jpeg` are enabled.
 
 ### Running the Examples
 

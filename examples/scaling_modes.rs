@@ -15,8 +15,9 @@ fn main() -> RendererResult<()> {
             window.set_view(500., 500., ViewMode::Letterbox);
             window.background(Color::GRAY);
 
+            window.clear_style();
+
             window.outline(Color::BLACK, 3.);
-            window.corner_radius(0.);
 
             window.outline_scaling(ScalingMode::Geometric);
             window.rect(13.33, 10., 230., 230.);
@@ -25,12 +26,10 @@ fn main() -> RendererResult<()> {
             window.rect(256.66, 10., 230., 230.);
 
             window.corner_radius(25.);
-            window.outline_scaling(ScalingMode::Geometric);
-            window.corner_scaling(ScalingMode::Geometric);
+            window.scaling_modes(ScalingMode::Geometric, ScalingMode::Geometric);
             window.rect(13.33, 256.66, 230., 230.);
 
-            window.outline_scaling(ScalingMode::Constant);
-            window.corner_scaling(ScalingMode::Constant);
+            window.scaling_modes(ScalingMode::Constant, ScalingMode::Constant);
             window.rect(256.66, 256.66, 230., 230.);
         }
 

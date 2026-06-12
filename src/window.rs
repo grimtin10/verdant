@@ -17,6 +17,10 @@ impl WindowId {
 
 // TODO: window should expose more mouse and input functions
 
+// TODO: width and height are *physical*, not logical right now
+//       DPI scaling will mess this up later
+
+// TODO: you cannot disable vsync
 #[derive(Debug, Clone)]
 pub struct WindowProperties {
     /// The title of the window.
@@ -142,7 +146,7 @@ impl Default for WindowProperties {
             title: "verdant window".into(),
             width: 800,
             height: 600,
-            resizable: true,
+            resizable: false,
             transparent: false,
             fullscreen: false,
             maximized: false,
@@ -342,20 +346,32 @@ impl RenderSurface for Window {
         self.canvas.write().outline(color, width);
     }
 
+    fn outline_style(&mut self, color: Color, width: f32, scaling: ScalingMode) {
+        self.canvas.write().outline_style(color, width, scaling);
+    }
+
     fn no_outline(&mut self) {
         self.canvas.write().no_outline();
     }
 
-    fn outline_scaling(&mut self, mode: ScalingMode) {
-        self.canvas.write().outline_scaling(mode);
+    fn outline_scaling(&mut self, scaling: ScalingMode) {
+        self.canvas.write().outline_scaling(scaling);
     }
 
     fn corner_radius(&mut self, radius: f32) {
         self.canvas.write().corner_radius(radius);
     }
 
-    fn corner_scaling(&mut self, mode: ScalingMode) {
-        self.canvas.write().corner_scaling(mode);
+    fn corner_scaling(&mut self, scaling: ScalingMode) {
+        self.canvas.write().corner_scaling(scaling);
+    }
+
+    fn corner_style(&mut self, radius: f32, scaling: ScalingMode) {
+        self.canvas.write().corner_style(radius, scaling);
+    }
+
+    fn scaling_modes(&mut self, outline_scaling: ScalingMode, corner_scaling: ScalingMode) {
+        self.canvas.write().scaling_modes(outline_scaling, corner_scaling);
     }
 
     fn clear_style(&mut self) {

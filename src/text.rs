@@ -466,38 +466,6 @@ pub struct Span {
     pub style: TextStyle,
 }
 
-impl Span {
-    /// Sets the text displayed by this [`Span`].
-    pub fn text(&mut self, text: impl ToString) -> &mut Self {
-        self.text = text.to_string();
-        self
-    }
-
-    /// Sets the font of this [`Span`].
-    pub fn font(&mut self, font: &Font) -> &mut Self {
-        self.font = font.clone();
-        self
-    }
-
-    /// Sets the font size (in pixels) of this [`Span`].
-    pub fn size(&mut self, size_px: f32) -> &mut Self {
-        self.style.size = size_px;
-        self
-    }
-
-    /// Sets the color of this [`Span`].
-    pub fn color(&mut self, color: Color) -> &mut Self {
-        self.style.color = color;
-        self
-    }
-
-    /// Sets the offset of this [`Span`].
-    pub fn offset(&mut self, offset: Vec2) -> &mut Self {
-        self.style.offset = offset;
-        self
-    }
-}
-
 #[derive(Debug, Clone, Copy, Default)]
 pub struct TextAlignment {
     pub horizontal: HorizontalAlign,
@@ -578,12 +546,6 @@ impl Text {
     /// Sets the line alignment of this [`Text`].
     pub fn line_align(&mut self, align: HorizontalAlign) -> Self {
         self.align.line = align;
-        self.clone()
-    }
-
-    /// Sets the position of this [`Text`].
-    pub fn position(&mut self, x: f32, y: f32) -> Self {
-        self.position = Vec2 { x, y };
         self.clone()
     }
 

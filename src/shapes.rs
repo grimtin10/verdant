@@ -1,7 +1,3 @@
-// TODO: right now, the shape API is technically a bit slower than the state machine API
-//       it could get optimized out but i'm unsure if it would be
-//       not a huge issue, just something to note
-
 use crate::{canvas::RenderSurface, image::Image, text::{RichText, Text}, transform::Transform2d, types::Color, vec::Vec2};
 
 /// Trait for types that can draw themselves onto a [`RenderSurface`].
@@ -15,27 +11,21 @@ pub trait Drawable {
 }
 
 /// The scaling mode for outlines and corner radii.
-///
-/// Use `Geometric` if you don't want any visual correction for scaling.
-/// Use `Constant` if you want full visual correction, keeping pixel values constant.
-/// Use `Transform` if you only want to correct against view scaling.
-/// Use `View` if you only want to correct against local transform scaling.
-// TODO: proper shape API for this feature
-//       i'm just lazy right now okay
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ScalingMode {
     /// Scales with both local transforms and camera zoom, behaving like physical geometry.
+    /// The default.
     #[default]
     Geometric,
 
-    /// Scales only with local transforms, remaining unaffected by view scaling.
-    Transform,
-
-    /// Scales only with view scaling, remaining unaffected by local transforms.
-    View,
-
     /// Stays at a constant screen pixel size, completely unaffected by zoom or transforms.
     Constant,
+
+    /// Scales only with local transforms, remaining unaffected by view scaling.
+    WithTransform,
+
+    /// Scales only with view scaling, remaining unaffected by local transforms.
+    WithView,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -90,6 +80,12 @@ impl Style {
         *self
     }
 
+    /// Sets the outline scaling mode.
+    pub fn outline_scaling(&mut self, scaling: ScalingMode) -> Self {
+        self.outline_scaling = scaling;
+        *self
+    }
+
     /// Sets the outline color and width.
     pub fn outline(&mut self, color: Color, width: f32) -> Self {
         self.outline_color = color;
@@ -97,8 +93,10 @@ impl Style {
         *self
     }
 
-    /// Sets the outline scaling mode.
-    pub fn outline_scaling(&mut self, scaling: ScalingMode) -> Self {
+    /// Sets the outline color, width, and scaling mode.
+    pub fn outline_style(&mut self, color: Color, width: f32, scaling: ScalingMode) -> Self {
+        self.outline_color = color;
+        self.outline_width = width;
         self.outline_scaling = scaling;
         *self
     }
@@ -114,6 +112,34 @@ impl Style {
         self.corner_scaling = scaling;
         *self
     }
+
+    /// Sets the corner radius and scaling mode.
+    pub fn corner_style(&mut self, radius: f32, scaling: ScalingMode) -> Self {
+        self.corner_radius = radius;
+        self.corner_scaling = scaling;
+        *self
+    }
+}
+
+macro_rules! impl_new {
+    ($name:ident) => {
+        impl $name {
+            #[doc = concat!("Creates a fully specified [`", stringify!($name), "`] with position, size, style, and transform.")]
+            pub fn new(
+                position: Vec2,
+                size: Vec2,
+                style: Style,
+                transform: Transform2d,
+            ) -> Self {
+                Self {
+                    position,
+                    size,
+                    style,
+                    transform,
+                }
+            }
+        }
+    };
 }
 
 macro_rules! impl_position {
@@ -130,7 +156,16 @@ macro_rules! impl_position {
             #[doc = concat!("Sets the position of this [`", stringify!($name), "`].")]
             pub fn position(&mut self, x: f32, y: f32) -> Self {
                 self.position = Vec2 { x, y };
-                ($map)(self)
+                $map(self)
+            }
+        }
+    };
+    (no_at, $name:ident, $map:expr) => {
+        impl $name {
+            #[doc = concat!("Sets the position of this [`", stringify!($name), "`].")]
+            pub fn position(&mut self, x: f32, y: f32) -> Self {
+                self.position = Vec2 { x, y };
+                $map(self)
             }
         }
     };
@@ -142,7 +177,7 @@ macro_rules! impl_size {
             #[doc = concat!("Sets the size of this [`", stringify!($name), "`].")]
             pub fn size(&mut self, width: f32, height: f32) -> Self {
                 self.size = Vec2::new(width, height);
-                ($map)(self)
+                $map(self)
             }
         }
     };
@@ -154,25 +189,37 @@ macro_rules! impl_styled {
             #[doc = concat!("Sets the fill color of this [`", stringify!($name), "`].")]
             pub fn fill(&mut self, color: Color) -> Self {
                 self.style.fill_color = color;
-                ($map)(self)
+                $map(self)
             }
 
             #[doc = concat!("Sets the outline color of this [`", stringify!($name), "`].")]
             pub fn outline_color(&mut self, color: Color) -> Self {
                 self.style.outline_color = color;
-                ($map)(self)
+                $map(self)
             }
 
             #[doc = concat!("Sets the outline width of this [`", stringify!($name), "`].")]
             pub fn outline_width(&mut self, width: f32) -> Self {
                 self.style.outline_width = width;
-                ($map)(self)
+                $map(self)
             }
 
             #[doc = concat!("Sets the outline color and width of this [`", stringify!($name), "`].")]
             pub fn outline(&mut self, color: Color, width: f32) -> Self {
                 self.style.outline(color, width);
-                ($map)(self)
+                $map(self)
+            }
+
+            #[doc = concat!("Sets the outline scaling mode of this [`", stringify!($name), "`].")]
+            pub fn outline_scaling(&mut self, scaling: ScalingMode) -> Self {
+                self.style.outline_scaling = scaling;
+                $map(self)
+            }
+
+            #[doc = concat!("Sets the outline color, width, and scaling mode of this [`", stringify!($name), "`].")]
+            pub fn outline_style(&mut self, color: Color, width: f32, scaling: ScalingMode) -> Self {
+                self.style.outline_style(color, width, scaling);
+                $map(self)
             }
         }
     };
@@ -181,7 +228,31 @@ macro_rules! impl_styled {
             #[doc = concat!("Sets the fill color of this [`", stringify!($name), "`].")]
             pub fn fill(&mut self, color: Color) -> Self {
                 self.style.fill_color = color;
-                ($map)(self)
+                $map(self)
+            }
+        }
+    };
+}
+
+macro_rules! impl_rounded {
+    ($name:ident, $map:expr) => {
+        impl $name {
+            #[doc = concat!("Sets the corner radius of this [`", stringify!($name), "`].")]
+            pub fn corner_radius(&mut self, radius: f32) -> Self {
+                self.style.corner_radius = radius;
+                *self
+            }
+
+            #[doc = concat!("Sets the corner scaling mode of this [`", stringify!($name), "`].")]
+            pub fn corner_scaling(&mut self, scaling: ScalingMode) -> Self {
+                self.style.corner_scaling = scaling;
+                *self
+            }
+
+            #[doc = concat!("Sets the corner radius and scaling mode of this [`", stringify!($name), "`].")]
+            pub fn corner_style(&mut self, radius: f32, scaling: ScalingMode) -> Self {
+                self.style.corner_style(radius, scaling);
+                *self
             }
         }
     };
@@ -193,7 +264,7 @@ macro_rules! impl_transformed {
             #[doc = concat!("Sets the transform of this [`", stringify!($name), "`].")]
             pub fn transform(&mut self, transform: Transform2d) -> Self {
                 self.transform = transform;
-                ($map)(self)
+                $map(self)
             }
         }
     };
@@ -204,40 +275,15 @@ pub struct Rect {
     pub position: Vec2,
     pub size: Vec2,
     pub style: Style,
-    pub corner_radius: f32,
     pub transform: Transform2d,
 }
 
+impl_new!(Rect);
 impl_position!(Rect, |s: &mut Rect| *s);
 impl_size!(Rect, |s: &mut Rect| *s);
 impl_styled!(Rect, |s: &mut Rect| *s);
+impl_rounded!(Rect, |s: &mut Rect| *s);
 impl_transformed!(Rect, |s: &mut Rect| *s);
-
-impl Rect {
-    #[allow(clippy::too_many_arguments)]
-    /// Creates a fully specified [`Rect`] with position, size, style, and transform.
-    pub fn new(
-        position: Vec2,
-        size: Vec2,
-        style: Style,
-        corner_radius: f32,
-        transform: Transform2d,
-    ) -> Self {
-        Self {
-            position,
-            size,
-            style,
-            corner_radius,
-            transform,
-        }
-    }
-
-    /// Sets the corner radius of this [`Rect`].
-    pub fn corner_radius(&mut self, corner_radius: f32) -> Self {
-        self.corner_radius = corner_radius;
-        *self
-    }
-}
 
 impl Drawable for Rect {
     fn draw(&self, window: &mut impl RenderSurface) {
@@ -269,22 +315,11 @@ pub struct Ellipse {
     pub transform: Transform2d,
 }
 
-impl Ellipse {
-    /// Creates a fully specified [`Ellipse`] with position, size, style and transform.
-    pub fn new(
-        position: Vec2,
-        size: Vec2,
-        style: Style,
-        transform: Transform2d,
-    ) -> Self {
-        Self {
-            position,
-            size,
-            style,
-            transform,
-        }
-    }
-}
+impl_new!(Ellipse);
+impl_position!(Ellipse, |s: &mut Ellipse| *s);
+impl_size!(Ellipse, |s: &mut Ellipse| *s);
+impl_styled!(Ellipse, |s: &mut Ellipse| *s);
+impl_transformed!(Ellipse, |s: &mut Ellipse| *s);
 
 impl Drawable for Ellipse {
     fn draw(&self, window: &mut impl RenderSurface) {
@@ -306,11 +341,6 @@ impl Drawable for Ellipse {
         });
     }
 }
-
-impl_position!(Ellipse, |s: &mut Ellipse| *s);
-impl_size!(Ellipse, |s: &mut Ellipse| *s);
-impl_styled!(Ellipse, |s: &mut Ellipse| *s);
-impl_transformed!(Ellipse, |s: &mut Ellipse| *s);
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Line {
@@ -416,6 +446,7 @@ pub struct ImageRect {
 }
 
 // `.clone()` here is fine, because it's just cloning an `Arc` and everything else is `Copy`
+impl_position!(no_at, ImageRect, |s: &mut ImageRect| s.clone());
 impl_size!(ImageRect, |s: &mut ImageRect| s.clone());
 impl_transformed!(ImageRect, |s: &mut ImageRect| s.clone());
 
@@ -446,12 +477,6 @@ impl ImageRect {
             image,
             transform: Transform2d::default(),
         }
-    }
-
-    /// Sets the position of this [`ImageRect`].
-    pub fn position(&mut self, x: f32, y: f32) -> Self {
-        self.position = Vec2 { x, y };
-        self.clone()
     }
 
     /// Sets the image displayed by this [`ImageRect`].
@@ -487,5 +512,8 @@ impl Drawable for ImageRect {
 }
 
 // `.clone()` here is fine, because it's just cloning an `Arc` and everything else is `Copy`
+impl_position!(no_at, Text, |s: &mut Text| s.clone());
 impl_transformed!(Text, |s: &mut Text| s.clone());
+
+impl_position!(no_at, RichText, |s: &mut RichText| s.clone());
 impl_transformed!(RichText, |s: &mut RichText| s.clone());
