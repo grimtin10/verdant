@@ -15,17 +15,45 @@
 #![deny(clippy::unwrap_used)]
 
 pub use wgpu::TextureFormat;
-pub use winit::{event::{ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent}, keyboard::{Key, KeyCode, NamedKey, PhysicalKey}};
+pub use winit::{
+    event::{ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent},
+    keyboard::{Key, KeyCode, NamedKey, PhysicalKey},
+};
 
 use bytemuck::{Pod, Zeroable};
 
 use pollster::block_on;
-use wgpu::{Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, BufferBindingType, ColorTargetState, ColorWrites, Device, DeviceDescriptor, Extent3d, FilterMode, FragmentState, FrontFace, Instance, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler, SamplerDescriptor, ShaderStages, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState, VertexStepMode, include_wgsl, util::{DeviceExt}, vertex_attr_array, wgt::TextureDataOrder};
-use winit::{application::ApplicationHandler, dpi::PhysicalSize, event_loop::{ActiveEventLoop, EventLoop}};
+use wgpu::{
+    Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent,
+    BlendFactor, BlendOperation, BlendState, BufferBindingType, ColorTargetState, ColorWrites,
+    Device, DeviceDescriptor, Extent3d, FilterMode, FragmentState, FrontFace, Instance,
+    MultisampleState, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode,
+    PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor,
+    RequestAdapterOptions, Sampler, SamplerDescriptor, ShaderStages, Surface, SurfaceConfiguration,
+    TextureDescriptor, TextureDimension, TextureSampleType, TextureUsages, TextureViewDescriptor,
+    TextureViewDimension, VertexBufferLayout, VertexState, VertexStepMode, include_wgsl,
+    util::DeviceExt, vertex_attr_array, wgt::TextureDataOrder,
+};
+use winit::{
+    application::ApplicationHandler,
+    dpi::PhysicalSize,
+    event_loop::{ActiveEventLoop, EventLoop},
+};
 
-use std::{collections::{HashMap, VecDeque}, sync::Arc};
+use std::{
+    collections::{HashMap, VecDeque},
+    sync::Arc,
+};
 
-use crate::{canvas::{Canvas, RenderSurface}, errors::Error, transform::Transform2d, types::Color, vec::Vec2, window::{Window, WindowId, WindowProperties}};
+use crate::{
+    canvas::{Canvas, RenderSurface},
+    errors::Error,
+    transform::Transform2d,
+    types::Color,
+    vec::Vec2,
+    window::{Window, WindowId, WindowProperties},
+};
 
 pub mod canvas;
 pub mod errors;
@@ -33,9 +61,9 @@ pub mod image;
 pub mod shapes;
 pub mod transform;
 pub mod types;
-pub mod window;
-pub mod view;
 pub mod vec;
+pub mod view;
+pub mod window;
 
 mod shape_vertices;
 
@@ -52,13 +80,13 @@ pub type RendererResult<T> = Result<T, Error>;
 // TODO: ...should probably re-export all the things that `WindowAttributes` functions need, too
 pub type AdvancedWindowProperties = winit::window::WindowAttributes;
 
-const KIND_RECT:     u32 = 0;
-const KIND_ELLIPSE:  u32 = 1;
-const KIND_LINE:     u32 = 2;
+const KIND_RECT: u32 = 0;
+const KIND_ELLIPSE: u32 = 1;
+const KIND_LINE: u32 = 2;
 const KIND_TEXTURED: u32 = 3;
 #[allow(unused)]
 const KIND_SDF_TEXT: u32 = 4;
-const KIND_CANVAS:   u32 = 5;
+const KIND_CANVAS: u32 = 5;
 
 /// Constructs a `Color` from RGB components in the range `0.0..=1.0`, with full opacity.
 #[inline(always)]
@@ -75,26 +103,36 @@ pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
 /// Constructs a `Color` from RGB components in the range `0.0..=255.0`, with full opacity.
 #[inline(always)]
 pub const fn rgb255(r: f32, g: f32, b: f32) -> Color {
-    Color { r: r / 255., g: g / 255., b: b / 255., a: 1.0 }
+    Color {
+        r: r / 255.,
+        g: g / 255.,
+        b: b / 255.,
+        a: 1.0,
+    }
 }
 
 /// Constructs a `Color` from RGBA components in the range `0.0..=255.0`.
 #[inline(always)]
 pub const fn rgba255(r: f32, g: f32, b: f32, a: f32) -> Color {
-    Color { r: r / 255., g: g / 255., b: b / 255., a: a / 255. }
+    Color {
+        r: r / 255.,
+        g: g / 255.,
+        b: b / 255.,
+        a: a / 255.,
+    }
 }
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 struct Vertex {
-    position:      Vec2,
-    uv:            Vec2,
-    radii:         Vec2,
-    fill_color:    Color,
+    position: Vec2,
+    uv: Vec2,
+    radii: Vec2,
+    fill_color: Color,
     outline_color: Color,
     outline_width: f32,
     corner_radius: f32,
-    kind:          u32,
+    kind: u32,
 }
 
 #[derive(Debug)]
@@ -193,58 +231,69 @@ impl RendererContext {
         }
     }
 
-    async fn get_or_init_context(&mut self, surface: &Surface<'_>) -> RendererResult<Arc<GpuContext>> {
+    async fn get_or_init_context(
+        &mut self,
+        surface: &Surface<'_>,
+    ) -> RendererResult<Arc<GpuContext>> {
         if let Some(context) = self.context.clone() {
             Ok(context)
         } else {
-            let adapter = self.instance.request_adapter(&RequestAdapterOptions {
-                power_preference: PowerPreference::HighPerformance,
-                compatible_surface: Some(surface),
-                force_fallback_adapter: false,
-            }).await?;
+            let adapter = self
+                .instance
+                .request_adapter(&RequestAdapterOptions {
+                    power_preference: PowerPreference::HighPerformance,
+                    compatible_surface: Some(surface),
+                    force_fallback_adapter: false,
+                })
+                .await?;
 
             let surface_capabilities = surface.get_capabilities(&adapter);
-            let format = surface_capabilities.formats.iter().copied()
+            let format = surface_capabilities
+                .formats
+                .iter()
+                .copied()
                 .find(|f| !f.is_srgb())
                 .unwrap_or(surface_capabilities.formats[0]);
 
             let (device, queue) = adapter.request_device(&DeviceDescriptor::default()).await?;
 
-            let projection_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("projection layout"),
-                entries: &[BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-            });
-
-            let texture_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("texture layout"),
-                entries: &[
-                    BindGroupLayoutEntry {
+            let projection_group_layout =
+                device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                    label: Some("projection layout"),
+                    entries: &[BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
+                        visibility: ShaderStages::VERTEX,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
                         },
                         count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-            });
+                    }],
+                });
+
+            let texture_group_layout =
+                device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                    label: Some("texture layout"),
+                    entries: &[
+                        BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: ShaderStages::FRAGMENT,
+                            ty: BindingType::Texture {
+                                sample_type: TextureSampleType::Float { filterable: true },
+                                view_dimension: TextureViewDimension::D2,
+                                multisampled: false,
+                            },
+                            count: None,
+                        },
+                        BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: ShaderStages::FRAGMENT,
+                            ty: BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                    ],
+                });
 
             let sampler = device.create_sampler(&SamplerDescriptor {
                 label: Some("texture sampler"),
@@ -255,19 +304,12 @@ impl RendererContext {
 
             let shader = device.create_shader_module(include_wgsl!("shaders/2d.wgsl"));
 
-            let dummy_bind_group = GpuContext::create_dummy_texture(
-                &device,
-                &queue,
-                &texture_group_layout,
-                &sampler
-            );
+            let dummy_bind_group =
+                GpuContext::create_dummy_texture(&device, &queue, &texture_group_layout, &sampler);
 
             let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
                 label: None,
-                bind_group_layouts: &[
-                    Some(&projection_group_layout),
-                    Some(&texture_group_layout)
-                ],
+                bind_group_layouts: &[Some(&projection_group_layout), Some(&texture_group_layout)],
                 immediate_size: 0,
             });
 
@@ -294,7 +336,7 @@ impl RendererContext {
                             5 => Float32,   // outline_width
                             6 => Float32,   // corner_radius
                             7 => Uint32,    // kind
-                        ]
+                        ],
                     }],
                 },
 
@@ -356,18 +398,18 @@ impl RendererContext {
     }
 
     fn process_queued_windows(&mut self, event_loop: &dyn ActiveEventLoop) -> RendererResult<()> {
-        while let Some((id, mut attributes)) = self.window_queue.pop_front() {
+        while let Some((id, attributes)) = self.window_queue.pop_front() {
             #[cfg(linux_platform)]
             {
                 use winit::platform::wayland::WindowAttributesWayland;
                 use winit::platform::x11::WindowAttributesX11;
                 if self.is_wayland {
-                    let platform_attributes = WindowAttributesWayland::default()
-                        .with_name("verdant", "verdant");
+                    let platform_attributes =
+                        WindowAttributesWayland::default().with_name("verdant", "verdant");
                     attributes = attributes.with_platform_attributes(Box::new(platform_attributes));
                 } else {
-                    let platform_attributes = WindowAttributesX11::default()
-                        .with_name("verdant", "verdant");
+                    let platform_attributes =
+                        WindowAttributesX11::default().with_name("verdant", "verdant");
                     attributes = attributes.with_platform_attributes(Box::new(platform_attributes));
                 }
             }
@@ -375,18 +417,21 @@ impl RendererContext {
             #[cfg(windows_platform)]
             {
                 use winit::platform::windows::WindowAttributesWindows;
-                let platform_attributes = WindowAttributesWindows::default()
-                    .with_class_name("Verdant");
+                let platform_attributes =
+                    WindowAttributesWindows::default().with_class_name("Verdant");
                 attributes = attributes.with_platform_attributes(Box::new(platform_attributes));
             }
 
-            let size = attributes.surface_size.map_or(PhysicalSize::default(), |s| s.to_physical(1.));
+            let size = attributes
+                .surface_size
+                .map_or(PhysicalSize::default(), |s| s.to_physical(1.));
 
             let inner_window = Arc::new(event_loop.create_window(attributes)?);
             let surface = self.instance.create_surface(inner_window.clone())?;
 
             let context = block_on(self.get_or_init_context(&surface))?;
-            let window = Self::configure_window(inner_window, surface, context, size.width, size.height)?;
+            let window =
+                Self::configure_window(inner_window, surface, context, size.width, size.height)?;
 
             let real_id = window.inner_window.id();
             self.virtual_to_real.insert(id, real_id);
@@ -406,7 +451,10 @@ impl RendererContext {
     ) -> RendererResult<Window> {
         let surface_capabilities = surface.get_capabilities(&context.adapter);
 
-        let format = surface_capabilities.formats.iter().copied()
+        let format = surface_capabilities
+            .formats
+            .iter()
+            .copied()
             .find(|f| !f.is_srgb())
             .unwrap_or(surface_capabilities.formats[0]);
 
@@ -414,9 +462,10 @@ impl RendererContext {
             wgpu::CompositeAlphaMode::PreMultiplied,
             wgpu::CompositeAlphaMode::Inherit,
         ]
-            .iter().copied()
-            .find(|m| surface_capabilities.alpha_modes.contains(m))
-            .unwrap_or(wgpu::CompositeAlphaMode::Auto);
+        .iter()
+        .copied()
+        .find(|m| surface_capabilities.alpha_modes.contains(m))
+        .unwrap_or(wgpu::CompositeAlphaMode::Auto);
 
         let config = SurfaceConfiguration {
             usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
@@ -432,12 +481,7 @@ impl RendererContext {
 
         inner_window.request_redraw();
 
-        let window = Window::new(
-            inner_window,
-            surface,
-            config,
-            context.clone()
-        );
+        let window = Window::new(inner_window, surface, config, context.clone());
 
         // we have to do this because some WMs just don't display a window until you draw something!
         window.present_blank_frame()?;
@@ -478,12 +522,7 @@ impl Renderer {
     /// Creates a new window with the given title, dimensions, and resizability.
     /// Returns a [`WindowId`] that can be used to interact with the window.
     /// Initializes the GPU context if this is the first window created.
-    pub fn create_window(
-        &mut self,
-        title: impl ToString,
-        width: u32,
-        height: u32,
-    ) -> WindowId {
+    pub fn create_window(&mut self, title: impl ToString, width: u32, height: u32) -> WindowId {
         self.create_window_ext(WindowProperties {
             width,
             height,
@@ -520,7 +559,8 @@ impl Renderer {
         use std::{mem::take, time::Duration};
         use winit::event_loop::pump_events::EventLoopExtPumpEvents;
 
-        self.event_loop.pump_app_events(Some(Duration::ZERO), &mut self.context);
+        self.event_loop
+            .pump_app_events(Some(Duration::ZERO), &mut self.context);
 
         take(&mut self.context.events)
     }

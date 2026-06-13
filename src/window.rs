@@ -1,9 +1,32 @@
-use std::{collections::HashSet, sync::{Arc, atomic::{AtomicUsize, Ordering}}};
+use std::{
+    collections::HashSet,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 
-use wgpu::{CurrentSurfaceTexture, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
-use winit::{dpi::{PhysicalPosition, PhysicalSize}, monitor::Fullscreen, window::WindowLevel};
+use wgpu::{
+    CurrentSurfaceTexture, Extent3d, LoadOp, Operations, RenderPassColorAttachment,
+    RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture,
+};
+use winit::{
+    dpi::{PhysicalPosition, PhysicalSize},
+    monitor::Fullscreen,
+    window::WindowLevel,
+};
 
-use crate::{AdvancedWindowProperties, GpuContext, Renderer, RendererResult, canvas::{Canvas, RenderSurface}, image::Image, shapes::ScalingMode, text::{Font, HorizontalAlign, Span, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
+use crate::{
+    AdvancedWindowProperties, GpuContext, Renderer, RendererResult,
+    canvas::{Canvas, RenderSurface},
+    image::Image,
+    shapes::ScalingMode,
+    text::{Font, HorizontalAlign, Span, VerticalAlign},
+    transform::Transform2d,
+    types::Color,
+    vec::Vec2,
+    view::ViewMode,
+};
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -197,28 +220,30 @@ impl Window {
 
     pub(crate) fn get_frame(&self) -> Option<SurfaceTexture> {
         match self.surface.get_current_texture() {
-            CurrentSurfaceTexture::Success(tex)
-            | CurrentSurfaceTexture::Suboptimal(tex) => Some(tex),
+            CurrentSurfaceTexture::Success(tex) | CurrentSurfaceTexture::Suboptimal(tex) => {
+                Some(tex)
+            }
 
-            CurrentSurfaceTexture::Outdated
-            | CurrentSurfaceTexture::Lost => {
-                self.surface.configure(&self.gpu_context.device, &self.config);
+            CurrentSurfaceTexture::Outdated | CurrentSurfaceTexture::Lost => {
+                self.surface
+                    .configure(&self.gpu_context.device, &self.config);
                 None
             }
 
-            _ => None
+            _ => None,
         }
     }
 
     pub(crate) fn present_blank_frame(&self) -> RendererResult<()> {
-        let frame = loop {
-            if let Some(frame) = self.get_frame() {
-                break frame;
-            }
+        let Some(frame) = self.get_frame() else {
+            return Ok(());
         };
 
         let view = frame.texture.create_view(&Default::default());
-        let mut encoder = self.gpu_context.device.create_command_encoder(&Default::default());
+        let mut encoder = self
+            .gpu_context
+            .device
+            .create_command_encoder(&Default::default());
 
         encoder.begin_render_pass(&RenderPassDescriptor {
             color_attachments: &[Some(RenderPassColorAttachment {
@@ -240,11 +265,14 @@ impl Window {
     }
 
     pub(crate) fn on_resize(&mut self, size: PhysicalSize<u32>) {
-        if size.width == 0 || size.height == 0 { return; }
+        if size.width == 0 || size.height == 0 {
+            return;
+        }
 
         self.config.width = size.width;
         self.config.height = size.height;
-        self.surface.configure(&self.gpu_context.device, &self.config);
+        self.surface
+            .configure(&self.gpu_context.device, &self.config);
 
         self.canvas.write().resize(size.width, size.height);
     }
@@ -276,13 +304,15 @@ impl Window {
     /// Returns the mouse X position, adjusted for the current view transform and letterboxing.
     pub fn get_mouse_x(&self) -> f32 {
         let letterbox = self.canvas.read().view.letterbox();
-        (self.context.mouse_x as f32 - letterbox.2) / letterbox.0 - self.canvas.read().view.origin().x
+        (self.context.mouse_x as f32 - letterbox.2) / letterbox.0
+            - self.canvas.read().view.origin().x
     }
 
     /// Returns the mouse Y position, adjusted for the current view transform and letterboxing.
     pub fn get_mouse_y(&self) -> f32 {
         let letterbox = self.canvas.read().view.letterbox();
-        (self.context.mouse_y as f32 - letterbox.3) / letterbox.1 - self.canvas.read().view.origin().y
+        (self.context.mouse_y as f32 - letterbox.3) / letterbox.1
+            - self.canvas.read().view.origin().y
     }
 
     /// Returns the mouse position as a `Vec2`, adjusted for the current view transform and letterboxing.
@@ -371,7 +401,9 @@ impl RenderSurface for Window {
     }
 
     fn scaling_modes(&mut self, outline_scaling: ScalingMode, corner_scaling: ScalingMode) {
-        self.canvas.write().scaling_modes(outline_scaling, corner_scaling);
+        self.canvas
+            .write()
+            .scaling_modes(outline_scaling, corner_scaling);
     }
 
     fn clear_style(&mut self) {
@@ -457,7 +489,11 @@ impl RenderSurface for Window {
         inner.sync_view_transform();
     }
 
-    fn with_transform(&mut self, transform: impl AsRef<Transform2d>, commands: impl FnOnce(&mut Self)) {
+    fn with_transform(
+        &mut self,
+        transform: impl AsRef<Transform2d>,
+        commands: impl FnOnce(&mut Self),
+    ) {
         let old_local = {
             let mut inner = self.canvas.write();
             let old_local = inner.context.local_transform;
@@ -479,15 +515,27 @@ impl RenderSurface for Window {
     }
 
     fn flush(&mut self) -> RendererResult<()> {
-        let mut encoder = self.gpu_context.device.create_command_encoder(&Default::default());
-        let Some(frame) = self.get_frame() else { return Ok(()) };
+        let mut encoder = self
+            .gpu_context
+            .device
+            .create_command_encoder(&Default::default());
+        let Some(frame) = self.get_frame() else {
+            return Ok(());
+        };
 
         {
             let mut root_canvas = self.canvas.write();
-            root_canvas.flush_with_encoder(&mut encoder, self.gpu_context.clone(), &mut HashSet::new(), self.config.format)?;
+            root_canvas.flush_with_encoder(
+                &mut encoder,
+                self.gpu_context.clone(),
+                &mut HashSet::new(),
+                self.config.format,
+            )?;
         }
 
-        let Some(canvas_texture) = self.canvas.read().get_texture() else { return Ok(()) };
+        let Some(canvas_texture) = self.canvas.read().get_texture() else {
+            return Ok(());
+        };
 
         encoder.copy_texture_to_texture(
             canvas_texture.as_image_copy(),
@@ -496,7 +544,7 @@ impl RenderSurface for Window {
                 width: self.config.width,
                 height: self.config.height,
                 depth_or_array_layers: 1,
-            }
+            },
         );
 
         self.gpu_context.queue.submit([encoder.finish()]);
