@@ -7,6 +7,7 @@ use crate::{RendererResult, canvas::RenderSurface, errors::Error, image::{Bounds
 const MAX_ATLAS_SIZE: u32 = 8192;
 const PADDING: u32 = 2;
 
+// TODO: refactor this to be less big and ugly
 /// Get the width and height of a set of [`Span`]s.
 pub fn rich_text_size(spans: &[Span]) -> RendererResult<(f32, f32)> {
     // because the hash of a `Font` is just the `Arc` pointer, this is fine

@@ -520,6 +520,12 @@ impl CanvasState {
     ///
     /// Note: this function clears the canvas whenever called.
     pub fn resize(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+
+        self.view.set_window_size(Vec2::new(width as f32, height as f32));
+        self.sync_view_transform();
+
         let Some(render_context) = self.render_context.as_mut() else { return };
 
         let (texture, texture_view) = create_texture(
@@ -532,10 +538,6 @@ impl CanvasState {
         render_context.texture = texture;
         render_context.texture_view = texture_view;
 
-        self.view.set_window_size(Vec2::new(width as f32, height as f32));
-        self.sync_view_transform();
-
-        let Some(render_context) = self.render_context.as_mut() else { return };
         let projection: GpuTransform2d = ortho(width as f32, height as f32).into();
         render_context.gpu_context.queue.write_buffer(&render_context.projection_buffer, 0, cast_slice(&[projection]));
 
@@ -753,6 +755,7 @@ impl RenderSurface for CanvasState {
         }]);
     }
 
+    // TODO: refactor this to be less big and ugly
     fn rich_text(&mut self, x: f32, y: f32, spans: &[Span]) {
         // because the hash of a `Font` is just the `Arc` pointer, this is fine
         #[allow(clippy::mutable_key_type)]
