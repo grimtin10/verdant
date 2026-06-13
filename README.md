@@ -2,6 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/verdant)](https://crates.io/crates/verdant)
 [![Docs.rs](https://docs.rs/verdant/badge.svg)](https://docs.rs/verdant)
+[![Grind Compliant](https://img.shields.io/badge/Grind-Compliant-forest)](https://github.com/The-Grindhouse/grindlines)
 
 > **Verdant is a work-in-progress. The API may change at any time.**
 
