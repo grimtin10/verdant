@@ -211,10 +211,8 @@ impl Window {
     }
 
     pub(crate) fn present_blank_frame(&self) -> RendererResult<()> {
-        let frame = loop {
-            if let Some(frame) = self.get_frame() {
-                break frame;
-            }
+        let Some(frame) = (0..3).find_map(|_| self.get_frame()) else {
+            return Ok(());
         };
 
         let view = frame.texture.create_view(&Default::default());
