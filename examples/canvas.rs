@@ -1,6 +1,10 @@
+use std::io::Write;
+
 use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, types::Color};
 
 fn main() -> RendererResult<()> {
+    println!("test");
+    std::io::stdout().flush();
     let mut renderer = Renderer::new()?;
     let window_id = renderer.create_window("canvas", 800, 600);
 
