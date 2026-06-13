@@ -171,6 +171,7 @@ struct RendererContext {
 
     events: Vec<(WindowId, WindowEvent)>,
 
+    #[allow(unused)]
     is_wayland: bool,
 }
 
@@ -356,6 +357,7 @@ impl RendererContext {
     }
 
     fn process_queued_windows(&mut self, event_loop: &dyn ActiveEventLoop) -> RendererResult<()> {
+        #[allow(unused_mut)]
         while let Some((id, mut attributes)) = self.window_queue.pop_front() {
             #[cfg(linux_platform)]
             {
@@ -560,7 +562,9 @@ impl Renderer {
 // TODO: error handling/forwarding
 impl ApplicationHandler for RendererContext {
     fn can_create_surfaces(&mut self, event_loop: &dyn ActiveEventLoop) {
-        let _ = self.process_queued_windows(event_loop);
+        if let Err(e) = self.process_queued_windows(event_loop) {
+            println!("error processing windows: {e}");
+        }
     }
 
     fn window_event(
@@ -569,7 +573,9 @@ impl ApplicationHandler for RendererContext {
         window_id: winit::window::WindowId,
         event: WindowEvent,
     ) {
-        let _ = self.process_queued_windows(event_loop);
+        if let Err(e) = self.process_queued_windows(event_loop) {
+            println!("error processing windows: {e}");
+        }
 
         if let Some(id) = self.real_to_virtual.get(&window_id) {
             if let Some(window) = self.windows.get_mut(id) {

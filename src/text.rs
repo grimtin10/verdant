@@ -115,7 +115,7 @@ impl Hash for GlyphInfo {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct CachedGlyph {
     pub uv_min: Vec2,
     pub uv_max: Vec2,
@@ -124,6 +124,18 @@ pub struct CachedGlyph {
     pub xmin: f32,
     pub ymin: f32,
     pub advance: f32,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct TextLayout {
+    pub lines: Vec<Line>,
+    pub size: Vec2,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Line {
+    pub glyphs: Vec<CachedGlyph>,
+
 }
 
 #[derive(Debug, Default)]
@@ -191,13 +203,8 @@ impl FontInner {
 
         if glyph.0 == '\n' && let Some(metrics) = self.font.horizontal_line_metrics(glyph.1) {
             let newline_glyph = CachedGlyph {
-                uv_min: Vec2::ZERO,
-                uv_max: Vec2::ZERO,
-                width: 0.,
                 height: metrics.new_line_size,
-                xmin: 0.,
-                ymin: 0.,
-                advance: 0.,
+                ..Default::default()
             };
             self.cache.write()?.insert(glyph, newline_glyph);
             return Ok(Some(newline_glyph));
@@ -210,48 +217,55 @@ impl FontInner {
 
         if width == 0 || height == 0 {
             let empty_glyph = CachedGlyph {
-                uv_min: Vec2::ZERO,
-                uv_max: Vec2::ZERO,
-                width: 0.,
-                height: 0.,
-                xmin: 0.,
-                ymin: 0.,
                 advance: metrics.advance_width,
+                ..Default::default()
             };
             self.cache.write()?.insert(glyph, empty_glyph);
             return Ok(Some(empty_glyph));
         }
 
-        let mut position = self.position.lock()?;
-
-        if position.current_x + width + PADDING > self.atlas.read()?.width {
-            position.current_x = 0;
-            position.current_y += position.row_height + PADDING;
-            position.row_height = 0;
+        {
+            let mut position = self.position.lock()?;
+            if position.current_x + width + PADDING > self.atlas.read()?.width {
+                position.current_x = 0;
+                position.current_y += position.row_height + PADDING;
+                position.row_height = 0;
+            }
         }
 
-        while position.current_y + height + PADDING > self.atlas.read()?.height {
-            if self.atlas.read()?.height >= MAX_ATLAS_SIZE {
-                *self.atlas.write()? = Image::new_empty(1024, 1024);
-                self.cache.write()?.clear();
-                position.current_x = 0;
-                position.current_y = 0;
-                position.row_height = 0;
-                return Ok(None);
+        {
+            let mut position = self.position.lock()?;
+            while position.current_y + height + PADDING > self.atlas.read()?.height {
+                if self.atlas.read()?.height >= MAX_ATLAS_SIZE {
+                    *self.atlas.write()? = Image::new_empty(1024, 1024);
+                    self.cache.write()?.clear();
+                    position.current_x = 0;
+                    position.current_y = 0;
+                    position.row_height = 0;
+                    return Ok(None);
+                }
+                self.resize_atlas()?;
             }
-            self.resize_atlas()?;
         }
 
         let rgba: Vec<u8> = bitmap.iter()
             .flat_map(|&a| [255, 255, 255, a])
             .collect();
 
-        self.atlas.write()?.blit(position.current_x, position.current_y, width, height, &rgba)?;
+        {
+            let position = self.position.lock()?;
+            self.atlas.write()?.blit(position.current_x, position.current_y, width, height, &rgba)?;
+        }
 
-        let u0 = position.current_x as f32 / self.atlas.read()?.width as f32;
-        let v0 = position.current_y as f32 / self.atlas.read()?.height as f32;
-        let u1 = (position.current_x + width) as f32 / self.atlas.read()?.width as f32;
-        let v1 = (position.current_y + height) as f32 / self.atlas.read()?.height as f32;
+        let (u0, v0, u1, v1) = {
+            let position = self.position.lock()?;
+            (
+                position.current_x as f32 / self.atlas.read()?.width as f32,
+                position.current_y as f32 / self.atlas.read()?.height as f32,
+                (position.current_x + width) as f32 / self.atlas.read()?.width as f32,
+                (position.current_y + height) as f32 / self.atlas.read()?.height as f32,
+            )
+        };
 
         let cached = CachedGlyph {
             uv_min: Vec2::new(u0, v0),
@@ -263,8 +277,11 @@ impl FontInner {
             advance: metrics.advance_width,
         };
 
-        position.current_x += width + PADDING;
-        position.row_height = position.row_height.max(height);
+        {
+            let mut position = self.position.lock()?;
+            position.current_x += width + PADDING;
+            position.row_height = position.row_height.max(height);
+        }
 
         self.cache.write()?.insert(glyph, cached);
         Ok(Some(cached))
@@ -349,9 +366,34 @@ impl Font {
     /// Returns a [`CachedGlyph`] for the `char` at `size_px`, rasterizing it if it hasn't been loaded yet.
     /// Returns `None` if the atlas overflowed and was cleared; re-request all glyphs from scratch.
     pub fn get_or_load_glyph(&self, char: char, size_px: f32) -> RendererResult<Option<CachedGlyph>> {
-        let key = GlyphInfo(char, size_px);
+        self.inner.get_or_load_glyph(GlyphInfo(char, size_px))
+    }
 
-        self.inner.get_or_load_glyph(key)
+    /// Returns a [`Vec<CachedGlyph>`] for `text` at `size_px`.
+    pub fn get_glyphs(&self, text: impl ToString, size_px: f32) -> RendererResult<HashMap<char, CachedGlyph>> {
+        let text = text.to_string();
+
+        let try_glyphs = || -> RendererResult<Option<HashMap<char, CachedGlyph>>> {
+            let mut glyphs = HashMap::new();
+
+            for char in text.chars() {
+                if let Some(glyph) = self.inner.get_or_load_glyph(GlyphInfo(char, size_px))? {
+                    glyphs.insert(char, glyph);
+                } else {
+                    return Ok(None);
+                }
+            }
+
+            Ok(Some(glyphs))
+        };
+
+        for _ in 0..2 {
+            if let Some(glyphs) = try_glyphs()? {
+                return Ok(glyphs);
+            }
+        }
+
+        Err(Error::TextTooBig)
     }
 
     /// Returns the line height for text at `size_px`.

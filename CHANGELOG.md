@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-06-13
+
+### Added
+- `Font::get_glyphs` (technically a part of an unfinished internal refactor, but the function is part of the public API)
+
+### Changed
+- Update README with macOS testing status
+- `Font::get_or_load_glyph` no longer holds a lock on its internal position for the whole function
+- Errors within the `ApplicationHandler` are now logged instead of ignored in lieu of proper error handling
+
+### Fixed
+- The scratch texture used for recursive canvases is now invalidated on canvas resize
+- Fixed unused warnings on non-linux systems
+- "Fixed" mysterious bug where batches could have a higher vertex start index than the end index
+- Fixed infinite loop on macOS when trying to display blank frame
+
 ## [0.5.1] - 2026-06-13
 
 ### Fixed

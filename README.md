@@ -164,8 +164,6 @@ verdant = "0.5"
 ```
 Currently, Verdant only supports desktop, though web/mobile support is planned soon.
 
-Windows and Linux have been tested, and macOS is currently untested; if you are on macOS and try Verdant, please let us know how it works or open an issue if you encounter and platform-specific bugs.
-
 ### Cargo Features
 
 By default, Verdant includes granular features to control what gets built. If you don't need asset loading and/or text and want a lighter dependency tree, you can disable them:

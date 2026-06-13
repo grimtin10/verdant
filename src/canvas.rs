@@ -166,7 +166,7 @@ impl CanvasContext {
             return;
         }
 
-        if self.vertices.len() as u32 != start {
+        if len > start {
             self.batches.push(DrawBatch {
                 texture: self.current_texture.clone(),
                 canvas: None,
@@ -537,6 +537,8 @@ impl CanvasState {
         );
         render_context.texture = texture;
         render_context.texture_view = texture_view;
+
+        render_context.scratch_texture = None;
 
         let projection: GpuTransform2d = ortho(width as f32, height as f32).into();
         render_context.gpu_context.queue.write_buffer(&render_context.projection_buffer, 0, cast_slice(&[projection]));

@@ -31,11 +31,9 @@ fn main() -> RendererResult<()> {
 
         // draw the text on the text window
         if let Some(window) = renderer.get_window(text_window) {
-            let size = window.get_mouse_x() / 8.;
-
             window.background(Color::BLACK);
-            window.text_size(size);
-            window.text(&font, 0., size, &text);
+            window.text_size(32.);
+            window.text(&font, 0., 32., &text);
         }
 
         // draw the atlas on the atlas window

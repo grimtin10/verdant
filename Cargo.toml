@@ -1,6 +1,6 @@
 [package]
 name = "verdant"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2024"
 description = "A windowing and rendering library, inspired by Processing. Clean API, SDF-based rendering, multi-window support, built on wgpu and winit."
 license = "MPL-2.0"
