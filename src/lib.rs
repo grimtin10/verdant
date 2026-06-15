@@ -60,6 +60,8 @@ const KIND_TEXTURED: u32 = 3;
 const KIND_SDF_TEXT: u32 = 4;
 const KIND_CANVAS:   u32 = 5;
 
+const LAYOUT_CACHE_CAPACITY: usize = 1024;
+
 /// Constructs a `Color` from RGB components in the range `0.0..=1.0`, with full opacity.
 #[inline(always)]
 pub const fn rgb(r: f32, g: f32, b: f32) -> Color {

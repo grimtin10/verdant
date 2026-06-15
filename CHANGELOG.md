@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-06-15
+
+### Added
+- Spans can now be constructed with `Span::new`
+- `VecN::length_squared`, `VecN::max`, and `VecN::longest`
+- `TextLayout` and all associated functions/structs
+- `RenderSurface::text_layout` and `RenderSurface::rich_text_layout`
+- `text_size`, `text_width`, and `text_height` to `RenderSurface` (moved here due to the changes to the text system)
+- `rich_text_size`, `rich_text_width`, and `rich_text_height` to `RenderSurface` (moved here due to the changes to the text system)
+
+### Changed
+- Update README
+- Refactored text system to be cleaner and more performant
+- Renamed `RenderSurface::text_size` to `RenderSurface::font_size`
+- Text vertical alignment now defaults to the top instead of the bottom
+- Changed wording of `VecN` doc comments
+
+### Removed
+- `text::rich_text_*` and `text::text_*` (moved to `RenderSurface`)
+
 ## [0.5.2] - 2026-06-13
 
 ### Added
@@ -14,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update README with macOS testing status
 - `Font::get_or_load_glyph` no longer holds a lock on its internal position for the whole function
 - Errors within the `ApplicationHandler` are now logged instead of ignored in lieu of proper error handling
+- `examples/text.rs` no longer changes the text size based on mouse position
 
 ### Fixed
 - The scratch texture used for recursive canvases is now invalidated on canvas resize

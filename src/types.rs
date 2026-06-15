@@ -1,8 +1,8 @@
-use std::{fs, path::{Path, PathBuf}};
+use std::{cmp::Reverse, collections::HashMap, fs, path::{Path, PathBuf}};
 
 use bytemuck::{Pod, Zeroable};
 
-use crate::{RendererResult, rgb, rgba, vec::Vec4};
+use crate::{LAYOUT_CACHE_CAPACITY, RendererResult, rgb, rgba, text::TextLayout, vec::Vec4};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable, PartialEq)]
@@ -210,4 +210,65 @@ impl<const N: usize> ByteSource for &[u8; N] {
 
 impl ByteSource for Vec<u8> {
     fn load(self) -> RendererResult<Vec<u8>> { Ok(self) }
+}
+
+#[derive(Debug)]
+struct CachedLayout {
+    layout: TextLayout,
+    last_used: u64,
+}
+
+#[derive(Debug)]
+pub(crate) struct TextLayoutCache {
+    map: HashMap<u64, CachedLayout>,
+    tick: u64,
+    capacity: usize,
+}
+
+impl Default for TextLayoutCache {
+    fn default() -> Self {
+        Self {
+            map: HashMap::with_capacity(LAYOUT_CACHE_CAPACITY),
+            tick: 0,
+            capacity: LAYOUT_CACHE_CAPACITY,
+        }
+    }
+}
+
+impl TextLayoutCache {
+    pub fn get(&mut self, key: u64) -> Option<&TextLayout> {
+        self.tick += 1;
+        self.map.get_mut(&key).map(|cached| {
+            cached.last_used = self.tick;
+            &cached.layout
+        })
+    }
+
+    pub fn insert(&mut self, key: u64, layout: TextLayout) -> &TextLayout {
+        self.tick += 1;
+
+        if self.map.len() >= self.capacity {
+            self.evict_oldest();
+        }
+
+        &self.map.entry(key).or_insert(
+            CachedLayout {
+                layout,
+                last_used: self.tick,
+            }
+        ).layout
+    }
+
+    fn evict_oldest(&mut self) {
+        let mut items: Vec<(u64, u64)> = self.map
+            .iter()
+            .map(|(k, v)| (*k, v.last_used))
+            .collect();
+
+        items.sort_unstable_by_key(|&(_, tick)| Reverse(tick));
+
+        for (key, _) in items.into_iter().skip(self.capacity / 2) {
+            self.map.remove(&key);
+        }
+    }
 }

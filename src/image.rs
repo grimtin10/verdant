@@ -24,7 +24,7 @@ impl Bounds {
         Self { x, y, width, height }
     }
 
-    /// Returns the smallest bounds that contains bot `self` and `other`.
+    /// Returns the smallest bounds that contains both `self` and `other`.
     pub fn union(self, other: Self) -> Self {
         let min_x = self.x.min(other.x);
         let min_y = self.y.min(other.y);

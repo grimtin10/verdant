@@ -21,31 +21,54 @@ impl Vec2 {
         Self { x, y }
     }
 
-    /// Get the length of this [`Vec2`].
+    /// Returns the length of this [`Vec2`].
     pub fn length(&self) -> f32 {
         (self.x * self.x + self.y * self.y).sqrt()
     }
 
-    /// Get a normalized copy of this [`Vec2`].
+    /// Returns the squared length of this [`Vec2`]
+    /// Useful for comparing lengths of vectors without needing a `sqrt`.
+    pub fn length_squared(&self) -> f32 {
+        self.x * self.x + self.y * self.y
+    }
+
+    /// Returns a normalized copy of this [`Vec2`].
     pub fn normalize(&self) -> Vec2 {
         *self / self.length()
     }
 
-    /// Get the angle of this [`Vec2`] in radians.
+    /// Returns the angle of this [`Vec2`] in radians.
     pub fn angle_rad(&self) -> f32 {
         self.y.atan2(self.x)
     }
 
-    /// Get the angle of this [`Vec2`] in degrees.
+    /// Returns the angle of this [`Vec2`] in degrees.
     pub fn angle_deg(&self) -> f32 {
         self.y.atan2(self.x).to_degrees()
     }
 
-    /// Get the distance between this [`Vec2`] and `other`.
+    /// Returns the distance between this [`Vec2`] and `other`.
     pub fn dist(&self, other: Self) -> f32 {
         let dx = other.x - self.x;
         let dy = other.y - self.y;
         (dx * dx + dy * dy).sqrt()
+    }
+
+    /// Returns the component-wise maximum of this [`Vec2`] and `other`.
+    pub fn max(&self, other: Self) -> Vec2 {
+        Self {
+            x: self.x.max(other.x),
+            y: self.y.max(other.y),
+        }
+    }
+
+    /// Returns the longer vector between this [`Vec2`] and `other`.
+    pub fn longest(&self, other: Self) -> Vec2 {
+        if self.length_squared() >= other.length_squared() {
+            *self
+        } else {
+            other
+        }
     }
 }
 
@@ -205,18 +228,24 @@ impl Vec3 {
         Self { x, y, z }
     }
 
-    /// Get the length of this [`Vec3`].
+    /// Returns the length of this [`Vec3`].
     pub fn length(&self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z).sqrt()
     }
 
-    /// Get a normalized copy of this [`Vec3`].
+    /// Returns the squared length of this [`Vec3`]
+    /// Useful for comparing lengths of vectors without needing a `sqrt`.
+    pub fn length_squared(&self) -> f32 {
+        self.x * self.x + self.y * self.y + self.z * self.z
+    }
+
+    /// Returns a normalized copy of this [`Vec3`].
     pub fn normalize(&self) -> Vec3 {
         let len = self.length();
         Vec3::new(self.x / len, self.y / len, self.z / len)
     }
 
-    /// Get the spherical angles of this [`Vec3`] in radians.
+    /// Returns the spherical angles of this [`Vec3`] in radians.
     pub fn angles_rad(&self) -> Vec2 {
         Vec2::new(
             Vec2::new(self.x, self.y).angle_rad(),
@@ -224,7 +253,7 @@ impl Vec3 {
         )
     }
 
-    /// Get the spherical angles of this [`Vec3`] in degrees.
+    /// Returns the spherical angles of this [`Vec3`] in degrees.
     pub fn angles_deg(&self) -> Vec2 {
         Vec2::new(
             Vec2::new(self.x, self.y).angle_deg(),
@@ -232,12 +261,30 @@ impl Vec3 {
         )
     }
 
-    /// Get the distance between this [`Vec3`] and `other`.
+    /// Returns the distance between this [`Vec3`] and `other`.
     pub fn dist(&self, other: Self) -> f32 {
         let dx = other.x - self.x;
         let dy = other.y - self.y;
         let dz = other.z - self.z;
         (dx * dx + dy * dy + dz * dz).sqrt()
+    }
+
+    /// Returns the component-wise maximum of this [`Vec3`] and `other`.
+    pub fn max(&self, other: Self) -> Vec3 {
+        Self {
+            x: self.x.max(other.x),
+            y: self.y.max(other.y),
+            z: self.z.max(other.z),
+        }
+    }
+
+    /// Returns the longer vector between this [`Vec3`] and `other`.
+    pub fn longest(&self, other: Self) -> Vec3 {
+        if self.length_squared() >= other.length_squared() {
+            *self
+        } else {
+            other
+        }
     }
 }
 
@@ -405,18 +452,24 @@ impl Vec4 {
         Self { x, y, z, w }
     }
 
-    /// Get the length of this [`Vec4`].
+    /// Returns the length of this [`Vec4`].
     pub fn length(&self) -> f32 {
         (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w).sqrt()
     }
 
-    /// Get a normalized copy of this [`Vec4`].
+    /// Returns the squared length of this [`Vec4`]
+    /// Useful for comparing lengths of vectors without needing a `sqrt`.
+    pub fn length_squared(&self) -> f32 {
+        self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w
+    }
+
+    /// Returns a normalized copy of this [`Vec4`].
     pub fn normalize(&self) -> Vec4 {
         let len = self.length();
         Vec4::new(self.x / len, self.y / len, self.z / len, self.w / len)
     }
 
-    /// Get the hyperspherical angles of this [`Vec4`] in radians.
+    /// Returns the hyperspherical angles of this [`Vec4`] in radians.
     pub fn angles_rad(&self) -> Vec3 {
         let inner_angle = Vec3::new(self.x, self.y, self.z).angles_rad();
         Vec3::new(
@@ -426,7 +479,7 @@ impl Vec4 {
         )
     }
 
-    /// Get the hyperspherical angles of this [`Vec4`] in degrees.
+    /// Returns the hyperspherical angles of this [`Vec4`] in degrees.
     pub fn angles_deg(&self) -> Vec3 {
         let inner_angle = Vec3::new(self.x, self.y, self.z).angles_deg();
         Vec3::new(
@@ -436,13 +489,32 @@ impl Vec4 {
         )
     }
 
-    /// Get the distance between this [`Vec4`] and `other`.
+    /// Returns the distance between this [`Vec4`] and `other`.
     pub fn dist(&self, other: Self) -> f32 {
         let dx = other.x - self.x;
         let dy = other.y - self.y;
         let dz = other.z - self.z;
         let dw = other.w - self.w;
         (dx * dx + dy * dy + dz * dz + dw * dw).sqrt()
+    }
+
+    /// Returns the component-wise maximum of this [`Vec4`] and `other`.
+    pub fn max(&self, other: Self) -> Vec4 {
+        Self {
+            x: self.x.max(other.x),
+            y: self.y.max(other.y),
+            z: self.z.max(other.z),
+            w: self.w.max(other.w),
+        }
+    }
+
+    /// Returns the longer vector between this [`Vec4`] and `other`.
+    pub fn longest(&self, other: Self) -> Vec4 {
+        if self.length_squared() >= other.length_squared() {
+            *self
+        } else {
+            other
+        }
     }
 }
 

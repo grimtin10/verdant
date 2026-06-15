@@ -23,7 +23,7 @@ fn main() -> RendererResult<()> {
         if let Some(window) = renderer.get_window(window_id) {
             window.background(Color::BLACK);
 
-            window.text_size(32.);
+            window.font_size(32.);
             window.text_align(HorizontalAlign::Center, VerticalAlign::Top);
             window.line_align(HorizontalAlign::Center);
             window.text(&inter, 250., 0., text);

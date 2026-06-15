@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::{Hash, Hasher}, sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard}};
+use std::{collections::HashMap, hash::{Hash, Hasher}, mem::take, sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard}};
 
 use fontdue::{FontSettings, Metrics};
 
@@ -6,96 +6,6 @@ use crate::{RendererResult, canvas::RenderSurface, errors::Error, image::{Bounds
 
 const MAX_ATLAS_SIZE: u32 = 8192;
 const PADDING: u32 = 2;
-
-// TODO: refactor this to be less big and ugly
-/// Get the width and height of a set of [`Span`]s.
-pub fn rich_text_size(spans: &[Span]) -> RendererResult<(f32, f32)> {
-    // because the hash of a `Font` is just the `Arc` pointer, this is fine
-    #[allow(clippy::mutable_key_type)]
-    let mut fonts = HashMap::new();
-
-    let mut total_width: f32 = 0.;
-    let mut total_height = 0.;
-    let mut cx = 0.;
-    let mut width: f32 = 0.;
-    for span in spans {
-        let key = (span.style, span.font.clone());
-        let glyphs: &mut HashMap<_, _> = fonts.entry(key).or_default();
-
-        let mut height = 0.;
-        let mut line_height: f32 = 0.;
-
-        let mut retries = 0;
-        'outer: loop {
-            if retries > 1 {
-                return Err(Error::TextTooBig);
-            }
-
-            for char in span.text.chars() {
-                let Ok(Some(glyph)) = span.font.get_or_load_glyph(char, span.style.size) else {
-                    glyphs.clear();
-                    retries += 1;
-                    continue 'outer;
-                };
-
-                cx += glyph.advance;
-                if char == '\n' {
-                    height += glyph.height;
-                    width = 0.;
-                    line_height = 0.;
-                    cx = 0.;
-                } else {
-                    line_height = line_height.max(glyph.height);
-                }
-
-                width = width.max(cx);
-                total_width = total_width.max(width);
-
-                glyphs.insert(char, glyph);
-            }
-            break;
-        }
-        height += line_height;
-
-        total_height += height;
-    }
-
-    Ok((total_width, total_height))
-}
-
-/// Get the width of a set of [`Span`]s.
-pub fn rich_text_width(spans: &[Span]) -> RendererResult<f32> {
-    Ok(rich_text_size(spans)?.0)
-}
-
-/// Get the height of a set of [`Span`]s.
-pub fn rich_text_height(spans: &[Span]) -> RendererResult<f32> {
-    Ok(rich_text_size(spans)?.1)
-}
-
-/// Get the width and height of text as rendered by the given [`Font`] at the given size.
-pub fn text_size(text: impl ToString, font: impl AsRef<Font>, size_px: f32) -> RendererResult<(f32, f32)> {
-    rich_text_size(&[
-        Span {
-            text: text.to_string(),
-            font: font.as_ref().clone(),
-            style: TextStyle {
-                size: size_px,
-                ..Default::default()
-            }
-        }
-    ])
-}
-
-/// Get the width of text as rendered by the given [`Font`] at the given size.
-pub fn text_width(text: impl ToString, font: impl AsRef<Font>, size_px: f32) -> RendererResult<f32> {
-    Ok(text_size(text, font, size_px)?.0)
-}
-
-/// Get the height of text as rendered by the given [`Font`] at the given size.
-pub fn text_height(text: impl ToString, font: impl AsRef<Font>, size_px: f32) -> RendererResult<f32> {
-    Ok(text_size(text, font, size_px)?.1)
-}
 
 #[derive(Debug, Clone, Copy)]
 struct GlyphInfo(char, f32);
@@ -130,12 +40,186 @@ pub struct CachedGlyph {
 pub struct TextLayout {
     pub lines: Vec<Line>,
     pub size: Vec2,
+    pub queries: Vec<(Font, f32, String)>,
+}
+
+// layout might just be the worst part of text rendering
+impl TextLayout {
+    /// Calculates a text layout from a set of spans and an alignment.
+    // TODO: kerning
+    // TODO: bounds
+    pub fn from_spans(
+        spans: &[Span],
+        horizontal_align: HorizontalAlign,
+        vertical_align: VerticalAlign,
+        line_align: HorizontalAlign,
+    ) -> Self {
+        let mut lines = Vec::new();
+        let mut size = Vec2::ZERO;
+
+        let mut segments = Vec::new();
+        let mut line_size = Vec2::ZERO;
+        let mut pos = Vec2::ZERO;
+
+        let mut first_ascent = None;
+        let mut current_line_advance = 0f32;
+        let mut current_line_ascent = 0f32;
+
+        // we love nesting
+        for (i, span) in spans.iter().enumerate() {
+            let glyphs = span.font.get_glyphs(&span.text, span.style.size).unwrap_or_default();
+            let line_advance = span.font.line_spacing(span.style.size);
+            let line_ascent = span.font.ascent(span.style.size);
+
+            for line in span.text.split_inclusive("\n") {
+                current_line_advance = current_line_advance.max(line_advance);
+                current_line_ascent = current_line_ascent.max(line_ascent);
+
+                let mut chars = Vec::new();
+                for char in line.chars() {
+                    if char != '\n' && let Some(glyph) = glyphs.get(&char) {
+                        chars.push(Glyph {
+                            char,
+                            pos: Vec2::new(pos.x + glyph.xmin, pos.y - glyph.ymin - glyph.height),
+                            visual_size: Vec2::new(glyph.width, glyph.height),
+                            size: Vec2::new(glyph.advance, glyph.height),
+                        });
+                        pos.x += glyph.advance;
+
+                        line_size = line_size.max(Vec2::new(pos.x, glyph.height));
+                    }
+                }
+
+                segments.push(Segment {
+                    glyphs: chars,
+                    style: span.style,
+                    font: span.font.clone(),
+                });
+
+                if line.ends_with("\n") {
+                    if first_ascent.is_none() {
+                        first_ascent = Some(current_line_ascent);
+                    }
+
+                    size = size.max(line_size + Vec2::new(0., pos.y + current_line_advance));
+
+                    let mut size = line_size;
+                    size.y = current_line_advance;
+
+                    lines.push(Line {
+                        segments: take(&mut segments),
+                        offset: Vec2::ZERO,
+                        size,
+                        visual_size: take(&mut line_size),
+                    });
+
+                    pos.x = 0.;
+                    pos.y += line_advance;
+                    current_line_advance = 0.;
+                }
+            }
+
+            if !segments.is_empty() && i == spans.len() - 1 {
+                if first_ascent.is_none() {
+                    first_ascent = Some(current_line_ascent);
+                }
+
+                size = size.max(line_size + Vec2::new(0., pos.y));
+
+                let mut size = line_size;
+                size.y = line_advance;
+
+                lines.push(Line {
+                    segments: take(&mut segments),
+                    offset: Vec2::ZERO,
+                    size,
+                    visual_size: take(&mut line_size),
+                });
+            }
+        }
+
+        let Some(first_ascent) = first_ascent else { return Self::default() };
+
+        let x_offset = match horizontal_align {
+            HorizontalAlign::Left => 0.,
+            HorizontalAlign::Center => -size.x / 2.,
+            HorizontalAlign::Right => size.x,
+        };
+
+        let y_offset = match vertical_align {
+            VerticalAlign::Top => 0.,
+            VerticalAlign::Center => size.y / 2.,
+            VerticalAlign::Bottom => size.y,
+        };
+
+        // correct for the fact that characters are drawn from the bottom left,
+        // moving the actual origin of the text to the top left
+        // and then apply alignment
+        for line in &mut lines {
+            let line_offset = match line_align {
+                HorizontalAlign::Left => 0.,
+                HorizontalAlign::Center => (size.x - line.size.x) / 2.,
+                HorizontalAlign::Right => size.x - line.size.x,
+            };
+
+            line.offset += Vec2::new(x_offset + line_offset, y_offset + first_ascent);
+        }
+
+        #[allow(clippy::mutable_key_type)]
+        let mut query_map: HashMap<(Font, u32), String> = HashMap::new();
+        for span in spans {
+            let key = (span.font.clone(), span.style.size.to_bits());
+            query_map.entry(key).or_default().push_str(&span.text);
+        }
+
+        let queries: Vec<_> = query_map
+            .into_iter()
+            .map(|((font, size_bits), text)| (font, f32::from_bits(size_bits), text))
+            .collect();
+
+        Self { lines, size, queries }
+    }
+
+    // because the hash of a `Font` is just the `Arc` pointer, this is fine
+    #[allow(clippy::mutable_key_type)]
+    pub fn get_cached_glyphs(&self) -> HashMap<Font, HashMap<(char, u32), CachedGlyph>> {
+        let mut result: HashMap<Font, HashMap<(char, u32), CachedGlyph>> = HashMap::new();
+
+        for (font, size, text) in &self.queries {
+            if let Ok(glyphs) = font.get_glyphs(text, *size) {
+                let font_map = result.entry(font.clone()).or_default();
+
+                for (char, glyph) in glyphs {
+                    font_map.insert((char, size.to_bits()), glyph);
+                }
+            }
+        }
+
+        result
+    }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct Line {
-    pub glyphs: Vec<CachedGlyph>,
+    pub segments: Vec<Segment>,
+    pub offset: Vec2,
+    pub size: Vec2,
+    pub visual_size: Vec2,
+}
 
+#[derive(Debug, Clone)]
+pub struct Segment {
+    pub glyphs: Vec<Glyph>,
+    pub style: TextStyle,
+    pub font: Font,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Glyph {
+    pub char: char,
+    pub pos: Vec2,
+    pub size: Vec2,
+    pub visual_size: Vec2,
 }
 
 #[derive(Debug, Default)]
@@ -287,6 +371,21 @@ impl FontInner {
         Ok(Some(cached))
     }
 
+    fn get_glyphs_fast(&self, text: &str, size_px: f32) -> RendererResult<Option<HashMap<char, CachedGlyph>>> {
+        let cache = self.cache.read()?;
+        let mut glyphs = HashMap::with_capacity(text.len());
+
+        for char in text.chars() {
+            if let Some(glyph) = cache.get(&GlyphInfo(char, size_px)) {
+                glyphs.insert(char, *glyph);
+            } else {
+                return Ok(None);
+            }
+        }
+
+        Ok(Some(glyphs))
+    }
+
     fn fallbacks(&self) -> RwLockReadGuard<'_, Vec<Font>> {
         match self.fallback.read() {
             Ok(guard) => guard,
@@ -373,6 +472,10 @@ impl Font {
     pub fn get_glyphs(&self, text: impl ToString, size_px: f32) -> RendererResult<HashMap<char, CachedGlyph>> {
         let text = text.to_string();
 
+        if let Some(glyphs) = self.inner.get_glyphs_fast(&text, size_px)? {
+            return Ok(glyphs);
+        }
+
         let try_glyphs = || -> RendererResult<Option<HashMap<char, CachedGlyph>>> {
             let mut glyphs = HashMap::new();
 
@@ -396,11 +499,21 @@ impl Font {
         Err(Error::TextTooBig)
     }
 
-    /// Returns the line height for text at `size_px`.
+    /// Returns the line height for this [`Font`] at `size_px`.
     /// Falls back to `size_px` if the font doesn't provide horizontal line metrics.
     pub fn line_spacing(&self, size_px: f32) -> f32 {
         if let Some(metrics) = self.inner.font.horizontal_line_metrics(size_px) {
             metrics.new_line_size
+        } else {
+            size_px
+        }
+    }
+
+    /// Returns the ascent for this [`Font`] at `size_px`.
+    /// Falls back to `size_px` if the font doesn't provide horizontal line metrics.
+    pub fn ascent(&self, size_px: f32) -> f32 {
+        if let Some(metrics) = self.inner.font.horizontal_line_metrics(size_px) {
+            metrics.ascent
         } else {
             size_px
         }
@@ -435,7 +548,7 @@ impl AsRef<Font> for Font {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum HorizontalAlign {
     #[default]
     Left,
@@ -443,12 +556,12 @@ pub enum HorizontalAlign {
     Right,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum VerticalAlign {
     #[default]
-    Bottom,
-    Center,
     Top,
+    Center,
+    Bottom,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -502,11 +615,21 @@ impl TextStyle {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Span {
     pub text: String,
     pub font: Font,
     pub style: TextStyle,
+}
+
+impl Span {
+    pub fn new(text: impl ToString, font: impl AsRef<Font>, style: TextStyle) -> Self {
+        Self {
+            text: text.to_string(),
+            font: font.as_ref().clone(),
+            style,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -641,7 +764,7 @@ impl Drawable for Text {
                     .then(Transform2d::translation(x, y)),
                 |window| {
                     window.fill(self.style.color);
-                    window.text_size(self.style.size);
+                    window.font_size(self.style.size);
                     window.text_align(self.align.horizontal, self.align.vertical);
                     window.line_align(self.align.line);
                     window.text(&self.font, 0., 0., &self.text);

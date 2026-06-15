@@ -3,7 +3,7 @@ use std::{collections::HashSet, sync::{Arc, atomic::{AtomicUsize, Ordering}}};
 use wgpu::{CurrentSurfaceTexture, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
 use winit::{dpi::{PhysicalPosition, PhysicalSize}, monitor::Fullscreen, window::WindowLevel};
 
-use crate::{AdvancedWindowProperties, GpuContext, Renderer, RendererResult, canvas::{Canvas, RenderSurface}, image::Image, shapes::ScalingMode, text::{Font, HorizontalAlign, Span, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
+use crate::{AdvancedWindowProperties, GpuContext, Renderer, RendererResult, canvas::{Canvas, RenderSurface}, image::Image, shapes::ScalingMode, text::{Font, HorizontalAlign, Span, TextLayout, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -319,6 +319,10 @@ impl Window {
     }
 }
 
+// TODO: i'm not the biggest fan of each of these acquiring a lock
+//       should investigate to see if there's any better way
+//       that doesn't involve insane code duplication
+//       (there probably isn't)
 impl RenderSurface for Window {
     fn background(&mut self, color: Color) {
         self.canvas.write().background(color);
@@ -412,8 +416,8 @@ impl RenderSurface for Window {
         self.canvas.write().line_align(align);
     }
 
-    fn text_size(&mut self, size_px: f32) {
-        self.canvas.write().text_size(size_px);
+    fn font_size(&mut self, size_px: f32) {
+        self.canvas.write().font_size(size_px);
     }
 
     fn text(&mut self, font: impl AsRef<Font>, x: f32, y: f32, text: impl ToString) {
@@ -422,6 +426,38 @@ impl RenderSurface for Window {
 
     fn rich_text(&mut self, x: f32, y: f32, spans: &[Span]) {
         self.canvas.write().rich_text(x, y, spans);
+    }
+
+    fn text_layout(&mut self, font: impl AsRef<Font>, text: impl ToString) -> TextLayout {
+        self.canvas.write().text_layout(font, text)
+    }
+
+    fn text_size(&mut self, font: impl AsRef<Font>, text: impl ToString) -> Vec2 {
+        self.canvas.write().text_size(font, text)
+    }
+
+    fn text_width(&mut self, font: impl AsRef<Font>, text: impl ToString) -> f32 {
+        self.canvas.write().text_width(font, text)
+    }
+
+    fn text_height(&mut self, font: impl AsRef<Font>, text: impl ToString) -> f32 {
+        self.canvas.write().text_height(font, text)
+    }
+
+    fn rich_text_layout(&mut self, spans: &[Span]) -> TextLayout {
+        self.canvas.write().rich_text_layout(spans)
+    }
+
+    fn rich_text_size(&mut self, spans: &[Span]) -> Vec2 {
+        self.canvas.write().rich_text_size(spans)
+    }
+
+    fn rich_text_width(&mut self, spans: &[Span]) -> f32 {
+        self.canvas.write().rich_text_width(spans)
+    }
+
+    fn rich_text_height(&mut self, spans: &[Span]) -> f32 {
+        self.canvas.write().rich_text_height(spans)
     }
 
     fn set_view(&mut self, width: f32, height: f32, view_mode: ViewMode) {

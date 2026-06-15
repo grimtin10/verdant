@@ -24,7 +24,7 @@ fn main() -> RendererResult<()> {
         if let Some(window) = renderer.get_window(main_window) {
             window.background(Color::BLACK);
 
-            window.text_size(32.);
+            window.font_size(32.);
             window.text_align(HorizontalAlign::Center, VerticalAlign::Center);
             window.text(&font, 500., 250., "Press any key to open a new window");
         }

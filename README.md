@@ -5,7 +5,7 @@
 [![Grind Compliant](https://img.shields.io/badge/Grind-Compliant-forest)](https://github.com/The-Grindhouse/grindlines)
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?&logo=discord&logoColor=white)](https://discord.gg/MD8QeNV2pC)
 
-> **Verdant is a work-in-progress. The API may change at any time.**
+> **Verdant is a work-in-progress. Parts of the API may change at any time.**
 
 <img width="800" alt="boids" src="https://github.com/user-attachments/assets/50e31e90-9e4b-4cf3-8702-e27c5dd8bfd2" style="max-width: 100%; height: auto" />
 

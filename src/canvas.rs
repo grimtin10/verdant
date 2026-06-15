@@ -1,9 +1,9 @@
-use std::{collections::{HashMap, HashSet, hash_map::Entry}, mem::take, ops::Range, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicU64, Ordering}}};
+use std::{collections::{HashMap, HashSet, hash_map::Entry}, hash::{DefaultHasher, Hash, Hasher}, mem::take, ops::Range, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicU64, Ordering}}};
 
 use bytemuck::cast_slice;
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, BufferDescriptor, BufferUsages, CommandEncoder, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, util::{BufferInitDescriptor, DeviceExt}, wgt::TextureDataOrder};
 
-use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, shape_vertices::{canvas_vertices, ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::{ScalingMode, Style}, text::{self, Font, HorizontalAlign, Span, VerticalAlign}, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
+use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, shape_vertices::{canvas_vertices, ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::{ScalingMode, Style}, text::{self, Font, HorizontalAlign, Span, TextLayout, VerticalAlign}, transform::{GpuTransform2d, Transform2d}, types::{Color, TextLayoutCache}, vec::Vec2, view::{View, ViewMode}};
 
 static CANVAS_ID: AtomicU64 = AtomicU64::new(0);
 
@@ -76,13 +76,31 @@ pub trait RenderSurface {
     /// Sets the alignment per-line for subsequent text calls.
     /// Affects rich text.
     fn line_align(&mut self, align: HorizontalAlign);
-    /// Sets the text size (in pixels) for subsequent text calls.
+    /// Sets the font size (in pixels) for subsequent text calls.
     /// Does not affect rich text.
-    fn text_size(&mut self, size_px: f32);
+    fn font_size(&mut self, size_px: f32);
     /// Draws text at `(x, y)` with the given font using the current fill color and text size.
     fn text(&mut self, font: impl AsRef<Font>, x: f32, y: f32, text: impl ToString);
     /// Draws rich text at `(x, y)` with each span's font and style.
     fn rich_text(&mut self, x: f32, y: f32, spans: &[Span]);
+
+    /// Gets the layout for `text` with the given font and the current font size and text alignment.
+    fn text_layout(&mut self, font: impl AsRef<Font>, text: impl ToString) -> TextLayout;
+    /// Gets the size of `text` with the given font and the current font size.
+    fn text_size(&mut self, font: impl AsRef<Font>, text: impl ToString) -> Vec2;
+    /// Gets the width of `text` with the given font and the current font size.
+    fn text_width(&mut self, font: impl AsRef<Font>, text: impl ToString) -> f32;
+    /// Gets the height of `text` with the given font and the current font size.
+    fn text_height(&mut self, font: impl AsRef<Font>, text: impl ToString) -> f32;
+
+    /// Gets the layout for `spans` with the current text alignment.
+    fn rich_text_layout(&mut self, spans: &[Span]) -> TextLayout;
+    /// Gets the size of `spans`.
+    fn rich_text_size(&mut self, spans: &[Span]) -> Vec2;
+    /// Gets the width of `spans`.
+    fn rich_text_width(&mut self, spans: &[Span]) -> f32;
+    /// Gets the height of `spans`.
+    fn rich_text_height(&mut self, spans: &[Span]) -> f32;
 
     // view
     /// Sets the logical view size and scaling mode.
@@ -150,6 +168,8 @@ pub(crate) struct CanvasContext {
     current_texture: Option<Image>,
 
     clear_color: Option<Color>,
+
+    layout_cache: TextLayoutCache,
 }
 
 impl CanvasContext {
@@ -184,6 +204,35 @@ impl CanvasContext {
 
     pub(crate) fn update_transform(&mut self, transform: Transform2d) {
         self.transform = transform;
+    }
+
+    pub(crate) fn get_or_create_layout(
+        &mut self,
+        spans: &[Span],
+        horizontal_align: HorizontalAlign,
+        vertical_align: VerticalAlign,
+        line_align: HorizontalAlign,
+    ) -> &TextLayout {
+        let mut hasher = DefaultHasher::new();
+        spans.hash(&mut hasher);
+        horizontal_align.hash(&mut hasher);
+        vertical_align.hash(&mut hasher);
+        line_align.hash(&mut hasher);
+        let key = hasher.finish();
+
+        if let Some(layout) = self.layout_cache.get(key) {
+            // SAFETY: the current borrow checker is unable to prove that this is safe,
+            // even though i can prove that it is,
+            // meaning we have to do this to avoid a double-lookup
+            // polonius fixes this...
+            unsafe {
+                return &*(layout as *const TextLayout);
+            }
+        }
+
+        let layout = TextLayout::from_spans(spans, horizontal_align, vertical_align, line_align);
+
+        self.layout_cache.insert(key, layout)
     }
 }
 
@@ -381,6 +430,18 @@ impl CanvasState {
             (view_scale.x + view_scale.y) / 2.,
             self.context.transform.get_safe_scale(),
         )
+    }
+
+    fn get_span(&self, font: impl AsRef<Font>, text: impl ToString) -> [Span; 1] {
+        [Span::new(
+            text,
+            font,
+            text::TextStyle {
+                size: self.text_style.size,
+                color: self.style.fill_color,
+                ..Default::default()
+            },
+        )]
     }
 
     pub(crate) fn flush_with_encoder(
@@ -741,150 +802,103 @@ impl RenderSurface for CanvasState {
         self.text_style.line_align = align;
     }
 
-    fn text_size(&mut self, size_px: f32) {
+    fn font_size(&mut self, size_px: f32) {
         self.text_style.size = size_px;
     }
 
     fn text(&mut self, font: impl AsRef<Font>, x: f32, y: f32, text: impl ToString) {
-        self.rich_text(x, y, &[Span {
-            text: text.to_string(),
-            font: font.as_ref().clone(),
-            style: text::TextStyle {
-                size: self.text_style.size,
-                color: self.style.fill_color,
-                ..Default::default()
-            },
-        }]);
+        self.rich_text(x, y, &self.get_span(font, text));
     }
 
-    // TODO: refactor this to be less big and ugly
+    // TODO: implement faster hot path for single-span text draw calls
     fn rich_text(&mut self, x: f32, y: f32, spans: &[Span]) {
+        let layout = self.context.get_or_create_layout(
+            spans,
+            self.text_style.horizontal_align,
+            self.text_style.vertical_align,
+            self.text_style.line_align
+        ).clone();
+
         // because the hash of a `Font` is just the `Arc` pointer, this is fine
         #[allow(clippy::mutable_key_type)]
-        let mut fonts = HashMap::new();
-        let mut line_heights = Vec::new();
+        let glyphs = layout.get_cached_glyphs();
 
-        let mut total_width = 0.;
-        let mut line_width = 0.;
-        let mut line_widths = Vec::new();
-        for span in spans {
-            let key = (span.style, span.font.clone());
-            let glyphs: &mut HashMap<_, _> = fonts.entry(key).or_default();
+        for line in &layout.lines {
+            for segment in &line.segments {
+                let Some(cached_glyphs) = glyphs.get(&segment.font) else { continue };
 
-            let mut cx = 0.;
-            let mut width: f32 = 0.;
-            let mut line_height: f32 = 0.;
+                self.context.update_texture(Some(segment.font.atlas().clone()));
 
-            let mut retries = 0;
-            'outer: loop {
-                // TODO: probably put a warning here that the text was too big to fit in the atlas
-                //       i want to make a proper error handling/signaling system first,
-                //       that's why i'm not doing it now
-                if retries > 1 {
-                    break;
+                for glyph in &segment.glyphs {
+                    let key = (glyph.char, segment.style.size.to_bits());
+                    let Some(cached) = cached_glyphs.get(&key) else { continue };
+
+                    self.push_vertices(textured_vertices(
+                        x + glyph.pos.x + line.offset.x,
+                        y + glyph.pos.y + line.offset.y,
+                        glyph.visual_size.x,
+                        glyph.visual_size.y,
+                        cached.uv_min,
+                        cached.uv_max,
+                        segment.style.color,
+                    ));
                 }
-
-                for char in span.text.chars() {
-                    let Ok(Some(glyph)) = span.font.get_or_load_glyph(char, span.style.size) else {
-                        glyphs.clear();
-                        retries += 1;
-                        continue 'outer;
-                    };
-
-                    cx += glyph.advance;
-                    line_width += glyph.advance;
-                    if char == '\n' {
-                        line_widths.push(line_width);
-                        line_width = 0.;
-                        cx = 0.;
-                    } else {
-                        line_height = line_height.max(glyph.height);
-                    }
-
-                    width = width.max(cx);
-
-                    glyphs.insert(char, glyph);
-                }
-                break;
-            }
-
-            total_width += width;
-            line_heights.push(line_height);
-        }
-        line_widths.push(line_width);
-
-        let total_x_offset = match self.text_style.horizontal_align {
-            HorizontalAlign::Left => 0.,
-            HorizontalAlign::Center => -total_width / 2.,
-            HorizontalAlign::Right => -total_width,
-        };
-
-        let mut line = 0;
-        let mut x_offset = match self.text_style.line_align {
-            HorizontalAlign::Left => 0.,
-            HorizontalAlign::Center => (total_width - line_widths[line]) / 2.,
-            HorizontalAlign::Right => total_width - line_widths[line],
-        };
-
-        let mut cx = x;
-        let mut cy = y;
-        for (span, line_height) in spans.iter().zip(line_heights) {
-            self.context.update_texture(Some(span.font.atlas().clone()));
-
-            let Some(glyphs) = fonts.get(&(span.style, span.font.clone())) else { continue };
-
-            let y_offset = match self.text_style.vertical_align {
-                VerticalAlign::Bottom => 0.,
-                VerticalAlign::Center => line_height / 2.,
-                VerticalAlign::Top => line_height,
-            };
-
-            for char in span.text.chars() {
-                if char == '\n' {
-                    if let Some(glyph) = glyphs.get(&char) {
-                        cx = x;
-                        cy += glyph.height;
-                    }
-
-                    line += 1;
-                    x_offset = match self.text_style.line_align {
-                        HorizontalAlign::Left => 0.,
-                        HorizontalAlign::Center => (total_width - line_widths[line]) / 2.,
-                        HorizontalAlign::Right => total_width - line_widths[line],
-                    };
-
-                    continue;
-                }
-
-                if char.is_whitespace() {
-                    if let Some(glyph) = glyphs.get(&char) {
-                        cx += glyph.advance;
-                    }
-                    continue;
-                }
-
-                let Some(glyph) = glyphs.get(&char) else { continue };
-
-                let char_x = cx + glyph.xmin + span.style.offset.x + total_x_offset + x_offset;
-                let char_y = cy - glyph.height - glyph.ymin + span.style.offset.y + y_offset;
-                let w = glyph.width;
-                let h = glyph.height;
-
-                self.push_vertices(textured_vertices(
-                    char_x,
-                    char_y,
-                    w,
-                    h,
-                    glyph.uv_min,
-                    glyph.uv_max,
-                    span.style.color,
-                ));
-
-                cx += glyph.advance;
             }
         }
 
         self.context.update_texture(None);
+    }
+
+    fn text_layout(&mut self, font: impl AsRef<Font>, text: impl ToString) -> TextLayout {
+        self.rich_text_layout(&self.get_span(font, text))
+    }
+
+    fn text_size(&mut self, font: impl AsRef<Font>, text: impl ToString) -> Vec2 {
+        self.rich_text_size(&self.get_span(font, text))
+    }
+
+    fn text_width(&mut self, font: impl AsRef<Font>, text: impl ToString) -> f32 {
+        self.rich_text_width(&self.get_span(font, text))
+    }
+
+    fn text_height(&mut self, font: impl AsRef<Font>, text: impl ToString) -> f32 {
+        self.rich_text_height(&self.get_span(font, text))
+    }
+
+    fn rich_text_layout(&mut self, spans: &[Span]) -> TextLayout {
+        self.context.get_or_create_layout(
+            spans,
+            self.text_style.horizontal_align,
+            self.text_style.vertical_align,
+            self.text_style.line_align
+        ).clone()
+    }
+
+    fn rich_text_size(&mut self, spans: &[Span]) -> Vec2 {
+        self.context.get_or_create_layout(
+            spans,
+            self.text_style.horizontal_align,
+            self.text_style.vertical_align,
+            self.text_style.line_align
+        ).size
+    }
+
+    fn rich_text_width(&mut self, spans: &[Span]) -> f32 {
+        self.context.get_or_create_layout(
+            spans,
+            self.text_style.horizontal_align,
+            self.text_style.vertical_align,
+            self.text_style.line_align
+        ).size.x
+    }
+
+    fn rich_text_height(&mut self, spans: &[Span]) -> f32 {
+        self.context.get_or_create_layout(
+            spans,
+            self.text_style.horizontal_align,
+            self.text_style.vertical_align,
+            self.text_style.line_align
+        ).size.y
     }
 
     fn set_view(&mut self, width: f32, height: f32, view_mode: ViewMode) {
