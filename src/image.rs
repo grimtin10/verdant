@@ -93,7 +93,7 @@ impl Image {
     pub fn new(data: Vec<u8>, width: u32, height: u32) -> RendererResult<Self> {
         let required_bytes = (width * height * 4) as usize;
         let actual_bytes = data.len();
-        if required_bytes < actual_bytes {
+        if actual_bytes < required_bytes {
             return Err(Error::ImageBufferTooSmall { expected: required_bytes, actual: actual_bytes });
         }
 

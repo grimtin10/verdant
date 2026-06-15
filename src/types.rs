@@ -30,6 +30,7 @@ impl Color {
     }
 
     /// Converts the color from linear to sRGB color space using a 2.2 gamma.
+    // TODO: this is imprecise and should be replaced with the real sRGB formula
     pub fn to_srgb(self) -> Self {
         Self {
             r: self.r.powf(1. / 2.2),
