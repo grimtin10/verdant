@@ -317,12 +317,20 @@ impl Window {
     pub fn set_title(&mut self, title: impl ToString) {
         self.inner_window.set_title(&title.to_string());
     }
+
+    /// Get the inner canvas of this window
+    pub fn get_canvas(&self) -> Canvas {
+        self.canvas.clone()
+    }
 }
 
 // TODO: i'm not the biggest fan of each of these acquiring a lock
 //       should investigate to see if there's any better way
 //       that doesn't involve insane code duplication
 //       (there probably isn't)
+//        actually, i know there is a way
+//        because the only way to get a window to draw to is to get a mutable reference
+//        so i just have to do a little nonsense and we're good
 impl RenderSurface for Window {
     fn background(&mut self, color: Color) {
         self.canvas.write().background(color);

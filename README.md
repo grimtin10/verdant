@@ -23,7 +23,7 @@
 
 ## What is Verdant?
 
-Verdant is a rendering and windowing library for Rust, inspired by Processing, made to be accessible.
+Verdant is a rendering and windowing library for Rust, made to be accessible.
 
 Built on top of `wgpu` and `winit`, Verdant focuses on a clean, expressive, and easy-to-use API that makes common rendering tasks easy and mistakes difficult.
 
@@ -72,8 +72,10 @@ Verdant aims to be performant and powerful, while still remaining lightweight an
 
 ## What Verdant is *not*
 Verdant is a rendering/windowing library. It is not a game engine or a UI framework, it does not handle audio, it does not handle physics.
-
 It is a foundation you can build those things on top of.
+
+Verdant is also not *just* a creative coding library or *just* meant for simple tasks (however it can be used for both of those things!)
+An accessible API does not mean a compromised one; Verdant is designed to be capable.
 
 ---
 
@@ -123,9 +125,12 @@ You can use the imperative, stateful API for quick prototyping or things that ch
 
 Verdant provides both a basic text API and a rich text API, allowing you to mix fonts, colors, sizes, and styles, all in a single function call.
 
-*See [rich_text.rs](examples/rich_text.rs)*
-
+<details>
+<summary>Screenshot</summary>
 <img width="800" src="https://github.com/user-attachments/assets/859c9eff-11d6-4048-8791-f4cc7e25a23a" style="max-width: 100%; height: auto" />
+</details>
+
+*See [rich_text.rs](examples/rich_text.rs)*
 
 ### Canvases are first-class
 
@@ -139,19 +144,24 @@ It even lets you render a canvas to itself, allowing for recursive effects!
 Verdant allows you to define a logical rendering space, independent of the physical window size.
 This allows you to create scalable applications without having to manually handle aspect-ratio math.
 
-*See [views.rs](examples/views.rs)*
-
+<details>
+<summary>Screenshot</summary>
 <img width="800" alt="image" src="https://github.com/user-attachments/assets/a28250a2-8b80-4e34-84d1-e130cae74957" style="max-width: 100%; height: auto" />
+</details>
+
+*See [views.rs](examples/views.rs)*
 
 ### Configurable scaling
 Verdant lets you choose how outlines and corner radii scale. They can behave like physical geometry, remain at a constant pixel size, or respond independently to transforms and view scaling.
 This makes it easy to build everything from scalable interfaces to interactive visualizations without sacrificing visual consistency.
 
-*See [scaling_modes.rs](examples/scaling_modes.rs)*
-
+<details>
+<summary>Screenshot</summary>
 <img width="800" alt="scaling" src="https://github.com/user-attachments/assets/135db8d2-92c5-4a2b-a369-b5ecbb68c2ad" style="max-width: 100%; height: auto" />
-
 *(The window has been resized to be much larger than the original size, on the left the outlines and corner radii scale with the window, and on the right they stay at a constant pixel size)*
+</details>
+
+*See [scaling_modes.rs](examples/scaling_modes.rs)*
 
 ---
 
@@ -165,7 +175,10 @@ verdant = "0.6"
 ```
 Currently, Verdant only supports desktop, though web/mobile support is planned soon.
 
-### Cargo Features
+<details>
+<summary>
+<strong>Cargo Features</strong>
+</summary>
 
 By default, Verdant includes granular features to control what gets built. If you don't need asset loading and/or text and want a lighter dependency tree, you can disable them:
 
@@ -188,10 +201,13 @@ It also has granular features for different image formats:
 verdant = { version = "0.6", default-features = false, features = ["vulkan", "dx12", "metal", "image-png", "image-jpeg", "image-webp"] }
 ```
 
-By default, `image-png` and `image-jpeg` are enabled.
+By default, "text", "image-png", "image-jpeg", "dx12", "metal", and "vulkan" are enabled.
+</details>
 
-### Running the Examples
-
+<details>
+<summary>
+<strong>Running the Examples</strong>
+</summary>
 To try out the examples locally, clone the repository and run them using Cargo:
 
 ```sh
@@ -200,6 +216,11 @@ cd verdant
 cargo run --example boids --release
 cargo run --example clock --release
 ```
+</details>
+
+## MSRV
+
+The MSRV of Verdant is 1.89.0.
 
 ## Feedback
 

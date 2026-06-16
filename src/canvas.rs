@@ -762,8 +762,6 @@ impl RenderSurface for CanvasState {
             Vec2::ONE,
             self.style.fill_color
         ));
-
-        self.context.update_texture(None);
     }
 
     fn composite(&mut self, canvas: impl AsRef<Canvas>, x: f32, y: f32, w: f32, h: f32) {
@@ -845,8 +843,6 @@ impl RenderSurface for CanvasState {
                 }
             }
         }
-
-        self.context.update_texture(None);
     }
 
     fn text_layout(&mut self, font: impl AsRef<Font>, text: impl ToString) -> TextLayout {

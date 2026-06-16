@@ -143,7 +143,7 @@ impl TextLayout {
         let x_offset = match horizontal_align {
             HorizontalAlign::Left => 0.,
             HorizontalAlign::Center => -size.x / 2.,
-            HorizontalAlign::Right => size.x,
+            HorizontalAlign::Right => -size.x,
         };
 
         let y_offset = match vertical_align {

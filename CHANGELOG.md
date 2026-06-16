@@ -7,9 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `Window::get_canvas`
+
+### Changed
+- Update README
+
 ### Fixed
 - Fix typo in `Image::new()` where instead of erroring when the provided buffer was too small it errored when it was too large
 - Fix incorrect version number in README
+- Drawing text/images no longer break batches twice
+- Fix typo in `TextLayout::from_spans` where right aligned spans were entirely wrong
+- Fix typo in boids example that caused random number generation to be wrong
 
 ## [0.6.0] - 2026-06-15
 
