@@ -83,7 +83,7 @@ impl Debug for Image {
 
 impl PartialEq for Image {
     fn eq(&self, other: &Self) -> bool {
-        self.data.as_ref().map(Arc::as_ptr) == other.data.as_ref().map(Arc::as_ptr)
+        Arc::ptr_eq(&self.image, &other.image)
     }
 }
 
@@ -286,6 +286,7 @@ impl Image {
 
     pub(crate) fn submit_to_gpu(&mut self, ctx: &GpuContext) -> RendererResult<Arc<ImageData>> {
         if let Some(data) = self.data.clone() {
+            self.write_texture(ctx, data.clone());
             Ok(data)
         } else {
             let size = Extent3d { width: self.width, height: self.height, depth_or_array_layers: 1 };
