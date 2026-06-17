@@ -1,4 +1,4 @@
-use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, shapes::{Drawable, Ellipse, Rect}, types::Color};
+use verdant::prelude::*;
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;

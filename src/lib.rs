@@ -14,8 +14,8 @@
 
 #![deny(clippy::unwrap_used)]
 
+pub use winit::event::WindowEvent as WinitEvent;
 pub use wgpu::TextureFormat;
-pub use winit::{event::{ElementState, KeyEvent, MouseButton, MouseScrollDelta, WindowEvent}, keyboard::{Key, KeyCode, NamedKey, PhysicalKey}};
 
 use bytemuck::{Pod, Zeroable};
 
@@ -25,11 +25,14 @@ use winit::{application::ApplicationHandler, dpi::PhysicalSize, event_loop::{Act
 
 use std::{collections::{HashMap, VecDeque}, sync::Arc};
 
-use crate::{canvas::{Canvas, RenderSurface}, errors::Error, transform::Transform2d, types::Color, vec::Vec2, window::{Window, WindowId, WindowProperties}};
+use crate::{canvas::Canvas, errors::Error, event::WindowEvent, render_surface::RenderSurface, transform::Transform2d, types::Color, vec::Vec2, window::{Window, WindowId, WindowProperties}};
 
 pub mod canvas;
 pub mod errors;
+pub mod event;
 pub mod image;
+pub mod prelude;
+pub mod render_surface;
 pub mod shapes;
 pub mod transform;
 pub mod types;
@@ -44,7 +47,7 @@ pub mod text;
 
 pub type RendererResult<T> = Result<T, Error>;
 
-/// This is for if you need to do things that verdant's [`WindowProperties`] doesn't support.
+/// This is for if you need to do things that Verdant's [`WindowProperties`] doesn't support.
 /// Use [`WindowProperties`] for normal use cases.
 ///
 /// Note: This type is a direct re-export of `winit::window::WindowAttributes`; under a different
@@ -172,6 +175,7 @@ struct RendererContext {
     window_queue: VecDeque<(WindowId, AdvancedWindowProperties)>,
 
     events: Vec<(WindowId, WindowEvent)>,
+    raw_events: Vec<(WindowId, WinitEvent)>,
 
     #[allow(unused)]
     is_wayland: bool,
@@ -191,6 +195,7 @@ impl RendererContext {
             window_queue: VecDeque::new(),
 
             events: Vec::new(),
+            raw_events: Vec::new(),
 
             is_wayland,
         }
@@ -517,6 +522,7 @@ impl Renderer {
     /// Pumps the event loop and returns all window events since the last call.
     /// Resize, cursor movement, and focus events are also forwarded to their
     /// respective windows internally.
+    /// Clears all queued [`WinitEvent`]s.
     ///
     /// Only available on Windows, macOS, Linux, and Android.
     #[cfg(any(windows_platform, macos_platform, linux_platform, android_platform))]
@@ -526,7 +532,25 @@ impl Renderer {
 
         self.event_loop.pump_app_events(Some(Duration::ZERO), &mut self.context);
 
+        self.context.raw_events.clear();
         take(&mut self.context.events)
+    }
+
+    /// Pumps the event loop and returns all raw winit events since the last call.
+    /// Resize, cursor movement, and focus events are also forwarded to their
+    /// respective windows internally.
+    /// Clears all queued [`WindowEvent`]s.
+    ///
+    /// Only available on Windows, macOS, Linux, and Android.
+    #[cfg(any(windows_platform, macos_platform, linux_platform, android_platform))]
+    pub fn poll_raw(&mut self) -> Vec<(WindowId, WinitEvent)> {
+        use std::{mem::take, time::Duration};
+        use winit::event_loop::pump_events::EventLoopExtPumpEvents;
+
+        self.event_loop.pump_app_events(Some(Duration::ZERO), &mut self.context);
+
+        self.context.events.clear();
+        take(&mut self.context.raw_events)
     }
 
     /// Closes the window with the given [`WindowId`], removing it from the renderer.
@@ -573,7 +597,7 @@ impl ApplicationHandler for RendererContext {
         &mut self,
         event_loop: &dyn ActiveEventLoop,
         window_id: winit::window::WindowId,
-        event: WindowEvent,
+        event: WinitEvent,
     ) {
         if let Err(e) = self.process_queued_windows(event_loop) {
             println!("error processing windows: {e}");
@@ -581,18 +605,19 @@ impl ApplicationHandler for RendererContext {
 
         if let Some(id) = self.real_to_virtual.get(&window_id) {
             if let Some(window) = self.windows.get_mut(id) {
-                if let WindowEvent::SurfaceResized(size) = event {
+                if let WinitEvent::SurfaceResized(size) = event {
                     window.on_resize(size);
                 }
-                if let WindowEvent::PointerMoved { position, .. } = event {
+                if let WinitEvent::PointerMoved { position, .. } = event {
                     window.on_mouse_move(position);
                 }
-                if let WindowEvent::Focused(focus) = event {
+                if let WinitEvent::Focused(focus) = event {
                     window.on_focus_update(focus);
                 }
             }
 
-            self.events.push((*id, event));
+            self.events.push((*id, event.clone().into()));
+            self.raw_events.push((*id, event));
         }
     }
 }

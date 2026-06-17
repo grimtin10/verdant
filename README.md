@@ -30,7 +30,7 @@ Built on top of `wgpu` and `winit`, Verdant focuses on a clean, expressive, and 
 Finally, a foundational rendering library that is easy to use.
 
 ```rust
-use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, rgb, shapes::{Drawable, Rect}};
+use verdant::prelude::*;
 
 fn main() -> RendererResult<()> {
     // initialize the renderer and create a window

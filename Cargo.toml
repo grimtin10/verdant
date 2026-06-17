@@ -9,10 +9,9 @@ repository = "https://github.com/grimtin10/verdant"
 [features]
 default = ["text", "image-png", "image-jpeg", "dx12", "metal", "vulkan"]
 
-image = []
-
 text = ["dep:fontdue"]
 
+image = []
 image-png  = ["image", "dep:image", "image/png"]
 image-jpeg = ["image", "dep:image", "image/jpeg"]
 image-webp = ["image", "dep:image", "image/webp"]
@@ -26,6 +25,8 @@ gles = ["wgpu/gles"]
 
 linux-wayland-csd = ["winit/wayland-csd-adwaita"]
 
+glam = ["dep:glam"]
+
 [dependencies]
 bytemuck = "1.25.0"
 pollster = "0.4.0"
@@ -36,6 +37,8 @@ wgpu = { version = "29.0.3", default-features = false, features = ["wgsl", "std"
 
 fontdue = { version = "0.9.3", optional = true, default-features = false, features = ["simd", "std"] }
 image = { version = "0.25.10", optional = true, default-features = false }
+glam = { version = "0.33.1", optional = true }
+smol_str = "0.3.6"
 
 [build-dependencies]
 cfg_aliases = "0.2.0"

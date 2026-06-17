@@ -1,7 +1,8 @@
 use std::{ops::Range, time::Instant};
 
 use fastrand::f32;
-use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, shapes::Drawable, text::{Font, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode, window::WindowProperties};
+use verdant::prelude::*;
+use verdant::vec::Vec2;
 
 // all the parameters that control the simulation
 // boid settings

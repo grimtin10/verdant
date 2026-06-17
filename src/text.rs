@@ -2,7 +2,7 @@ use std::{collections::HashMap, hash::{Hash, Hasher}, mem::take, sync::{Arc, Mut
 
 use fontdue::{FontSettings, Metrics};
 
-use crate::{RendererResult, canvas::RenderSurface, errors::Error, image::{Bounds, Image}, shapes::Drawable, transform::Transform2d, types::{ByteSource, Color}, vec::Vec2};
+use crate::{RendererResult, errors::Error, image::{Bounds, Image}, render_surface::RenderSurface, shapes::Drawable, transform::Transform2d, types::{ByteSource, Color}, vec::Vec2};
 
 const MAX_ATLAS_SIZE: u32 = 8192;
 const PADDING: u32 = 2;
@@ -655,7 +655,7 @@ impl Text {
     #[allow(clippy::too_many_arguments)]
     /// Creates a fully specified [`Text`] with position, style, transform, alignment, font, and text.
     pub fn new(
-        position: Vec2,
+        position: impl Into<Vec2>,
         style: TextStyle,
         transform: Transform2d,
 
@@ -665,7 +665,7 @@ impl Text {
         text: impl ToString,
     ) -> Self {
         Self {
-            position,
+            position: position.into(),
             style,
             transform,
 
@@ -785,13 +785,13 @@ pub struct RichText {
 impl RichText {
     /// Creates a fully specified [`RichText`] with position, transform, spans, and alignment.
     pub fn new(
-        position: Vec2,
+        position: impl Into<Vec2>,
         transform: Transform2d,
         spans: Vec<Span>,
         align: TextAlignment,
     ) -> Self {
         Self {
-            position,
+            position: position.into(),
             transform,
             spans: spans.into(),
             align,

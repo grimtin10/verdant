@@ -2,6 +2,95 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 use bytemuck::{Pod, Zeroable};
 
+// lmao
+// it's practical okay
+macro_rules! op_binop {
+    ($t:ty, $opname:ident, $func:ident, $op:tt; $($var:ident),*) => {
+        impl $opname for $t {
+            type Output = Self;
+            fn $func(self, rhs: Self) -> Self::Output {
+                Self::new($(self.$var $op rhs.$var),*)
+            }
+        }
+    };
+    ($t:ty, $opname:ident, $func:ident, $op:tt, $rhs:ty; $($var:ident),*) => {
+        impl $opname<$rhs> for $t {
+            type Output = Self;
+            fn $func(self, rhs: $rhs) -> Self::Output {
+                Self::new($(self.$var $op rhs.$var),*)
+            }
+        }
+    };
+    ($t:ty, $opname:ident, $func:ident, $op:tt, $rhs:ty [scalar]; $($var:ident),*) => {
+        impl $opname<$rhs> for $t {
+            type Output = Self;
+            fn $func(self, rhs: $rhs) -> Self::Output {
+                Self::new($(self.$var $op rhs),*)
+            }
+        }
+    };
+}
+
+macro_rules! op_assign {
+    ($t:ty, $opname:ident, $func:ident, $op:tt; $($var:ident),*) => {
+        impl $opname for $t {
+            fn $func(&mut self, rhs: Self) {
+                $(self.$var $op rhs.$var;)*
+            }
+        }
+    };
+    ($t:ty, $opname:ident, $func:ident, $op:tt, $rhs:ty; $($var:ident),*) => {
+        impl $opname<$rhs> for $t {
+            fn $func(&mut self, rhs: $rhs) {
+                $(self.$var $op rhs.$var;)*
+            }
+        }
+    };
+    ($t:ty, $opname:ident, $func:ident, $op:tt, $rhs:ty [scalar]; $($var:ident),*) => {
+        impl $opname<$rhs> for $t {
+            fn $func(&mut self, rhs: $rhs) {
+                $(self.$var $op rhs;)*
+            }
+        }
+    };
+}
+
+macro_rules! vec_ops {
+    ($t:ty; $($var:ident),*) => {
+        op_binop!($t, Add, add, +; $($var),*);
+        op_binop!($t, Sub, sub, -; $($var),*);
+        op_binop!($t, Mul, mul, *; $($var),*);
+        op_binop!($t, Div, div, /; $($var),*);
+
+        op_assign!($t, AddAssign, add_assign, +=; $($var),*);
+        op_assign!($t, SubAssign, sub_assign, -=; $($var),*);
+        op_assign!($t, MulAssign, mul_assign, *=; $($var),*);
+        op_assign!($t, DivAssign, div_assign, /=; $($var),*);
+    };
+    ($t:ty, $rhs:ty; $($var:ident),*) => {
+        op_binop!($t, Add, add, +, $rhs; $($var),*);
+        op_binop!($t, Sub, sub, -, $rhs; $($var),*);
+        op_binop!($t, Mul, mul, *, $rhs; $($var),*);
+        op_binop!($t, Div, div, /, $rhs; $($var),*);
+
+        op_assign!($t, AddAssign, add_assign, +=, $rhs; $($var),*);
+        op_assign!($t, SubAssign, sub_assign, -=, $rhs; $($var),*);
+        op_assign!($t, MulAssign, mul_assign, *=, $rhs; $($var),*);
+        op_assign!($t, DivAssign, div_assign, /=, $rhs; $($var),*);
+    };
+    ($t:ty, $rhs:ty [scalar]; $($var:ident),*) => {
+        op_binop!($t, Add, add, +, $rhs [scalar]; $($var),*);
+        op_binop!($t, Sub, sub, -, $rhs [scalar]; $($var),*);
+        op_binop!($t, Mul, mul, *, $rhs [scalar]; $($var),*);
+        op_binop!($t, Div, div, /, $rhs [scalar]; $($var),*);
+
+        op_assign!($t, AddAssign, add_assign, +=, $rhs [scalar]; $($var),*);
+        op_assign!($t, SubAssign, sub_assign, -=, $rhs [scalar]; $($var),*);
+        op_assign!($t, MulAssign, mul_assign, *=, $rhs [scalar]; $($var),*);
+        op_assign!($t, DivAssign, div_assign, /=, $rhs [scalar]; $($var),*);
+    };
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable, Default, PartialEq)]
 /// A struct representing a 2-dimensional vector, with `x` and `y` components.
@@ -96,117 +185,8 @@ impl From<[f32; 2]> for Vec2 {
     }
 }
 
-impl Add for Vec2 {
-    type Output = Vec2;
-    fn add(self, rhs: Self) -> Self::Output {
-        Vec2::new(self.x + rhs.x, self.y + rhs.y)
-    }
-}
-
-impl Add<f32> for Vec2 {
-    type Output = Vec2;
-    fn add(self, rhs: f32) -> Self::Output {
-        Vec2::new(self.x + rhs, self.y + rhs)
-    }
-}
-
-impl Sub for Vec2 {
-    type Output = Vec2;
-    fn sub(self, rhs: Self) -> Self::Output {
-        Vec2::new(self.x - rhs.x, self.y - rhs.y)
-    }
-}
-
-impl Sub<f32> for Vec2 {
-    type Output = Vec2;
-    fn sub(self, rhs: f32) -> Self::Output {
-        Vec2::new(self.x - rhs, self.y - rhs)
-    }
-}
-
-impl Mul for Vec2 {
-    type Output = Vec2;
-    fn mul(self, rhs: Self) -> Self::Output {
-        Vec2::new(self.x * rhs.x, self.y * rhs.y)
-    }
-}
-
-impl Mul<f32> for Vec2 {
-    type Output = Vec2;
-    fn mul(self, rhs: f32) -> Self::Output {
-        Vec2::new(self.x * rhs, self.y * rhs)
-    }
-}
-
-impl Div for Vec2 {
-    type Output = Vec2;
-    fn div(self, rhs: Self) -> Self::Output {
-        Vec2::new(self.x / rhs.x, self.y / rhs.y)
-    }
-}
-
-impl Div<f32> for Vec2 {
-    type Output = Vec2;
-    fn div(self, rhs: f32) -> Self::Output {
-        Vec2::new(self.x / rhs, self.y / rhs)
-    }
-}
-
-impl AddAssign for Vec2 {
-    fn add_assign(&mut self, rhs: Self) {
-        self.x += rhs.x;
-        self.y += rhs.y;
-    }
-}
-
-impl AddAssign<f32> for Vec2 {
-    fn add_assign(&mut self, rhs: f32) {
-        self.x += rhs;
-        self.y += rhs;
-    }
-}
-
-impl SubAssign for Vec2 {
-    fn sub_assign(&mut self, rhs: Self) {
-        self.x -= rhs.x;
-        self.y -= rhs.y;
-    }
-}
-
-impl SubAssign<f32> for Vec2 {
-    fn sub_assign(&mut self, rhs: f32) {
-        self.x -= rhs;
-        self.y -= rhs;
-    }
-}
-
-impl MulAssign for Vec2 {
-    fn mul_assign(&mut self, rhs: Self) {
-        self.x *= rhs.x;
-        self.y *= rhs.y;
-    }
-}
-
-impl MulAssign<f32> for Vec2 {
-    fn mul_assign(&mut self, rhs: f32) {
-        self.x *= rhs;
-        self.y *= rhs;
-    }
-}
-
-impl DivAssign for Vec2 {
-    fn div_assign(&mut self, rhs: Self) {
-        self.x /= rhs.x;
-        self.y /= rhs.y;
-    }
-}
-
-impl DivAssign<f32> for Vec2 {
-    fn div_assign(&mut self, rhs: f32) {
-        self.x /= rhs;
-        self.y /= rhs;
-    }
-}
+vec_ops!(Vec2; x, y);
+vec_ops!(Vec2, f32 [scalar]; x, y);
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable, Default, PartialEq)]
@@ -312,125 +292,8 @@ impl From<[f32; 3]> for Vec3 {
     }
 }
 
-impl Add for Vec3 {
-    type Output = Vec3;
-    fn add(self, rhs: Self) -> Self::Output {
-        Vec3::new(self.x + rhs.x, self.y + rhs.y, self.z + rhs.z)
-    }
-}
-
-impl Add<f32> for Vec3 {
-    type Output = Vec3;
-    fn add(self, rhs: f32) -> Self::Output {
-        Vec3::new(self.x + rhs, self.y + rhs, self.z + rhs)
-    }
-}
-
-impl Sub for Vec3 {
-    type Output = Vec3;
-    fn sub(self, rhs: Self) -> Self::Output {
-        Vec3::new(self.x - rhs.x, self.y - rhs.y, self.z - rhs.z)
-    }
-}
-
-impl Sub<f32> for Vec3 {
-    type Output = Vec3;
-    fn sub(self, rhs: f32) -> Self::Output {
-        Vec3::new(self.x - rhs, self.y - rhs, self.z - rhs)
-    }
-}
-
-impl Mul for Vec3 {
-    type Output = Vec3;
-    fn mul(self, rhs: Self) -> Self::Output {
-        Vec3::new(self.x * rhs.x, self.y * rhs.y, self.z * rhs.z)
-    }
-}
-
-impl Mul<f32> for Vec3 {
-    type Output = Vec3;
-    fn mul(self, rhs: f32) -> Self::Output {
-        Vec3::new(self.x * rhs, self.y * rhs, self.z * rhs)
-    }
-}
-
-impl Div for Vec3 {
-    type Output = Vec3;
-    fn div(self, rhs: Self) -> Self::Output {
-        Vec3::new(self.x / rhs.x, self.y / rhs.y, self.z / rhs.z)
-    }
-}
-
-impl Div<f32> for Vec3 {
-    type Output = Vec3;
-    fn div(self, rhs: f32) -> Self::Output {
-        Vec3::new(self.x / rhs, self.y / rhs, self.z / rhs)
-    }
-}
-
-impl AddAssign for Vec3 {
-    fn add_assign(&mut self, rhs: Self) {
-        self.x += rhs.x;
-        self.y += rhs.y;
-        self.z += rhs.z;
-    }
-}
-
-impl AddAssign<f32> for Vec3 {
-    fn add_assign(&mut self, rhs: f32) {
-        self.x += rhs;
-        self.y += rhs;
-        self.z += rhs;
-    }
-}
-
-impl SubAssign for Vec3 {
-    fn sub_assign(&mut self, rhs: Self) {
-        self.x -= rhs.x;
-        self.y -= rhs.y;
-        self.z -= rhs.z;
-    }
-}
-
-impl SubAssign<f32> for Vec3 {
-    fn sub_assign(&mut self, rhs: f32) {
-        self.x -= rhs;
-        self.y -= rhs;
-        self.z -= rhs;
-    }
-}
-
-impl MulAssign for Vec3 {
-    fn mul_assign(&mut self, rhs: Self) {
-        self.x *= rhs.x;
-        self.y *= rhs.y;
-        self.z *= rhs.z;
-    }
-}
-
-impl MulAssign<f32> for Vec3 {
-    fn mul_assign(&mut self, rhs: f32) {
-        self.x *= rhs;
-        self.y *= rhs;
-        self.z *= rhs;
-    }
-}
-
-impl DivAssign for Vec3 {
-    fn div_assign(&mut self, rhs: Self) {
-        self.x /= rhs.x;
-        self.y /= rhs.y;
-        self.z /= rhs.z;
-    }
-}
-
-impl DivAssign<f32> for Vec3 {
-    fn div_assign(&mut self, rhs: f32) {
-        self.x /= rhs;
-        self.y /= rhs;
-        self.z /= rhs;
-    }
-}
+vec_ops!(Vec3; x, y, z);
+vec_ops!(Vec3, f32 [scalar]; x, y, z);
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable, Default, PartialEq)]
@@ -490,7 +353,8 @@ impl Vec4 {
     }
 
     /// Returns the distance between this [`Vec4`] and `other`.
-    pub fn dist(&self, other: Self) -> f32 {
+    pub fn dist(&self, other: impl Into<Self>) -> f32 {
+        let other = other.into();
         let dx = other.x - self.x;
         let dy = other.y - self.y;
         let dz = other.z - self.z;
@@ -499,7 +363,8 @@ impl Vec4 {
     }
 
     /// Returns the component-wise maximum of this [`Vec4`] and `other`.
-    pub fn max(&self, other: Self) -> Vec4 {
+    pub fn max(&self, other: impl Into<Self>) -> Vec4 {
+        let other = other.into();
         Self {
             x: self.x.max(other.x),
             y: self.y.max(other.y),
@@ -509,7 +374,8 @@ impl Vec4 {
     }
 
     /// Returns the longer vector between this [`Vec4`] and `other`.
-    pub fn longest(&self, other: Self) -> Vec4 {
+    pub fn longest(&self, other: impl Into<Self>) -> Vec4 {
+        let other = other.into();
         if self.length_squared() >= other.length_squared() {
             *self
         } else {
@@ -542,130 +408,57 @@ impl From<[f32; 4]> for Vec4 {
     }
 }
 
-impl Add for Vec4 {
-    type Output = Vec4;
-    fn add(self, rhs: Self) -> Self::Output {
-        Vec4::new(self.x + rhs.x, self.y + rhs.y, self.z + rhs.z, self.w + rhs.w)
-    }
-}
+vec_ops!(Vec4; x, y, z, w);
+vec_ops!(Vec4, f32 [scalar]; x, y, z, w);
 
-impl Add<f32> for Vec4 {
-    type Output = Vec4;
-    fn add(self, rhs: f32) -> Self::Output {
-        Vec4::new(self.x + rhs, self.y + rhs, self.z + rhs, self.w + rhs)
-    }
-}
+#[cfg(feature = "glam")]
+mod glam_compat {
+    use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
-impl Sub for Vec4 {
-    type Output = Vec4;
-    fn sub(self, rhs: Self) -> Self::Output {
-        Vec4::new(self.x - rhs.x, self.y - rhs.y, self.z - rhs.z, self.w - rhs.w)
-    }
-}
+    use super::{Vec2, Vec3, Vec4};
 
-impl Sub<f32> for Vec4 {
-    type Output = Vec4;
-    fn sub(self, rhs: f32) -> Self::Output {
-        Vec4::new(self.x - rhs, self.y - rhs, self.z - rhs, self.w - rhs)
+    impl From<glam::Vec2> for Vec2 {
+        fn from(v: glam::Vec2) -> Self {
+            Self::new(v.x, v.y)
+        }
     }
-}
 
-impl Mul for Vec4 {
-    type Output = Vec4;
-    fn mul(self, rhs: Self) -> Self::Output {
-        Vec4::new(self.x * rhs.x, self.y * rhs.y, self.z * rhs.z, self.w * rhs.w)
+    impl From<Vec2> for glam::Vec2 {
+        fn from(v: Vec2) -> Self {
+            Self::new(v.x, v.y)
+        }
     }
-}
 
-impl Mul<f32> for Vec4 {
-    type Output = Vec4;
-    fn mul(self, rhs: f32) -> Self::Output {
-        Vec4::new(self.x * rhs, self.y * rhs, self.z * rhs, self.w * rhs)
-    }
-}
+    vec_ops!(Vec2, glam::Vec2; x, y);
+    vec_ops!(glam::Vec2, Vec2; x, y);
 
-impl Div for Vec4 {
-    type Output = Vec4;
-    fn div(self, rhs: Self) -> Self::Output {
-        Vec4::new(self.x / rhs.x, self.y / rhs.y, self.z / rhs.z, self.w / rhs.w)
+    impl From<glam::Vec3> for Vec3 {
+        fn from(v: glam::Vec3) -> Self {
+            Self::new(v.x, v.y, v.z)
+        }
     }
-}
 
-impl Div<f32> for Vec4 {
-    type Output = Vec4;
-    fn div(self, rhs: f32) -> Self::Output {
-        Vec4::new(self.x / rhs, self.y / rhs, self.z / rhs, self.w / rhs)
+    impl From<Vec3> for glam::Vec3 {
+        fn from(v: Vec3) -> Self {
+            Self::new(v.x, v.y, v.z)
+        }
     }
-}
 
-impl AddAssign for Vec4 {
-    fn add_assign(&mut self, rhs: Self) {
-        self.x += rhs.x;
-        self.y += rhs.y;
-        self.z += rhs.z;
-        self.w += rhs.w;
-    }
-}
+    vec_ops!(Vec3, glam::Vec3; x, y, z);
+    vec_ops!(glam::Vec3, Vec3; x, y, z);
 
-impl AddAssign<f32> for Vec4 {
-    fn add_assign(&mut self, rhs: f32) {
-        self.x += rhs;
-        self.y += rhs;
-        self.z += rhs;
-        self.w += rhs;
+    impl From<glam::Vec4> for Vec4 {
+        fn from(v: glam::Vec4) -> Self {
+            Self::new(v.x, v.y, v.z, v.w)
+        }
     }
-}
 
-impl SubAssign for Vec4 {
-    fn sub_assign(&mut self, rhs: Self) {
-        self.x -= rhs.x;
-        self.y -= rhs.y;
-        self.z -= rhs.z;
-        self.w -= rhs.w;
+    impl From<Vec4> for glam::Vec4 {
+        fn from(v: Vec4) -> Self {
+            Self::new(v.x, v.y, v.z, v.w)
+        }
     }
-}
 
-impl SubAssign<f32> for Vec4 {
-    fn sub_assign(&mut self, rhs: f32) {
-        self.x -= rhs;
-        self.y -= rhs;
-        self.z -= rhs;
-        self.w -= rhs;
-    }
-}
-
-impl MulAssign for Vec4 {
-    fn mul_assign(&mut self, rhs: Self) {
-        self.x *= rhs.x;
-        self.y *= rhs.y;
-        self.z *= rhs.z;
-        self.w *= rhs.w;
-    }
-}
-
-impl MulAssign<f32> for Vec4 {
-    fn mul_assign(&mut self, rhs: f32) {
-        self.x *= rhs;
-        self.y *= rhs;
-        self.z *= rhs;
-        self.w *= rhs;
-    }
-}
-
-impl DivAssign for Vec4 {
-    fn div_assign(&mut self, rhs: Self) {
-        self.x /= rhs.x;
-        self.y /= rhs.y;
-        self.z /= rhs.z;
-        self.w /= rhs.w;
-    }
-}
-
-impl DivAssign<f32> for Vec4 {
-    fn div_assign(&mut self, rhs: f32) {
-        self.x /= rhs;
-        self.y /= rhs;
-        self.z /= rhs;
-        self.w /= rhs;
-    }
+    vec_ops!(Vec4, glam::Vec4; x, y, z, w);
+    vec_ops!(glam::Vec4, Vec4; x, y, z, w);
 }

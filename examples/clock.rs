@@ -1,5 +1,5 @@
 use time::OffsetDateTime;
-use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, rgb, rgba, types::Color, view::ViewMode, window::WindowProperties};
+use verdant::prelude::*;
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;

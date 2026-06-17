@@ -1,4 +1,4 @@
-use crate::{canvas::RenderSurface, image::Image, text::{RichText, Text}, transform::Transform2d, types::Color, vec::Vec2};
+use crate::{image::Image, render_surface::RenderSurface, text::{RichText, Text}, transform::Transform2d, types::Color, vec::Vec2};
 
 /// Trait for types that can draw themselves onto a [`RenderSurface`].
 pub trait Drawable {
@@ -126,14 +126,14 @@ macro_rules! impl_new {
         impl $name {
             #[doc = concat!("Creates a fully specified [`", stringify!($name), "`] with position, size, style, and transform.")]
             pub fn new(
-                position: Vec2,
-                size: Vec2,
+                position: impl Into<Vec2>,
+                size: impl Into<Vec2>,
                 style: Style,
                 transform: Transform2d,
             ) -> Self {
                 Self {
-                    position,
-                    size,
+                    position: position.into(),
+                    size: size.into(),
                     style,
                     transform,
                 }
@@ -353,15 +353,15 @@ pub struct Line {
 impl Line {
     /// Creates a fully specified [`Line`] with start point, end point, style, and transform.
     pub fn new(
-        start: Vec2,
-        end: Vec2,
+        start: impl Into<Vec2>,
+        end: impl Into<Vec2>,
         outline_width: f32,
         outline_color: Color,
         transform: Transform2d,
     ) -> Self {
         Self {
-            start,
-            end,
+            start: start.into(),
+            end: end.into(),
             style: Style { outline_width, outline_color, ..Default::default() },
             transform,
         }
@@ -453,15 +453,15 @@ impl_transformed!(ImageRect, |s: &mut ImageRect| s.clone());
 impl ImageRect {
     /// Creates a fully specified [`ImageRect`] with start point, end point, color, image, and transform.
     pub fn new(
-        position: Vec2,
-        size: Vec2,
+        position: impl Into<Vec2>,
+        size: impl Into<Vec2>,
         color: Color,
         image: Image,
         transform: Transform2d,
     ) -> Self {
         Self {
-            position,
-            size,
+            position: position.into(),
+            size: size.into(),
             color,
             image,
             transform,

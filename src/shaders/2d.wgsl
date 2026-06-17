@@ -48,6 +48,7 @@ fn vs_main(in: Vertex) -> Interpolated {
 
 // TODO: overlapping transparent shapes can look a bit bad with srgb blending
 //       maybe a second pass with the shader that does gamma correction after all is rendered?
+//       oh yeah and this is straight up BAD for performance
 fn linear_to_srgb(linear: vec3<f32>) -> vec3<f32> {
     return pow(linear, vec3<f32>(1.0 / 2.2));
 }

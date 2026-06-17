@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+(!) - breaking change
+(#xyz) - fixed in the given PR
+
+## [Unreleased]
+
+### Added
+- `Canvas::auto_flush` so you can now toggle implicitly flushing canvases whenever they are composited
+- `prelude`, so now you can just `use verdant::prelude::*` to get access to the entire public API
+- `event::WindowEvent` as an abstraction over `winit::WindowEvent` (along with other associated structs)
+- Exposed `WinitEvent` (`winit::WindowEvent` re-exported under a different name) as an escape hatch for events that `WindowEvent` doesn't handle
+- `Renderer::poll_raw` for if you need the raw `WinitEvent`s
+- `glam` compatability feature to allow for full compatibilty with `glam`'s vector structs
+- Breaking changes and PRs are now tracked in the changelog
+
+### Changed
+- `CanvasState` is now `CanvasDraw` to more accurately reflect what it means for the user (!)
+- `RenderSurface` has been moved from `canvas` to `render_surface` (!)
+- Genericize all functions that take `VecN` to allow easier compatibility with `glam`
+- `Renderer::poll` no longer returns `Vec<winit::WindowEvent>`, now returning `Vec<window::WindowEvent>` (!)
+
+### Fixed
+- Added missing documentation on `Canvas`
+
 ## [0.6.2] - 2026-06-17
 
 ### Fixed
@@ -39,12 +62,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Update README
 - Refactored text system to be cleaner and more performant
-- Renamed `RenderSurface::text_size` to `RenderSurface::font_size`
+- Renamed `RenderSurface::text_size` to `RenderSurface::font_size` (!)
 - Text vertical alignment now defaults to the top instead of the bottom
 - Changed wording of `VecN` doc comments
 
 ### Removed
-- `text::rich_text_*` and `text::text_*` (moved to `RenderSurface`)
+- `text::rich_text_*` and `text::text_*` (moved to `RenderSurface`) (!)
 
 ## [0.5.2] - 2026-06-13
 
@@ -61,7 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The scratch texture used for recursive canvases is now invalidated on canvas resize
 - Fixed unused warnings on non-linux systems
 - "Fixed" mysterious bug where batches could have a higher vertex start index than the end index
-- Fixed infinite loop on macOS when trying to display blank frame
+- Fixed infinite loop on macOS when trying to display blank frame (#2)
 
 ## [0.5.1] - 2026-06-13
 
@@ -84,16 +107,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - `Renderer::create_window_ext` now takes either `WindowProperties` or `AdvancedWindowProperties`
-- All functions that returned `&mut Self` now return `Self` so you don't need to dereference/clone
+- All functions that returned `&mut Self` now return `Self` so you don't need to dereference/clone (!)
 - When using `ViewMode::Stretch`, outlines and corner radii don't stretch unevenly anymore
 - Cloning `Text` and `RichText` is now cheap and reference-counted
-- Moved `WindowId` and `WindowProperties` from `types` to `window`
+- Moved `WindowId` and `WindowProperties` from `types` to `window` (!)
 - README update
 - Lighten up dependencies, remove `thiserror` and change default enabled features for other deps
 - Boids example now relies on `fastrand` instead of `rand`
 
 ### Removed
-- `RenderSurface::round_rect`, in favor of having corner radius be part of the stateful style
+- `RenderSurface::round_rect`, in favor of having corner radius be part of the stateful style (!)
 - The `Span` builder functions
 
 ### Fixed

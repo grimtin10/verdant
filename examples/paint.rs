@@ -1,4 +1,4 @@
-use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, types::Color};
+use verdant::prelude::*;
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
@@ -19,7 +19,7 @@ fn main() -> RendererResult<()> {
     while renderer.is_running() {
         for (id, event) in renderer.poll() {
             match event {
-                WindowEvent::PointerButton { state, .. } => mouse_down = state.is_pressed(),
+                WindowEvent::PointerButton { pressed, .. } => mouse_down = pressed,
                 WindowEvent::CloseRequested => { renderer.close_window(id); },
                 _ => {}
             }

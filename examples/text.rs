@@ -1,4 +1,4 @@
-use verdant::{ElementState, Key, KeyEvent, NamedKey, Renderer, RendererResult, WindowEvent, canvas::RenderSurface, text::Font, types::Color};
+use verdant::{event::Key, prelude::*};
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
@@ -17,10 +17,10 @@ fn main() -> RendererResult<()> {
         for (id, event) in renderer.poll() {
             match event {
                 WindowEvent::CloseRequested => { renderer.close_window(id); },
-                WindowEvent::KeyboardInput { event: KeyEvent { logical_key, state: ElementState::Pressed, .. } , .. } => {
+                WindowEvent::KeyboardInput { ref logical_key, pressed: true, .. } => {
                     match logical_key {
-                        Key::Named(NamedKey::Backspace) => { text.pop(); },
-                        Key::Named(NamedKey::Enter) => text += "\n",
+                        Key::Backspace => { text.pop(); },
+                        Key::Enter => text += "\n",
                         Key::Character(c) => text += c.as_str(),
                         _ => {},
                     }

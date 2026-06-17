@@ -1,4 +1,4 @@
-use verdant::{ElementState, Key, KeyEvent, Renderer, RendererResult, WindowEvent, canvas::RenderSurface, text::{Font, HorizontalAlign, VerticalAlign}, types::Color};
+use verdant::prelude::*;
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
@@ -10,11 +10,11 @@ fn main() -> RendererResult<()> {
             match event {
                 WindowEvent::CloseRequested => { renderer.close_window(id); continue },
                 // only respond to key presses and character keys
-                WindowEvent::KeyboardInput { event: KeyEvent {
+                WindowEvent::KeyboardInput {
+                    pressed: true,
                     logical_key: Key::Character(_),
-                    state: ElementState::Pressed,
                     ..
-                }, .. } => {
+                } => {
                     renderer.create_window("extra window", 250, 250);
                 },
                 _ => {}

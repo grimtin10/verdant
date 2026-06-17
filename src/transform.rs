@@ -243,7 +243,8 @@ impl Transform2d {
     /// let t = Transform2d::translation(1., 2.);
     /// assert_eq!(t.transform_point(Vec2::new(3., 4.)), Vec2::new(4., 6.));
     /// ```
-    pub fn transform_point(self, p: Vec2) -> Vec2 {
+    pub fn transform_point(self, p: impl Into<Vec2>) -> Vec2 {
+        let p = p.into();
         let [m11, m21, m12, m22, m13, m23] = self.matrix;
         Vec2::new(
             m11 * p.x + m12 * p.y + m13,
@@ -293,7 +294,8 @@ impl Transform2d {
     /// ```
     /// use verdant::{transform::Transform2d, vec::Vec2};
     /// ```
-    pub fn transform_vector(self, v: Vec2) -> Vec2 {
+    pub fn transform_vector(self, v: impl Into<Vec2>) -> Vec2 {
+        let v = v.into();
         let [m11, m21, m12, m22, _, _] = self.matrix;
         Vec2::new(
             m11 * v.x + m12 * v.y,

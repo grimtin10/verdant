@@ -1,4 +1,5 @@
-use verdant::{Renderer, RendererResult, WindowEvent, canvas::RenderSurface, rgb, types::Color, view::ViewMode, window::{Window, WindowProperties}};
+use verdant::prelude::*;
+use verdant::window::Window;
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;

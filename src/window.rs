@@ -3,7 +3,7 @@ use std::{collections::HashSet, sync::{Arc, atomic::{AtomicUsize, Ordering}}};
 use wgpu::{CurrentSurfaceTexture, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
 use winit::{dpi::{PhysicalPosition, PhysicalSize}, monitor::Fullscreen, window::WindowLevel};
 
-use crate::{AdvancedWindowProperties, GpuContext, Renderer, RendererResult, canvas::{Canvas, RenderSurface}, image::Image, shapes::ScalingMode, text::{Font, HorizontalAlign, Span, TextLayout, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
+use crate::{AdvancedWindowProperties, GpuContext, Renderer, RendererResult, canvas::Canvas, image::Image, render_surface::RenderSurface, shapes::ScalingMode, text::{Font, HorizontalAlign, Span, TextLayout, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

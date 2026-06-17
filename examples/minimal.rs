@@ -1,4 +1,4 @@
-use verdant::{Renderer, RendererResult, WindowEvent};
+use verdant::prelude::*;
 
 fn main() -> RendererResult<()> {
     // initialize the renderer
