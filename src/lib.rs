@@ -23,7 +23,7 @@ use pollster::block_on;
 use wgpu::{Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, BufferBindingType, ColorTargetState, ColorWrites, Device, DeviceDescriptor, Extent3d, FilterMode, FragmentState, FrontFace, Instance, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler, SamplerDescriptor, ShaderStages, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState, VertexStepMode, include_wgsl, util::{DeviceExt}, vertex_attr_array, wgt::TextureDataOrder};
 use winit::{application::ApplicationHandler, dpi::PhysicalSize, event_loop::{ActiveEventLoop, EventLoop}};
 
-use std::{collections::{HashMap, VecDeque}, sync::Arc};
+use std::{collections::{HashMap, VecDeque}, marker::PhantomData, sync::{Arc, MutexGuard}};
 
 use crate::{canvas::Canvas, errors::Error, event::WindowEvent, render_surface::RenderSurface, transform::Transform2d, types::Color, vec::Vec2, window::{Window, WindowId, WindowProperties}};
 
@@ -64,6 +64,9 @@ const KIND_SDF_TEXT: u32 = 4;
 const KIND_CANVAS:   u32 = 5;
 
 const LAYOUT_CACHE_CAPACITY: usize = 1024;
+
+// ...because `impl !Send` isn't stable yet...
+type PhantomUnsend = PhantomData<MutexGuard<'static, ()>>;
 
 /// Constructs a `Color` from RGB components in the range `0.0..=1.0`, with full opacity.
 #[inline(always)]
@@ -458,6 +461,10 @@ impl RendererContext {
 pub struct Renderer {
     event_loop: EventLoop,
     context: RendererContext,
+
+    // we use this to mark `Renderer` as `!Send`
+    // because it is not thread safe
+    unsend: PhantomUnsend,
 }
 
 fn ortho(width: f32, height: f32) -> Transform2d {
@@ -481,6 +488,8 @@ impl Renderer {
         Ok(Self {
             event_loop,
             context: RendererContext::new(is_wayland),
+
+            unsend: PhantomData,
         })
     }
 
