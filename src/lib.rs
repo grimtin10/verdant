@@ -463,7 +463,6 @@ pub struct Renderer {
     context: RendererContext,
 
     // we use this to mark `Renderer` as `!Send`
-    // because it is not thread safe
     unsend: PhantomUnsend,
 }
 

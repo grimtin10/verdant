@@ -11,12 +11,12 @@ default = ["text", "image-png", "image-jpeg", "dx12", "metal", "vulkan"]
 
 text = ["dep:fontdue"]
 
-image = []
-image-png  = ["image", "dep:image", "image/png"]
-image-jpeg = ["image", "dep:image", "image/jpeg"]
-image-webp = ["image", "dep:image", "image/webp"]
-image-gif  = ["image", "dep:image", "image/gif"]
-image-all  = ["image", "dep:image", "image/default"]
+image = ["dep:image"]
+image-png  = ["image", "image/png"]
+image-jpeg = ["image", "image/jpeg"]
+image-webp = ["image", "image/webp"]
+image-gif  = ["image", "image/gif"]
+image-all  = ["image", "image/default"]
 
 dx12 = ["wgpu/dx12"]
 metal = ["wgpu/metal"]

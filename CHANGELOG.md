@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Added missing documentation on `Canvas`
 - Fix deadlock with rendering canvases with cyclic references (`A` composites `B`, `B` composites `A`)
-- `Renderer` is now guaranteed `!Send` on all platforms
+- `Renderer` is now guaranteed `!Send` on all platforms, as it is not thread-safe (`winit` likely already made it `!Send`, but I wanted to be sure)
 
 ## [0.6.2] - 2026-06-17
 

@@ -18,11 +18,13 @@ pub use crate::event::{Key, KeyCode, MouseButton, ScrollDelta, WindowEvent};
 pub use crate::image::Image;
 pub use crate::render_surface::RenderSurface;
 pub use crate::shapes::{Drawable, Ellipse, Line, Rect, ScalingMode, Style};
-pub use crate::text::{Font, HorizontalAlign, RichText, Span, Text, TextStyle, VerticalAlign};
 pub use crate::transform::Transform2d;
 pub use crate::types::Color;
 pub use crate::view::ViewMode;
 pub use crate::window::{WindowId, WindowProperties};
+
+#[cfg(feature = "text")]
+pub use crate::text::{Font, HorizontalAlign, RichText, Span, Text, TextStyle, VerticalAlign};
 
 #[cfg(not(feature = "glam"))]
 pub use crate::vec::{Vec2, Vec3, Vec4};
