@@ -378,6 +378,8 @@ impl CanvasDraw {
                         e.insert(bind_group);
                     }
                 } else if let Entry::Vacant(e) = child_views.entry(child_canvas.id) {
+                    if flushing.contains(&child_canvas.id) { continue; }
+
                     let mut child_state = child_canvas.write();
 
                     if child_state.auto_flush {
