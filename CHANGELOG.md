@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `Canvas::auto_flush` so you can now toggle implicitly flushing canvases whenever they are composited
+- `Canvas::auto_flush` so you can now toggle whether or not you want canvases to be implicitly flushed when composited
 - `prelude`, so now you can just `use verdant::prelude::*` to get access to the entire public API
 - `event::WindowEvent` as an abstraction over `winit::WindowEvent` (along with other associated structs)
 - Exposed `WinitEvent` (`winit::WindowEvent` re-exported under a different name) as an escape hatch for events that `WindowEvent` doesn't handle
