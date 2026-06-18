@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `RenderSurface` has been moved from `canvas` to `render_surface` (!)
 - Genericize all functions that take `VecN` to allow easier compatibility with `glam`
 - `Renderer::poll` no longer returns `Vec<winit::WindowEvent>`, now returning `Vec<window::WindowEvent>` (!)
+- Change crate description slightly
 
 ### Fixed
 - Added missing documentation on `Canvas`

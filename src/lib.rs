@@ -561,6 +561,26 @@ impl Renderer {
         take(&mut self.context.raw_events)
     }
 
+    /// Pumps the event loop and returns all window events and raw winit events since the last call.
+    /// Resize, cursor movement, and focus events are also forwarded to their
+    /// respective windows internally.
+    /// Clears all queued [`WindowEvent`]s.
+    ///
+    /// Only available on Windows, macOS, Linux, and Android.
+    #[cfg(any(windows_platform, macos_platform, linux_platform, android_platform))]
+    pub fn poll_full(&mut self) -> Vec<(WindowId, (WindowEvent, WinitEvent))> {
+        use std::{mem::take, time::Duration};
+        use winit::event_loop::pump_events::EventLoopExtPumpEvents;
+
+        self.event_loop.pump_app_events(Some(Duration::ZERO), &mut self.context);
+
+        take(&mut self.context.events)
+            .into_iter()
+            .zip(take(&mut self.context.raw_events))
+            .map(|((a, b), (_, c))| (a, (b, c)))
+            .collect()
+    }
+
     /// Closes the window with the given [`WindowId`], removing it from the renderer.
     /// Returns `true` if a window with that ID existed.
     pub fn close_window(&mut self, id: WindowId) -> bool {

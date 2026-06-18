@@ -1,3 +1,6 @@
+// TODO: this really needs documenting
+//       like everything in here
+
 // this file is basically "cleaning up winit's verbosity"
 // and also taking on their breaking changes!
 // but i mean that is my responsibility as the library author anyways
@@ -5,7 +8,7 @@
 use smol_str::SmolStr;
 use winit::Key as WinitKey;
 pub use ::winit::keyboard::KeyCode;
-use ::winit::{event::{ButtonSource, ElementState}, keyboard::NamedKey};
+use ::winit::{event::{ButtonSource, ElementState, Ime}, keyboard::NamedKey};
 
 use std::path::PathBuf;
 
@@ -13,8 +16,8 @@ use crate::{vec::Vec2, WinitEvent};
 
 /// Raw winit types re-exported if you ever need to access them.
 pub mod winit {
-    pub use winit::event::{ButtonSource, ElementState, MouseButton, MouseScrollDelta};
-    pub use winit::keyboard::{Key, NamedKey, NativeKeyCode, NativeKey, PhysicalKey};
+    pub use winit::event::{ButtonSource, ElementState, Ime, Modifiers, MouseButton, MouseScrollDelta, PointerKind, PointerSource};
+    pub use winit::keyboard::{Key, NamedKey, NativeKeyCode, ModifiersKeys, ModifiersKeyState, ModifiersState, NativeKey, PhysicalKey};
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -25,6 +28,7 @@ pub enum ScrollDelta {
 
 impl ScrollDelta {
     pub fn to_line(self, line_size: f32) -> Vec2 {
+        let line_size = line_size.max(f32::EPSILON);
         match self {
             Self::LineDelta(d) => d,
             Self::PixelDelta(d) => d / line_size,
@@ -32,6 +36,7 @@ impl ScrollDelta {
     }
 
     pub fn to_pixel(self, line_size: f32) -> Vec2 {
+        let line_size = line_size.max(f32::EPSILON);
         match self {
             Self::LineDelta(d) => d * line_size,
             Self::PixelDelta(d) => d,
@@ -302,6 +307,55 @@ impl From<WinitKey> for Key {
     }
 }
 
+#[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Modifiers {
+    pub shift: bool,
+    pub control: bool,
+    pub alt: bool,
+    pub meta: bool,
+}
+
+impl From<winit::ModifiersState> for Modifiers {
+    fn from(value: winit::ModifiersState) -> Self {
+        Self {
+            shift: value.shift_key(),
+            control: value.control_key(),
+            alt: value.alt_key(),
+            meta: value.meta_key(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub enum PointerSource {
+    Mouse,
+    Touch(usize),
+    Tablet,
+    Unknown,
+}
+
+impl From<winit::PointerKind> for PointerSource {
+    fn from(value: winit::PointerKind) -> Self {
+        match value {
+            winit::PointerKind::Mouse => Self::Mouse,
+            winit::PointerKind::Touch(id) => Self::Touch(id.into_raw()),
+            winit::PointerKind::TabletTool(_) => Self::Tablet,
+            winit::PointerKind::Unknown => Self::Unknown,
+        }
+    }
+}
+
+impl From<winit::PointerSource> for PointerSource {
+    fn from(value: winit::PointerSource) -> Self {
+        match value {
+            winit::PointerSource::Mouse => Self::Mouse,
+            winit::PointerSource::Touch { finger_id, .. } => Self::Touch(finger_id.into_raw()),
+            winit::PointerSource::TabletTool { .. } => Self::Tablet,
+            winit::PointerSource::Unknown => Self::Unknown,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum WindowEvent {
     CloseRequested,
@@ -311,6 +365,8 @@ pub enum WindowEvent {
     Resized(u32, u32),
 
     Moved(i32, i32),
+
+    ScaleFactorChanged(f32),
 
     DragEntered {
         paths: Vec<PathBuf>,
@@ -332,6 +388,8 @@ pub enum WindowEvent {
 
     Focused(bool),
 
+    ModifiersChanged(Modifiers),
+
     MouseWheel {
         device_id: Option<i64>,
         delta: ScrollDelta,
@@ -341,24 +399,34 @@ pub enum WindowEvent {
         device_id: Option<i64>,
 
         pressed: bool,
+        is_repeat: bool,
 
         physical_key: KeyCode,
         logical_key: Key,
     },
 
+    ImeEnabled,
+    ImePreedit(String, Option<(usize, usize)>),
+    ImeCommit(String),
+    ImeDelete(usize, usize),
+    ImeDisabled,
+
     PointerEntered {
         device_id: Option<i64>,
         position: Vec2,
+        source: PointerSource,
     },
 
     PointerMoved {
         device_id: Option<i64>,
         position: Vec2,
+        source: PointerSource,
     },
 
     PointerLeft {
         device_id: Option<i64>,
         position: Option<Vec2>,
+        source: PointerSource,
     },
 
     PointerButton {
@@ -380,6 +448,7 @@ impl From<WinitEvent> for WindowEvent {
 
             WinitEvent::SurfaceResized(size) => Self::Resized(size.width, size.height),
             WinitEvent::Moved(position) => Self::Moved(position.x, position.y),
+            WinitEvent::ScaleFactorChanged { scale_factor, .. } => Self::ScaleFactorChanged(scale_factor as f32),
 
             WinitEvent::DragEntered { paths, position } => Self::DragEntered {
                 paths,
@@ -398,6 +467,8 @@ impl From<WinitEvent> for WindowEvent {
 
             WinitEvent::Focused(focused) => Self::Focused(focused),
 
+            WinitEvent::ModifiersChanged(modifiers) => Self::ModifiersChanged(modifiers.state().into()),
+
             WinitEvent::MouseWheel { device_id, delta, .. } => Self::MouseWheel {
                 device_id: device_id.map(|d| d.into_raw()),
                 delta: delta.into(),
@@ -407,22 +478,32 @@ impl From<WinitEvent> for WindowEvent {
                 device_id: device_id.map(|d| d.into_raw()),
 
                 pressed: event.state == ElementState::Pressed,
+                is_repeat: event.repeat,
 
                 physical_key: to_keycode(event.physical_key),
                 logical_key: event.logical_key.into(),
             },
 
-            WinitEvent::PointerEntered { device_id, position, .. } => Self::PointerEntered {
+            WinitEvent::Ime(Ime::Enabled) => Self::ImeEnabled,
+            WinitEvent::Ime(Ime::Preedit(text, cursor)) => Self::ImePreedit(text, cursor),
+            WinitEvent::Ime(Ime::Commit(text)) => Self::ImeCommit(text),
+            WinitEvent::Ime(Ime::DeleteSurrounding { before_bytes, after_bytes }) => Self::ImeDelete(before_bytes, after_bytes),
+            WinitEvent::Ime(Ime::Disabled) => Self::ImeDisabled,
+
+            WinitEvent::PointerEntered { device_id, position, kind, .. } => Self::PointerEntered {
                 device_id: device_id.map(|d| d.into_raw()),
                 position: Vec2::new(position.x as f32, position.y as f32),
+                source: kind.into(),
             },
-            WinitEvent::PointerMoved { device_id, position, .. } => Self::PointerMoved {
+            WinitEvent::PointerMoved { device_id, position, source, .. } => Self::PointerMoved {
                 device_id: device_id.map(|d| d.into_raw()),
                 position: Vec2::new(position.x as f32, position.y as f32),
+                source: source.into(),
             },
-            WinitEvent::PointerLeft { device_id, position, .. } => Self::PointerLeft {
+            WinitEvent::PointerLeft { device_id, position, kind, .. } => Self::PointerLeft {
                 device_id: device_id.map(|d| d.into_raw()),
                 position: position.map(|p| Vec2::new(p.x as f32, p.y as f32)),
+                source: kind.into(),
             },
             WinitEvent::PointerButton { device_id, state, position, button: ButtonSource::Mouse(button), .. } => Self::PointerButton {
                 device_id: device_id.map(|d| d.into_raw()),
