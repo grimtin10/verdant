@@ -1,5 +1,8 @@
 // TODO: this really needs documenting
 //       like everything in here
+// TODO: when mobile exists, i need to add touch events
+//       and i'll delay tablet events until then too because i
+//       really just don't wanna work on this file anymore
 
 // this file is basically "cleaning up winit's verbosity"
 // and also taking on their breaking changes!
