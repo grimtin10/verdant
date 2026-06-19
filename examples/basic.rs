@@ -36,7 +36,7 @@ fn main() -> RendererResult<()> {
         }
 
         // imperative API
-        if let Some(window) = renderer.get_window(first) {
+        if let Some(mut window) = renderer.get_window(first) {
             window.background(rgb(0.7, 0.3, 0.3));
             window.no_outline();
 
@@ -53,7 +53,7 @@ fn main() -> RendererResult<()> {
                 mouse_ellipse.fill(rgb(1.0, 0.4, 0.4));
                 mouse_ellipse.position(window.get_mouse_x(), window.get_mouse_y());
             }
-            mouse_ellipse.draw(window);
+            mouse_ellipse.draw(&mut window);
 
             window.fill(rgba(0., 0., 0., 0.5));
             window.rect(0., 400., 800., 400.);
@@ -64,7 +64,7 @@ fn main() -> RendererResult<()> {
         }
 
         // declarative API
-        if let Some(window) = renderer.get_window(second) {
+        if let Some(mut window) = renderer.get_window(second) {
             window.background(rgb(0.3, 0.7, 0.3));
 
             Rect::at(200., 200.)
@@ -72,30 +72,30 @@ fn main() -> RendererResult<()> {
                 .fill(rgb(0.7, 0.3, 0.7))
                 .outline(Color::BLACK, 5.0)
                 .corner_radius(25.)
-                .draw(window);
+                .draw(&mut window);
 
             Ellipse::at(400., 400.)
                 .size(18., 180.)
                 .fill(rgb(0.7, 0.7, 0.3))
                 .outline(Color::BLACK, 5.0)
                 .transform(Transform2d::rotation_deg(45.))
-                .draw(window);
+                .draw(&mut window);
 
             if window.is_focused() {
                 mouse_ellipse.fill(rgb(0.4, 1.0, 0.4));
                 mouse_ellipse.position(window.get_mouse_x(), window.get_mouse_y());
             }
-            mouse_ellipse.draw(window);
+            mouse_ellipse.draw(&mut window);
 
             Rect::at(0., 400.)
                 .size(800., 400.)
                 .fill(rgba(0., 0., 0., 0.5))
                 .outline(Color::BLACK, 5.0)
-                .draw(window);
+                .draw(&mut window);
         }
 
         // custom view and origin
-        if let Some(window) = renderer.get_window(third) {
+        if let Some(mut window) = renderer.get_window(third) {
             window.set_view(800., 800., ViewMode::Letterbox);
             window.set_origin(400., 400.);
 

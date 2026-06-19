@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Renderer::poll_raw` for if you need the raw `WinitEvent`s
 - `glam` compatability feature to allow for full compatibilty with `glam`'s vector structs
 - Breaking changes and PRs are now tracked in the changelog
+- `WindowDraw` so that drawing to a window no longer acquires a lock on the inner canvas for every command
 
 ### Changed
 - `CanvasState` is now `CanvasDraw` to more accurately reflect what it means for the user (!)
@@ -25,11 +26,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Genericize all functions that take `VecN` to allow easier compatibility with `glam`
 - `Renderer::poll` no longer returns `Vec<winit::WindowEvent>`, now returning `Vec<window::WindowEvent>` (!)
 - Change crate description slightly
+- `Renderer::get_window` now returns an `Option<WindowDraw>` instead of `Option<&mut Window>` (!)
 
 ### Fixed
 - Added missing documentation on `Canvas`
 - Fix deadlock with rendering canvases with cyclic references (`A` composites `B`, `B` composites `A`)
 - `Renderer` is now guaranteed `!Send` on all platforms, as it is not thread-safe (`winit` likely already made it `!Send`, but I wanted to be sure)
+
+Hopefully there won't be many breaking changes after this one.
 
 ## [0.6.2] - 2026-06-17
 

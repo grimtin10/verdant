@@ -18,7 +18,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(window_id) {
+        if let Some(mut window) = renderer.get_window(window_id) {
             window.background(Color::BLACK);
 
             // composite the canvas onto the window

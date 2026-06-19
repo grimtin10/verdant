@@ -11,7 +11,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(window_id) {
+        if let Some(mut window) = renderer.get_window(window_id) {
             window.set_view(500., 500., ViewMode::Letterbox);
             window.background(Color::GRAY);
 

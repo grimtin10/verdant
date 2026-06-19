@@ -21,7 +21,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(main_window) {
+        if let Some(mut window) = renderer.get_window(main_window) {
             window.background(Color::BLACK);
 
             window.font_size(32.);

@@ -25,7 +25,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(window_id) {
+        if let Some(mut window) = renderer.get_window(window_id) {
             let (mouse_x, mouse_y) = window.get_mouse_pos().into();
 
             // draw the canvas onto the window

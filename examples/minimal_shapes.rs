@@ -11,7 +11,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(window_id) {
+        if let Some(mut window) = renderer.get_window(window_id) {
             window.background(rgb(0.15, 0.15, 0.15));
 
             // imperative style
@@ -22,7 +22,7 @@ fn main() -> RendererResult<()> {
             Rect::at(100., 100.)
                 .size(150., 150.)
                 .fill(rgb(0.3, 0.6, 0.8))
-                .draw(window);
+                .draw(&mut window);
         }
 
         renderer.flush()?;

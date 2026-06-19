@@ -30,14 +30,14 @@ fn main() -> RendererResult<()> {
         }
 
         // draw the text on the text window
-        if let Some(window) = renderer.get_window(text_window) {
+        if let Some(mut window) = renderer.get_window(text_window) {
             window.background(Color::BLACK);
             window.font_size(32.);
             window.text(&font, 0., 0., &text);
         }
 
         // draw the atlas on the atlas window
-        if let Some(window) = renderer.get_window(atlas_window) {
+        if let Some(mut window) = renderer.get_window(atlas_window) {
             window.background(Color::BLACK);
 
             // font.atlas() gives you a read-only reference to the atlas

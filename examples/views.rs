@@ -1,5 +1,5 @@
 use verdant::prelude::*;
-use verdant::window::Window;
+use verdant::window::WindowDraw;
 
 fn main() -> RendererResult<()> {
     let mut renderer = Renderer::new()?;
@@ -29,7 +29,7 @@ fn main() -> RendererResult<()> {
     });
 
     // helper closure
-    let content = |window: &mut Window| {
+    let content = |mut window: WindowDraw| {
         window.fill(rgb(0.1, 0.1, 0.1));
         window.rect(0., 0., 500., 500.);
 
@@ -47,7 +47,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(stretch) {
+        if let Some(mut window) = renderer.get_window(stretch) {
             window.background(Color::BLACK);
 
             // sets the logical view to be 500x500, and to stretch to fit
@@ -56,7 +56,7 @@ fn main() -> RendererResult<()> {
             content(window);
         }
 
-        if let Some(window) = renderer.get_window(letterbox) {
+        if let Some(mut window) = renderer.get_window(letterbox) {
             window.background(Color::BLACK);
 
             // sets the logical view to be 500x500, and to letterbox (in web this is contain) to fit
@@ -65,7 +65,7 @@ fn main() -> RendererResult<()> {
             content(window);
         }
 
-        if let Some(window) = renderer.get_window(crop) {
+        if let Some(mut window) = renderer.get_window(crop) {
             window.background(Color::BLACK);
 
             // sets the logical view to be 500x500, and to crop (in web this is cover) with the window

@@ -20,7 +20,7 @@ fn main() -> RendererResult<()> {
             }
         }
 
-        if let Some(window) = renderer.get_window(window_id) {
+        if let Some(mut window) = renderer.get_window(window_id) {
             window.set_view(1000., 1000., ViewMode::Letterbox);
             window.set_origin(500., 500.);
 

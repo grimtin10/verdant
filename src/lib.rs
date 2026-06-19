@@ -25,7 +25,7 @@ use winit::{application::ApplicationHandler, dpi::PhysicalSize, event_loop::{Act
 
 use std::{collections::{HashMap, VecDeque}, marker::PhantomData, sync::{Arc, MutexGuard}};
 
-use crate::{canvas::Canvas, errors::Error, event::WindowEvent, render_surface::RenderSurface, transform::Transform2d, types::Color, vec::Vec2, window::{Window, WindowId, WindowProperties}};
+use crate::{canvas::Canvas, errors::Error, event::WindowEvent, render_surface::RenderSurface, transform::Transform2d, types::Color, vec::Vec2, window::{Window, WindowDraw, WindowId, WindowProperties}};
 
 pub mod canvas;
 pub mod errors;
@@ -587,15 +587,15 @@ impl Renderer {
         self.context.windows.remove(&id).is_some()
     }
 
-    /// Returns a mutable reference to the window with the given [`WindowId`], if it exists.
-    pub fn get_window(&mut self, id: WindowId) -> Option<&mut Window> {
-        self.context.windows.get_mut(&id)
+    /// Returns a [`WindowDraw`] for the given [`WindowId`], if it exists.
+    pub fn get_window<'a>(&'a mut self, id: WindowId) -> Option<WindowDraw<'a>> {
+        self.context.windows.get_mut(&id).map(|w| w.draw())
     }
 
     /// Submits all queued draw calls for each open window to the GPU and presents their frames.
     pub fn flush(&mut self) -> RendererResult<()> {
         for window in self.context.windows.values_mut() {
-            window.flush()?;
+            window.draw().flush()?;
         }
 
         Ok(())

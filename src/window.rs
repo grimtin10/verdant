@@ -1,9 +1,9 @@
-use std::{collections::HashSet, sync::{Arc, atomic::{AtomicUsize, Ordering}}};
+use std::{collections::HashSet, sync::{Arc, RwLockWriteGuard, atomic::{AtomicUsize, Ordering}}};
 
 use wgpu::{CurrentSurfaceTexture, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
 use winit::{dpi::{PhysicalPosition, PhysicalSize}, monitor::Fullscreen, window::WindowLevel};
 
-use crate::{AdvancedWindowProperties, GpuContext, Renderer, RendererResult, canvas::Canvas, image::Image, render_surface::RenderSurface, shapes::ScalingMode, text::{Font, HorizontalAlign, Span, TextLayout, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
+use crate::{AdvancedWindowProperties, GpuContext, Renderer, RendererResult, canvas::{Canvas, CanvasDraw}, image::Image, render_surface::RenderSurface, shapes::ScalingMode, text::{Font, HorizontalAlign, Span, TextLayout, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -16,6 +16,8 @@ impl WindowId {
 }
 
 // TODO: window should expose more mouse and input functions
+
+// TODO: so i expose IME events, but currently there's no way to actually enable IME
 
 // TODO: width and height are *physical*, not logical right now
 //       DPI scaling will mess this up later
@@ -256,31 +258,45 @@ impl Window {
         self.context.focused = focused;
     }
 
+    pub(crate) fn draw<'a>(&'a self) -> WindowDraw<'a> {
+        WindowDraw {
+            canvas: self.canvas.write(),
+            window: self,
+        }
+    }
+}
+
+pub struct WindowDraw<'a> {
+    canvas: RwLockWriteGuard<'a, CanvasDraw>,
+    window: &'a Window,
+}
+
+impl<'a> WindowDraw<'a> {
     /// Returns the current width of the window in pixels.
     pub fn get_width(&self) -> f32 {
-        self.canvas.read().view.window_size().x
+        self.canvas.view.window_size().x
     }
 
     /// Returns the current height of the window in pixels.
     pub fn get_height(&self) -> f32 {
-        self.canvas.read().view.window_size().y
+        self.canvas.view.window_size().y
     }
 
     /// Returns the current size of the window as `(width, height)` in pixels.
     pub fn get_size(&self) -> Vec2 {
-        self.canvas.read().view.window_size()
+        self.canvas.view.window_size()
     }
 
     /// Returns the mouse X position, adjusted for the current view transform and letterboxing.
     pub fn get_mouse_x(&self) -> f32 {
-        let letterbox = self.canvas.read().view.letterbox();
-        (self.context.mouse_x as f32 - letterbox.2) / letterbox.0 - self.canvas.read().view.origin().x
+        let letterbox = self.canvas.view.letterbox();
+        (self.window.context.mouse_x as f32 - letterbox.2) / letterbox.0 - self.canvas.view.origin().x
     }
 
     /// Returns the mouse Y position, adjusted for the current view transform and letterboxing.
     pub fn get_mouse_y(&self) -> f32 {
-        let letterbox = self.canvas.read().view.letterbox();
-        (self.context.mouse_y as f32 - letterbox.3) / letterbox.1 - self.canvas.read().view.origin().y
+        let letterbox = self.canvas.view.letterbox();
+        (self.window.context.mouse_y as f32 - letterbox.3) / letterbox.1 - self.canvas.view.origin().y
     }
 
     /// Returns the mouse position as a `Vec2`, adjusted for the current view transform and letterboxing.
@@ -290,12 +306,12 @@ impl Window {
 
     /// Returns the raw mouse X position in physical screen pixels, with no view transform applied.
     pub fn get_raw_mouse_x(&self) -> f32 {
-        self.context.mouse_x as f32
+        self.window.context.mouse_x as f32
     }
 
     /// Returns the raw mouse Y position in physical screen pixels, with no view transform applied.
     pub fn get_raw_mouse_y(&self) -> f32 {
-        self.context.mouse_y as f32
+        self.window.context.mouse_y as f32
     }
 
     /// Returns the raw mouse position as a `Vec2` in physical screen pixels, with no view transform applied.
@@ -305,246 +321,234 @@ impl Window {
 
     /// Returns whether the window is currently focused.
     pub fn is_focused(&self) -> bool {
-        self.context.focused
+        self.window.context.focused
     }
 
     /// Get the title of this window
     pub fn get_title(&mut self) -> String {
-        self.inner_window.title()
+        self.window.inner_window.title()
     }
 
     /// Set the title of this window
     pub fn set_title(&mut self, title: impl ToString) {
-        self.inner_window.set_title(&title.to_string());
+        self.window.inner_window.set_title(&title.to_string());
     }
 
     /// Get the inner canvas of this window
     pub fn get_canvas(&self) -> Canvas {
-        self.canvas.clone()
+        self.window.canvas.clone()
     }
 }
 
-// TODO: i'm not the biggest fan of each of these acquiring a lock
-//       should investigate to see if there's any better way
-//       that doesn't involve insane code duplication
-//       (there probably isn't)
-//        actually, i know there is a way
-//        because the only way to get a window to draw to is to get a mutable reference
-//        so i just have to do a little nonsense and we're good
-impl RenderSurface for Window {
+impl<'a> RenderSurface for WindowDraw<'a> {
     fn background(&mut self, color: Color) {
-        self.canvas.write().background(color);
+        self.canvas.background(color);
     }
 
     fn fill(&mut self, color: Color) {
-        self.canvas.write().fill(color);
+        self.canvas.fill(color);
     }
 
     fn no_fill(&mut self) {
-        self.canvas.write().no_fill();
+        self.canvas.no_fill();
     }
 
     fn outline_color(&mut self, color: Color) {
-        self.canvas.write().outline_color(color);
+        self.canvas.outline_color(color);
     }
 
     fn outline_width(&mut self, width: f32) {
-        self.canvas.write().outline_width(width);
+        self.canvas.outline_width(width);
     }
 
     fn outline(&mut self, color: Color, width: f32) {
-        self.canvas.write().outline(color, width);
+        self.canvas.outline(color, width);
     }
 
     fn outline_style(&mut self, color: Color, width: f32, scaling: ScalingMode) {
-        self.canvas.write().outline_style(color, width, scaling);
+        self.canvas.outline_style(color, width, scaling);
     }
 
     fn no_outline(&mut self) {
-        self.canvas.write().no_outline();
+        self.canvas.no_outline();
     }
 
     fn outline_scaling(&mut self, scaling: ScalingMode) {
-        self.canvas.write().outline_scaling(scaling);
+        self.canvas.outline_scaling(scaling);
     }
 
     fn corner_radius(&mut self, radius: f32) {
-        self.canvas.write().corner_radius(radius);
+        self.canvas.corner_radius(radius);
     }
 
     fn corner_scaling(&mut self, scaling: ScalingMode) {
-        self.canvas.write().corner_scaling(scaling);
+        self.canvas.corner_scaling(scaling);
     }
 
     fn corner_style(&mut self, radius: f32, scaling: ScalingMode) {
-        self.canvas.write().corner_style(radius, scaling);
+        self.canvas.corner_style(radius, scaling);
     }
 
     fn scaling_modes(&mut self, outline_scaling: ScalingMode, corner_scaling: ScalingMode) {
-        self.canvas.write().scaling_modes(outline_scaling, corner_scaling);
+        self.canvas.scaling_modes(outline_scaling, corner_scaling);
     }
 
     fn clear_style(&mut self) {
-        self.canvas.write().clear_style();
+        self.canvas.clear_style();
     }
 
     fn rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.canvas.write().rect(x, y, w, h);
+        self.canvas.rect(x, y, w, h);
     }
 
     fn ellipse(&mut self, x: f32, y: f32, rx: f32, ry: f32) {
-        self.canvas.write().ellipse(x, y, rx, ry);
+        self.canvas.ellipse(x, y, rx, ry);
     }
 
     fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
-        self.canvas.write().line(x1, y1, x2, y2);
+        self.canvas.line(x1, y1, x2, y2);
     }
 
     fn image(&mut self, image: impl AsRef<Image>, x: f32, y: f32, w: f32, h: f32) {
-        self.canvas.write().image(image, x, y, w, h);
+        self.canvas.image(image, x, y, w, h);
     }
 
     fn composite(&mut self, canvas: impl AsRef<Canvas>, x: f32, y: f32, w: f32, h: f32) {
-        self.canvas.write().composite(canvas, x, y, w, h);
+        self.canvas.composite(canvas, x, y, w, h);
     }
 
     fn horizontal_text_align(&mut self, align: HorizontalAlign) {
-        self.canvas.write().horizontal_text_align(align);
+        self.canvas.horizontal_text_align(align);
     }
 
     fn vertical_text_align(&mut self, align: VerticalAlign) {
-        self.canvas.write().vertical_text_align(align);
+        self.canvas.vertical_text_align(align);
     }
 
     fn text_align(&mut self, horizontal: HorizontalAlign, vertical: VerticalAlign) {
-        self.canvas.write().text_align(horizontal, vertical);
+        self.canvas.text_align(horizontal, vertical);
     }
 
     fn line_align(&mut self, align: HorizontalAlign) {
-        self.canvas.write().line_align(align);
+        self.canvas.line_align(align);
     }
 
     fn font_size(&mut self, size_px: f32) {
-        self.canvas.write().font_size(size_px);
+        self.canvas.font_size(size_px);
     }
 
     fn text(&mut self, font: impl AsRef<Font>, x: f32, y: f32, text: impl ToString) {
-        self.canvas.write().text(font, x, y, text);
+        self.canvas.text(font, x, y, text);
     }
 
     fn rich_text(&mut self, x: f32, y: f32, spans: &[Span]) {
-        self.canvas.write().rich_text(x, y, spans);
+        self.canvas.rich_text(x, y, spans);
     }
 
     fn text_layout(&mut self, font: impl AsRef<Font>, text: impl ToString) -> TextLayout {
-        self.canvas.write().text_layout(font, text)
+        self.canvas.text_layout(font, text)
     }
 
     fn text_size(&mut self, font: impl AsRef<Font>, text: impl ToString) -> Vec2 {
-        self.canvas.write().text_size(font, text)
+        self.canvas.text_size(font, text)
     }
 
     fn text_width(&mut self, font: impl AsRef<Font>, text: impl ToString) -> f32 {
-        self.canvas.write().text_width(font, text)
+        self.canvas.text_width(font, text)
     }
 
     fn text_height(&mut self, font: impl AsRef<Font>, text: impl ToString) -> f32 {
-        self.canvas.write().text_height(font, text)
+        self.canvas.text_height(font, text)
     }
 
     fn rich_text_layout(&mut self, spans: &[Span]) -> TextLayout {
-        self.canvas.write().rich_text_layout(spans)
+        self.canvas.rich_text_layout(spans)
     }
 
     fn rich_text_size(&mut self, spans: &[Span]) -> Vec2 {
-        self.canvas.write().rich_text_size(spans)
+        self.canvas.rich_text_size(spans)
     }
 
     fn rich_text_width(&mut self, spans: &[Span]) -> f32 {
-        self.canvas.write().rich_text_width(spans)
+        self.canvas.rich_text_width(spans)
     }
 
     fn rich_text_height(&mut self, spans: &[Span]) -> f32 {
-        self.canvas.write().rich_text_height(spans)
+        self.canvas.rich_text_height(spans)
     }
 
     fn set_view(&mut self, width: f32, height: f32, view_mode: ViewMode) {
-        self.canvas.write().set_view(width, height, view_mode);
+        self.canvas.set_view(width, height, view_mode);
     }
 
     fn clear_view(&mut self) {
-        self.canvas.write().clear_view();
+        self.canvas.clear_view();
     }
 
     fn set_origin(&mut self, x: f32, y: f32) {
-        self.canvas.write().set_origin(x, y);
+        self.canvas.set_origin(x, y);
     }
 
     fn clear_origin(&mut self) {
-        self.canvas.write().clear_origin();
+        self.canvas.clear_origin();
     }
 
     fn with_style(&mut self, commands: impl FnOnce(&mut Self)) {
         let (style, text_style, view) = {
-            let inner = self.canvas.read();
-            (inner.style, inner.text_style, inner.view)
+            (self.canvas.style, self.canvas.text_style, self.canvas.view)
         };
 
         commands(self);
 
-        let mut inner = self.canvas.write();
-        inner.style = style;
-        inner.text_style = text_style;
-        inner.view.set(view);
-        inner.sync_view_transform();
+        self.canvas.style = style;
+        self.canvas.text_style = text_style;
+        self.canvas.view.set(view);
+        self.canvas.sync_view_transform();
     }
 
     fn with_transform(&mut self, transform: impl AsRef<Transform2d>, commands: impl FnOnce(&mut Self)) {
         let old_local = {
-            let mut inner = self.canvas.write();
-            let old_local = inner.context.local_transform;
+            let old_local = self.canvas.context.local_transform;
             let new_local = old_local * *transform.as_ref();
 
-            let transform = inner.view.transform();
-            inner.context.local_transform = new_local;
-            inner.context.update_transform(transform * new_local);
+            let transform = self.canvas.view.transform();
+            self.canvas.context.local_transform = new_local;
+            self.canvas.context.update_transform(transform * new_local);
 
             old_local
         };
         commands(self);
 
-        let mut inner = self.canvas.write();
-        inner.context.local_transform = old_local;
+        self.canvas.context.local_transform = old_local;
 
-        let transform = inner.view.transform();
-        inner.context.update_transform(transform * old_local);
+        let transform = self.canvas.view.transform();
+        self.canvas.context.update_transform(transform * old_local);
     }
 
     fn flush(&mut self) -> RendererResult<()> {
-        let mut encoder = self.gpu_context.device.create_command_encoder(&Default::default());
-        let Some(frame) = self.get_frame() else { return Ok(()) };
+        let mut encoder = self.window.gpu_context.device.create_command_encoder(&Default::default());
+        let Some(frame) = self.window.get_frame() else { return Ok(()) };
 
         {
-            let mut root_canvas = self.canvas.write();
-            root_canvas.flush_with_encoder(&mut encoder, self.gpu_context.clone(), &mut HashSet::new(), self.config.format)?;
+            self.canvas.flush_with_encoder(&mut encoder, self.window.gpu_context.clone(), &mut HashSet::new(), self.window.config.format)?;
         }
 
-        let Some(canvas_texture) = self.canvas.read().get_texture() else { return Ok(()) };
+        let Some(canvas_texture) = self.canvas.get_texture() else { return Ok(()) };
 
         encoder.copy_texture_to_texture(
             canvas_texture.as_image_copy(),
             frame.texture.as_image_copy(),
             Extent3d {
-                width: self.config.width,
-                height: self.config.height,
+                width: self.window.config.width,
+                height: self.window.config.height,
                 depth_or_array_layers: 1,
             }
         );
 
-        self.gpu_context.queue.submit([encoder.finish()]);
+        self.window.gpu_context.queue.submit([encoder.finish()]);
         frame.present();
 
-        self.inner_window.request_redraw();
+        self.window.inner_window.request_redraw();
 
         Ok(())
     }
