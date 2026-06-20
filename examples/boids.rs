@@ -24,7 +24,7 @@ const MAX_SPEED: f32 = 250.;
 const MAX_FORCE: f32 = 3.;
 
 fn random_range(range: Range<f32>) -> f32 {
-    range.start + f32() * (range.start - range.end)
+    range.start + f32() * (range.end - range.start)
 }
 
 #[derive(Default)]

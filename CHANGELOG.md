@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (!) - breaking change
 (#xyz) - fixed in the given PR
 
-## [Unreleased]
+## [0.7.0] - 2026-06-19
 
 ### Added
 - `Canvas::auto_flush` so you can now toggle whether or not you want canvases to be implicitly flushed when composited
@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added missing documentation on `Canvas`
 - Fix deadlock with rendering canvases with cyclic references (`A` composites `B`, `B` composites `A`)
 - `Renderer` is now guaranteed `!Send` on all platforms, as it is not thread-safe (`winit` likely already made it `!Send`, but I wanted to be sure)
+- The boids example was entirely busted, because a previous "fix" actually broke it, and I thought it would be a great idea to not test it
 
 Hopefully there won't be many breaking changes after this one.
 

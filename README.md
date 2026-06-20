@@ -171,7 +171,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-verdant = "0.6"
+verdant = "0.7"
 ```
 Currently, Verdant only supports desktop, though web/mobile support is planned soon.
 
@@ -184,21 +184,21 @@ By default, Verdant includes granular features to control what gets built. If yo
 
 ```toml
 [dependencies]
-verdant = { version = "0.6", default-features = false, features = ["vulkan", "dx12", "metal"] }
+verdant = { version = "0.7", default-features = false, features = ["vulkan", "dx12", "metal"] }
 ```
 
 If you want legacy OpenGL support:
 
 ```toml
 [dependencies]
-verdant = { version = "0.6", default-features = false, features = ["vulkan", "dx12", "metal", "gles"] }
+verdant = { version = "0.7", default-features = false, features = ["vulkan", "dx12", "metal", "gles"] }
 ```
 
 It also has granular features for different image formats:
 
 ```toml
 [dependencies]
-verdant = { version = "0.6", default-features = false, features = ["vulkan", "dx12", "metal", "image-png", "image-jpeg", "image-webp"] }
+verdant = { version = "0.7", default-features = false, features = ["vulkan", "dx12", "metal", "image-png", "image-jpeg", "image-webp"] }
 ```
 
 By default, "text", "image-png", "image-jpeg", "dx12", "metal", and "vulkan" are enabled.
