@@ -13,6 +13,7 @@
 //       honestly, it does pretty well for what it is
 
 #![deny(clippy::unwrap_used)]
+#![allow(clippy::chunks_exact_to_as_chunks)] // because it's a genuinely terrible suggestion
 
 pub use winit::event::WindowEvent as WinitEvent;
 pub use wgpu::TextureFormat;
