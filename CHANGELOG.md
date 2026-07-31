@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `Image::width()` and `Image::height()`
 - `Image::save()`
-- Android support
+- Initial Android support, may be unstable
 - `VecN::min` and `VecN::shortest`
 
 ### Changed
