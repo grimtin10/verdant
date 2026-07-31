@@ -24,6 +24,9 @@ use pollster::block_on;
 use wgpu::{Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, BufferBindingType, ColorTargetState, ColorWrites, Device, DeviceDescriptor, Extent3d, FilterMode, FragmentState, FrontFace, Instance, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler, SamplerDescriptor, ShaderStages, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState, VertexStepMode, include_wgsl, util::{DeviceExt}, vertex_attr_array, wgt::TextureDataOrder};
 use winit::{application::ApplicationHandler, dpi::PhysicalSize, event_loop::{ActiveEventLoop, EventLoop}};
 
+#[cfg(android_platform)]
+pub use winit::platform::android::{activity::AndroidApp, EventLoopBuilderExtAndroid};
+
 use std::{collections::{HashMap, VecDeque}, marker::PhantomData, sync::{Arc, MutexGuard}};
 
 use crate::{canvas::Canvas, errors::Error, event::WindowEvent, render_surface::RenderSurface, transform::Transform2d, types::Color, vec::Vec2, window::{Window, WindowDraw, WindowId, WindowProperties}};
@@ -472,6 +475,7 @@ fn ortho(width: f32, height: f32) -> Transform2d {
 }
 
 impl Renderer {
+    #[cfg(not(android_platform))]
     /// Creates a new `Renderer` instance with no windows.
     pub fn new() -> RendererResult<Self> {
         let event_loop = EventLoop::new()?;
@@ -488,6 +492,20 @@ impl Renderer {
         Ok(Self {
             event_loop,
             context: RendererContext::new(is_wayland),
+
+            unsend: PhantomData,
+        })
+    }
+
+    /// Creates a new `Renderer` instance with no windows.
+    #[cfg(android_platform)]
+    pub fn new(app: AndroidApp) -> RendererResult<Self> {
+        let event_loop = EventLoop::builder()
+            .with_android_app(app)
+            .build()?;
+        Ok(Self {
+            event_loop,
+            context: RendererContext::new(false),
 
             unsend: PhantomData,
         })
@@ -636,6 +654,9 @@ impl ApplicationHandler for RendererContext {
             if let Some(window) = self.windows.get_mut(id) {
                 if let WinitEvent::SurfaceResized(size) = event {
                     window.on_resize(size);
+                }
+                if let WinitEvent::PointerEntered { position, .. } = event {
+                    window.on_mouse_move(position);
                 }
                 if let WinitEvent::PointerMoved { position, .. } = event {
                     window.on_mouse_move(position);

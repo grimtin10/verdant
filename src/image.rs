@@ -1,5 +1,7 @@
 // TODO: optimize the case where someone loads the same image a bunch
 
+#[cfg(feature = "image")]
+use std::path::Path;
 use std::{fmt::{self, Debug, Formatter}, sync::{Arc, RwLockReadGuard}};
 
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Extent3d, Origin3d, TexelCopyBufferLayout, TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor};
@@ -48,10 +50,10 @@ pub(crate) struct ImageData {
 
 #[derive(Clone)]
 pub struct Image {
-    pub width: u32,
-    pub height: u32,
-
     pub(crate) data: Option<Arc<ImageData>>,
+
+    width: u32,
+    height: u32,
 
     image: Arc<Vec<u8>>,
     dirty_zone: Option<Bounds>,
@@ -140,6 +142,28 @@ impl Image {
             image: Arc::new(image.to_vec()),
             dirty_zone: Some(Bounds::new(0, 0, width, height)),
         })
+    }
+
+    #[cfg(feature = "image")]
+    pub fn save(&self, path: impl AsRef<Path>) -> RendererResult<()> {
+        use image::{DynamicImage, ImageBuffer, Rgba};
+
+        Ok(
+            DynamicImage::ImageRgba8(
+                ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(self.width, self.height, self.image.to_vec())
+                    .expect("this should never happen")
+            ).save(path)?
+        )
+    }
+
+    /// Returns the width of this image.
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    /// Returns the height of this image.
+    pub fn height(&self) -> u32 {
+        self.height
     }
 
     /// Copies raw RGBA8 pixel data into thie image at the given destination position.

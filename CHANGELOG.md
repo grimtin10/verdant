@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (!) - breaking change
 (#xyz) - fixed in the given PR
 
+## Unreleased
+### Added
+- `Image::width()` and `Image::height()`
+- `Image::save()`
+- Android support
+- `VecN::min` and `VecN::shortest`
+
+### Changed
+- `Image` width and height fields are no longer public to prevent modification (!)
+- More `VecN` functions take `impl Into<Self>`
+
+## [0.7.1] - 2026-07-12
+### Fixed
+- `Error` now implements `std::error::Error`
+- `WindowId` now implements `Display`
+
 ## [0.7.0] - 2026-06-19
 
 ### Added

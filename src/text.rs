@@ -243,8 +243,8 @@ struct FontInner {
 
 impl FontInner {
     fn resize_atlas(&self) -> RendererResult<()> {
-        let width = self.atlas.read()?.width;
-        let old_height = self.atlas.read()?.height;
+        let width = self.atlas.read()?.width();
+        let old_height = self.atlas.read()?.height();
 
         let new_height = old_height * 2;
 
@@ -280,6 +280,8 @@ impl FontInner {
         Ok(self.font.rasterize(glyph.0, glyph.1))
     }
 
+    // TODO: the amount of locking on this function is so bad
+    //       why lock the atlas repeatedly to read width/height?
     fn get_or_load_glyph(&self, glyph: GlyphInfo) -> RendererResult<Option<CachedGlyph>> {
         if let Some(glyph) = self.cache.read()?.get(&glyph) {
             return Ok(Some(*glyph));
@@ -310,7 +312,7 @@ impl FontInner {
 
         {
             let mut position = self.position.lock()?;
-            if position.current_x + width + PADDING > self.atlas.read()?.width {
+            if position.current_x + width + PADDING > self.atlas.read()?.width() {
                 position.current_x = 0;
                 position.current_y += position.row_height + PADDING;
                 position.row_height = 0;
@@ -319,8 +321,8 @@ impl FontInner {
 
         {
             let mut position = self.position.lock()?;
-            while position.current_y + height + PADDING > self.atlas.read()?.height {
-                if self.atlas.read()?.height >= MAX_ATLAS_SIZE {
+            while position.current_y + height + PADDING > self.atlas.read()?.height() {
+                if self.atlas.read()?.height() >= MAX_ATLAS_SIZE {
                     *self.atlas.write()? = Image::new_empty(1024, 1024);
                     self.cache.write()?.clear();
                     position.current_x = 0;
@@ -344,10 +346,10 @@ impl FontInner {
         let (u0, v0, u1, v1) = {
             let position = self.position.lock()?;
             (
-                position.current_x as f32 / self.atlas.read()?.width as f32,
-                position.current_y as f32 / self.atlas.read()?.height as f32,
-                (position.current_x + width) as f32 / self.atlas.read()?.width as f32,
-                (position.current_y + height) as f32 / self.atlas.read()?.height as f32,
+                position.current_x as f32 / self.atlas.read()?.width() as f32,
+                position.current_y as f32 / self.atlas.read()?.height() as f32,
+                (position.current_x + width) as f32 / self.atlas.read()?.width() as f32,
+                (position.current_y + height) as f32 / self.atlas.read()?.height() as f32,
             )
         };
 

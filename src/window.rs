@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::{Arc, RwLockWriteGuard, atomic::{AtomicUsize, Ordering}}};
+use std::{collections::HashSet, fmt::{self, Display, Formatter}, sync::{Arc, RwLockWriteGuard, atomic::{AtomicUsize, Ordering}}};
 
 use wgpu::{CurrentSurfaceTexture, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
 use winit::{dpi::{PhysicalPosition, PhysicalSize}, monitor::Fullscreen, window::WindowLevel};
@@ -8,6 +8,12 @@ use crate::{AdvancedWindowProperties, GpuContext, Renderer, RendererResult, canv
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WindowId(pub(crate) usize);
+
+impl Display for WindowId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl WindowId {
     pub(crate) fn new() -> Self {

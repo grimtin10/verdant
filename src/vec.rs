@@ -137,22 +137,44 @@ impl Vec2 {
     }
 
     /// Returns the distance between this [`Vec2`] and `other`.
-    pub fn dist(&self, other: Self) -> f32 {
+    pub fn dist(&self, other: impl Into<Self>) -> f32 {
+        let other = other.into();
         let dx = other.x - self.x;
         let dy = other.y - self.y;
         (dx * dx + dy * dy).sqrt()
     }
 
+    /// Returns the component-wise minimum of this [`Vec2`] and `other`.
+    pub fn min(&self, other: impl Into<Self>) -> Vec2 {
+        let other = other.into();
+        Self {
+            x: self.x.min(other.x),
+            y: self.y.min(other.y),
+        }
+    }
+
     /// Returns the component-wise maximum of this [`Vec2`] and `other`.
-    pub fn max(&self, other: Self) -> Vec2 {
+    pub fn max(&self, other: impl Into<Self>) -> Vec2 {
+        let other = other.into();
         Self {
             x: self.x.max(other.x),
             y: self.y.max(other.y),
         }
     }
 
+    /// Returns the shorter vector between this [`Vec2`] and `other`.
+    pub fn shortest(&self, other: impl Into<Self>) -> Vec2 {
+        let other = other.into();
+        if self.length_squared() <= other.length_squared() {
+            *self
+        } else {
+            other
+        }
+    }
+
     /// Returns the longer vector between this [`Vec2`] and `other`.
-    pub fn longest(&self, other: Self) -> Vec2 {
+    pub fn longest(&self, other: impl Into<Self>) -> Vec2 {
+        let other = other.into();
         if self.length_squared() >= other.length_squared() {
             *self
         } else {
@@ -242,15 +264,27 @@ impl Vec3 {
     }
 
     /// Returns the distance between this [`Vec3`] and `other`.
-    pub fn dist(&self, other: Self) -> f32 {
+    pub fn dist(&self, other: impl Into<Self>) -> f32 {
+        let other = other.into();
         let dx = other.x - self.x;
         let dy = other.y - self.y;
         let dz = other.z - self.z;
         (dx * dx + dy * dy + dz * dz).sqrt()
     }
 
+    /// Returns the component-wise minimum of this [`Vec3`] and `other`.
+    pub fn min(&self, other: impl Into<Self>) -> Vec3 {
+        let other = other.into();
+        Self {
+            x: self.x.min(other.x),
+            y: self.y.min(other.y),
+            z: self.z.min(other.z),
+        }
+    }
+
     /// Returns the component-wise maximum of this [`Vec3`] and `other`.
-    pub fn max(&self, other: Self) -> Vec3 {
+    pub fn max(&self, other: impl Into<Self>) -> Vec3 {
+        let other = other.into();
         Self {
             x: self.x.max(other.x),
             y: self.y.max(other.y),
@@ -258,8 +292,19 @@ impl Vec3 {
         }
     }
 
+    /// Returns the shorter vector between this [`Vec3`] and `other`.
+    pub fn shortest(&self, other: impl Into<Self>) -> Vec3 {
+        let other = other.into();
+        if self.length_squared() <= other.length_squared() {
+            *self
+        } else {
+            other
+        }
+    }
+
     /// Returns the longer vector between this [`Vec3`] and `other`.
-    pub fn longest(&self, other: Self) -> Vec3 {
+    pub fn longest(&self, other: impl Into<Self>) -> Vec3 {
+        let other = other.into();
         if self.length_squared() >= other.length_squared() {
             *self
         } else {
@@ -362,6 +407,17 @@ impl Vec4 {
         (dx * dx + dy * dy + dz * dz + dw * dw).sqrt()
     }
 
+    /// Returns the component-wise minimum of this [`Vec4`] and `other`.
+    pub fn min(&self, other: impl Into<Self>) -> Vec4 {
+        let other = other.into();
+        Self {
+            x: self.x.min(other.x),
+            y: self.y.min(other.y),
+            z: self.z.min(other.z),
+            w: self.w.min(other.w),
+        }
+    }
+
     /// Returns the component-wise maximum of this [`Vec4`] and `other`.
     pub fn max(&self, other: impl Into<Self>) -> Vec4 {
         let other = other.into();
@@ -370,6 +426,16 @@ impl Vec4 {
             y: self.y.max(other.y),
             z: self.z.max(other.z),
             w: self.w.max(other.w),
+        }
+    }
+
+    /// Returns the shorter vector between this [`Vec4`] and `other`.
+    pub fn shortest(&self, other: impl Into<Self>) -> Vec4 {
+        let other = other.into();
+        if self.length_squared() <= other.length_squared() {
+            *self
+        } else {
+            other
         }
     }
 

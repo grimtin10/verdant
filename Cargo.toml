@@ -24,6 +24,7 @@ vulkan = ["wgpu/vulkan"]
 gles = ["wgpu/gles"]
 
 linux-wayland-csd = ["winit/wayland-csd-adwaita"]
+android = ["winit/android-native-activity"]
 
 glam = ["dep:glam"]
 
