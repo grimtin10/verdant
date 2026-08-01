@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - More `VecN` functions take `impl Into<Self>`
 - Updated pollster to 1.0.1
 - Updated wgpu to 30.0.0
+- `TextStyle` and `Span` no longer implement `Hash`, `PartialEq`, and `Eq` (!)
 
 ### Fixed
 - Wording in the changelog from a prior version

@@ -98,7 +98,7 @@ impl CanvasContext {
         line_align: HorizontalAlign,
     ) -> &TextLayout {
         let mut hasher = DefaultHasher::new();
-        spans.hash(&mut hasher);
+        spans.iter().for_each(|s| s.hash(&mut hasher));
         horizontal_align.hash(&mut hasher);
         vertical_align.hash(&mut hasher);
         line_align.hash(&mut hasher);

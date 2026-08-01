@@ -583,20 +583,6 @@ impl Default for TextStyle {
     }
 }
 
-impl Hash for TextStyle {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.size.to_bits().hash(state);
-    }
-}
-
-impl PartialEq for TextStyle {
-    fn eq(&self, other: &Self) -> bool {
-        self.size == other.size
-    }
-}
-
-impl Eq for TextStyle {}
-
 impl TextStyle {
     /// Sets the font size (in pixels) of this [`TextStyle`].
     pub fn size(&mut self, size_px: f32) -> &mut Self {
@@ -617,7 +603,7 @@ impl TextStyle {
     }
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Span {
     pub text: String,
     pub font: Font,
@@ -631,6 +617,12 @@ impl Span {
             font: font.as_ref().clone(),
             style,
         }
+    }
+
+    pub(crate) fn hash(&self, state: &mut impl Hasher) {
+        self.text.hash(state);
+        self.font.hash(state);
+        self.style.size.to_bits().hash(state);
     }
 }
 
