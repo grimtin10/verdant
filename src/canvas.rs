@@ -473,6 +473,10 @@ impl CanvasDraw {
     ///
     /// Note: this function clears the canvas whenever called.
     pub fn resize(&mut self, width: u32, height: u32) {
+        if self.width == width && self.height == height {
+            return;
+        }
+
         self.width = width;
         self.height = height;
 

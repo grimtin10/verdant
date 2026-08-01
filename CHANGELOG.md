@@ -21,9 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated pollster to 1.0.1
 - Updated wgpu to 30.0.0
 - `TextStyle` and `Span` no longer implement `Hash`, `PartialEq`, and `Eq` (!)
+- `Error` now implements `Error::source`
 
 ### Fixed
 - Wording in the changelog from a prior version
+- `Canvas::resize` no longer allocates a new texture when the size doesn't change
+- Mouse position now properly updates with other mouse events
 
 ## [0.7.1] - 2026-07-12
 ### Fixed

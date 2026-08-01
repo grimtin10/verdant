@@ -58,7 +58,29 @@ pub enum Error {
     PoisonError(String),
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::NoAdapterFound(e) => Some(e),
+            Self::DeviceRequestFailed(e) => Some(e),
+            Self::WindowCreationFailed(e) => Some(e),
+            Self::SurfaceCreationFailed(e) => Some(e),
+            Self::BlitOutOfBounds { .. } => None,
+            Self::BlitBufferTooSmall { .. } => None,
+            Self::ReadOutOfBounds { .. } => None,
+            Self::ReadBufferTooSmall { .. } => None,
+            Self::ImageBufferTooSmall { .. } => None,
+            Self::TextTooBig => None,
+            Self::IOError(e) => Some(e),
+            Self::FontError(_) => None,
+            Self::EventLoopError(e) => Some(e),
+            Self::PoisonError(_) => None,
+
+            #[cfg(feature = "image")]
+            Self::ImageError(e) => Some(e),
+        }
+    }
+}
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

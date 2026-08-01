@@ -750,12 +750,20 @@ impl ApplicationHandler for RendererContext {
                 if let WinitEvent::SurfaceResized(size) = event {
                     window.on_resize(size);
                 }
-                if let WinitEvent::PointerEntered { position, .. } = event {
-                    window.on_mouse_move(position);
-                }
+
                 if let WinitEvent::PointerMoved { position, .. } = event {
                     window.on_mouse_move(position);
                 }
+                if let WinitEvent::PointerEntered { position, .. } = event {
+                    window.on_mouse_move(position);
+                }
+                if let WinitEvent::PointerLeft { position: Some(position), .. } = event {
+                    window.on_mouse_move(position);
+                }
+                if let WinitEvent::PointerButton { position, .. } = event {
+                    window.on_mouse_move(position);
+                }
+
                 if let WinitEvent::Focused(focus) = event {
                     window.on_focus_update(focus);
                 }
