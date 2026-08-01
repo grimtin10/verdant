@@ -30,11 +30,11 @@ glam = ["dep:glam"]
 
 [dependencies]
 bytemuck = "1.25.0"
-pollster = "0.4.0"
+pollster = "1.0.1"
 
 winit = { version = "0.31.0-beta.2", default-features = false, features = ["x11", "wayland", "wayland-dlopen"] }
 
-wgpu = { version = "29.0.3", default-features = false, features = ["wgsl", "std", "parking_lot"] }
+wgpu = { version = "30.0.0", default-features = false, features = ["wgsl", "std", "parking_lot"] }
 
 fontdue = { version = "0.9.3", optional = true, default-features = false, features = ["simd", "std"] }
 image = { version = "0.25.10", optional = true, default-features = false }

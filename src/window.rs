@@ -171,35 +171,63 @@ pub(crate) struct WindowContext {
     pub focused: bool,
 }
 
+#[derive(Debug)]
 pub struct Window {
     pub(crate) inner_window: Arc<Box<dyn winit::window::Window>>,
+    pub(crate) properties: AdvancedWindowProperties,
+
+    pub(crate) gpu_context: Arc<GpuContext>,
 
     canvas: Canvas,
 
     surface: Surface<'static>,
     config: SurfaceConfiguration,
 
-    gpu_context: Arc<GpuContext>,
     context: WindowContext,
 }
 
 impl Window {
     pub(crate) fn new(
         inner_window: Arc<Box<dyn winit::window::Window>>,
+        properties: AdvancedWindowProperties,
         surface: Surface<'static>,
         config: SurfaceConfiguration,
         gpu_context: Arc<GpuContext>,
     ) -> Self {
         Self {
             inner_window,
+            properties,
+
+            gpu_context,
 
             canvas: Canvas::new(config.width, config.height, true),
 
             surface,
             config,
 
-            gpu_context,
             context: WindowContext::default(),
+        }
+    }
+
+    pub(crate) fn from_old(
+        inner_window: Arc<Box<dyn winit::window::Window>>,
+        surface: Surface<'static>,
+        config: SurfaceConfiguration,
+
+        old_window: Window,
+    ) -> Self {
+        Self {
+            inner_window,
+            properties: old_window.properties,
+
+            gpu_context: old_window.gpu_context,
+
+            canvas: old_window.canvas,
+
+            surface,
+            config,
+
+            context: old_window.context,
         }
     }
 
@@ -240,7 +268,7 @@ impl Window {
         });
 
         self.gpu_context.queue.submit([encoder.finish()]);
-        frame.present();
+        self.gpu_context.queue.present(frame);
 
         Ok(())
     }
@@ -253,6 +281,10 @@ impl Window {
         self.surface.configure(&self.gpu_context.device, &self.config);
 
         self.canvas.write().resize(size.width, size.height);
+    }
+
+    pub(crate) fn size(&self) -> PhysicalSize<u32> {
+        PhysicalSize { width: self.config.width, height: self.config.height }
     }
 
     pub(crate) fn on_mouse_move(&mut self, position: PhysicalPosition<f64>) {
@@ -552,7 +584,7 @@ impl<'a> RenderSurface for WindowDraw<'a> {
         );
 
         self.window.gpu_context.queue.submit([encoder.finish()]);
-        frame.present();
+        self.window.gpu_context.queue.present(frame);
 
         self.window.inner_window.request_redraw();
 

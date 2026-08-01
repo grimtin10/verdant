@@ -17,14 +17,14 @@ struct Vertex {
 }
 
 struct Interpolated {
-    @builtin(position) clip_position: vec4<f32>,
-    @location(0) uv:            vec2<f32>,
-    @location(1) radii:         vec2<f32>,
-    @location(2) fill_color:    vec4<f32>,
-    @location(3) outline_color: vec4<f32>,
-    @location(4) outline_width: f32,
-    @location(5) corner_radius: f32,
-    @location(6) kind:          u32,
+    @builtin(position)              clip_position: vec4<f32>,
+    @location(0)                    uv:            vec2<f32>,
+    @location(1)                    radii:         vec2<f32>,
+    @location(2)                    fill_color:    vec4<f32>,
+    @location(3)                    outline_color: vec4<f32>,
+    @location(4)                    outline_width: f32,
+    @location(5)                    corner_radius: f32,
+    @location(6) @interpolate(flat) kind:          u32,
 }
 
 @group(0) @binding(0) var<uniform> projection: mat4x4<f32>;

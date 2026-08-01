@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `Image` width and height fields are no longer public to prevent modification (!)
 - More `VecN` functions take `impl Into<Self>`
+- Updated pollster to 1.0.1
+- Updated wgpu to 30.0.0
+
+### Fixed
+- Wording in the changelog from a prior version
 
 ## [0.7.1] - 2026-07-12
 ### Fixed
@@ -34,7 +39,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Renderer::poll_raw` for if you need the raw `WinitEvent`s
 - `glam` compatability feature to allow for full compatibilty with `glam`'s vector structs
 - Breaking changes and PRs are now tracked in the changelog
-- `WindowDraw` so that drawing to a window no longer acquires a lock on the inner canvas for every command
 
 ### Changed
 - `CanvasState` is now `CanvasDraw` to more accurately reflect what it means for the user (!)
@@ -43,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Renderer::poll` no longer returns `Vec<winit::WindowEvent>`, now returning `Vec<window::WindowEvent>` (!)
 - Change crate description slightly
 - `Renderer::get_window` now returns an `Option<WindowDraw>` instead of `Option<&mut Window>` (!)
+    - This means that drawing to a window no longer acquires a lock on the inner canvas for every command
 
 ### Fixed
 - Added missing documentation on `Canvas`

@@ -21,7 +21,7 @@ pub use wgpu::TextureFormat;
 use bytemuck::{Pod, Zeroable};
 
 use pollster::block_on;
-use wgpu::{Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, BufferBindingType, ColorTargetState, ColorWrites, Device, DeviceDescriptor, Extent3d, FilterMode, FragmentState, FrontFace, Instance, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler, SamplerDescriptor, ShaderStages, Surface, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState, VertexStepMode, include_wgsl, util::{DeviceExt}, vertex_attr_array, wgt::TextureDataOrder};
+use wgpu::{Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, BufferBindingType, ColorTargetState, ColorWrites, Device, DeviceDescriptor, Extent3d, FilterMode, FragmentState, FrontFace, Instance, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler, SamplerDescriptor, ShaderStages, Surface, SurfaceColorSpace, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState, VertexStepMode, include_wgsl, util::DeviceExt, vertex_attr_array, wgt::TextureDataOrder};
 use winit::{application::ApplicationHandler, dpi::PhysicalSize, event_loop::{ActiveEventLoop, EventLoop}};
 
 #[cfg(android_platform)]
@@ -180,6 +180,7 @@ struct RendererContext {
     real_to_virtual: HashMap<winit::window::WindowId, WindowId>,
 
     window_queue: VecDeque<(WindowId, AdvancedWindowProperties)>,
+    reinit_queue: VecDeque<(WindowId, Window)>,
 
     events: Vec<(WindowId, WindowEvent)>,
     raw_events: Vec<(WindowId, WinitEvent)>,
@@ -200,6 +201,7 @@ impl RendererContext {
             real_to_virtual: HashMap::new(),
 
             window_queue: VecDeque::new(),
+            reinit_queue: VecDeque::new(),
 
             events: Vec::new(),
             raw_events: Vec::new(),
@@ -216,6 +218,7 @@ impl RendererContext {
                 power_preference: PowerPreference::HighPerformance,
                 compatible_surface: Some(surface),
                 force_fallback_adapter: false,
+                apply_limit_buckets: false, // TODO: i don't know what this does
             }).await?;
 
             let surface_capabilities = surface.get_capabilities(&adapter);
@@ -224,6 +227,19 @@ impl RendererContext {
                 .unwrap_or(surface_capabilities.formats[0]);
 
             let (device, queue) = adapter.request_device(&DeviceDescriptor::default()).await?;
+
+            // TODO: find a way to config this, since this DRASTICALLY reduces memory usage
+            // let limits = wgpu::Limits::downlevel_defaults().using_resolution(adapter.limits());
+            // let (device, queue) = adapter.request_device(
+            //     &DeviceDescriptor {
+            //         label: Some("verdant device"),
+            //         required_features: wgpu::Features::empty(),
+            //         required_limits: limits,
+            //         memory_hints: wgpu::MemoryHints::MemoryUsage,
+            //         experimental_features: wgpu::ExperimentalFeatures::disabled(),
+            //         trace: wgpu::Trace::Off,
+            //     },
+            // ).await?;
 
             let projection_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("projection layout"),
@@ -294,7 +310,7 @@ impl RendererContext {
                     module: &shader,
                     entry_point: Some("vs_main"),
                     compilation_options: Default::default(),
-                    buffers: &[VertexBufferLayout {
+                    buffers: &[Some(VertexBufferLayout {
                         array_stride: size_of::<Vertex>() as u64,
                         step_mode: VertexStepMode::Vertex,
                         // TODO: i think it would be really cool if there was some way to build
@@ -310,7 +326,7 @@ impl RendererContext {
                             6 => Float32,   // corner_radius
                             7 => Uint32,    // kind
                         ]
-                    }],
+                    })],
                 },
 
                 fragment: Some(FragmentState {
@@ -372,7 +388,7 @@ impl RendererContext {
 
     fn process_queued_windows(&mut self, event_loop: &dyn ActiveEventLoop) -> RendererResult<()> {
         #[allow(unused_mut)]
-        while let Some((id, mut attributes)) = self.window_queue.pop_front() {
+        while let Some((id, mut properties)) = self.window_queue.pop_front() {
             #[cfg(linux_platform)]
             {
                 use winit::platform::wayland::WindowAttributesWayland;
@@ -380,11 +396,11 @@ impl RendererContext {
                 if self.is_wayland {
                     let platform_attributes = WindowAttributesWayland::default()
                         .with_name("verdant", "verdant");
-                    attributes = attributes.with_platform_attributes(Box::new(platform_attributes));
+                    properties = properties.with_platform_attributes(Box::new(platform_attributes));
                 } else {
                     let platform_attributes = WindowAttributesX11::default()
                         .with_name("verdant", "verdant");
-                    attributes = attributes.with_platform_attributes(Box::new(platform_attributes));
+                    properties = properties.with_platform_attributes(Box::new(platform_attributes));
                 }
             }
 
@@ -393,16 +409,43 @@ impl RendererContext {
                 use winit::platform::windows::WindowAttributesWindows;
                 let platform_attributes = WindowAttributesWindows::default()
                     .with_class_name("Verdant");
-                attributes = attributes.with_platform_attributes(Box::new(platform_attributes));
+                properties = properties.with_platform_attributes(Box::new(platform_attributes));
             }
 
-            let size = attributes.surface_size.map_or(PhysicalSize::default(), |s| s.to_physical(1.));
+            let size = properties.surface_size.map_or(PhysicalSize::default(), |s| s.to_physical(1.));
 
-            let inner_window = Arc::new(event_loop.create_window(attributes)?);
+            let inner_window = Arc::new(event_loop.create_window(properties.clone())?);
             let surface = self.instance.create_surface(inner_window.clone())?;
 
             let context = block_on(self.get_or_init_context(&surface))?;
-            let window = Self::configure_window(inner_window, surface, context, size.width, size.height)?;
+            let window = Self::configure_window(
+                inner_window,
+                properties,
+                surface,
+                context,
+                size.width,
+                size.height
+            )?;
+
+            let real_id = window.inner_window.id();
+            self.virtual_to_real.insert(id, real_id);
+            self.real_to_virtual.insert(real_id, id);
+            self.windows.insert(id, window);
+        }
+
+        while let Some((id, window)) = self.reinit_queue.pop_front() {
+            let size = window.size();
+
+            let inner_window = Arc::new(event_loop.create_window(window.properties.clone())?);
+            let surface = self.instance.create_surface(inner_window.clone())?;
+
+            let window = Self::reinit_window(
+                window,
+                inner_window,
+                surface,
+                size.width,
+                size.height
+            )?;
 
             let real_id = window.inner_window.id();
             self.virtual_to_real.insert(id, real_id);
@@ -413,13 +456,12 @@ impl RendererContext {
         Ok(())
     }
 
-    pub(crate) fn configure_window(
-        inner_window: Arc<Box<dyn winit::window::Window>>,
-        surface: Surface<'static>,
-        context: Arc<GpuContext>,
+    pub(crate) fn configure_surface(
+        surface: &Surface<'static>,
+        context: &GpuContext,
         width: u32,
         height: u32,
-    ) -> RendererResult<Window> {
+    ) -> SurfaceConfiguration {
         let surface_capabilities = surface.get_capabilities(&context.adapter);
 
         let format = surface_capabilities.formats.iter().copied()
@@ -437,6 +479,7 @@ impl RendererContext {
         let config = SurfaceConfiguration {
             usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
             format,
+            color_space: SurfaceColorSpace::Auto,
             width,
             height,
             present_mode: PresentMode::Fifo,
@@ -446,17 +489,54 @@ impl RendererContext {
         };
         surface.configure(&context.device, &config);
 
+        config
+    }
+
+    pub(crate) fn configure_window(
+        inner_window: Arc<Box<dyn winit::window::Window>>,
+        properties: AdvancedWindowProperties,
+        surface: Surface<'static>,
+        context: Arc<GpuContext>,
+        width: u32,
+        height: u32,
+    ) -> RendererResult<Window> {
+        let config = Self::configure_surface(&surface, &context, width, height);
+
         inner_window.request_redraw();
 
         let window = Window::new(
             inner_window,
+            properties,
             surface,
             config,
-            context.clone()
+            context,
         );
 
         // we have to do this because some WMs just don't display a window until you draw something!
         window.present_blank_frame()?;
+
+        Ok(window)
+    }
+
+    pub(crate) fn reinit_window(
+        old_window: Window,
+        inner_window: Arc<Box<dyn winit::window::Window>>,
+        surface: Surface<'static>,
+        width: u32,
+        height: u32,
+    ) -> RendererResult<Window> {
+        let config = Self::configure_surface(&surface, &old_window.gpu_context, width, height);
+
+        inner_window.request_redraw();
+
+        let window = Window::from_old(
+            inner_window,
+            surface,
+            config,
+            old_window
+        );
+
+        window.draw().flush()?;
 
         Ok(window)
     }
@@ -622,7 +702,9 @@ impl Renderer {
 
     /// Returns `true` if any windows are still open.
     pub fn is_running(&self) -> bool {
-        !self.context.windows.is_empty() || !self.context.window_queue.is_empty()
+        !self.context.windows.is_empty()
+        || !self.context.window_queue.is_empty()
+        || !self.context.reinit_queue.is_empty()
     }
 
     // TODO: this needs to allow the user to pass in a custom trait
@@ -640,13 +722,26 @@ impl ApplicationHandler for RendererContext {
         }
     }
 
+    // android is very particular with the lifetime of surfaces, so we have to do this
+    fn destroy_surfaces(&mut self, _: &dyn ActiveEventLoop) {
+        for (id, window) in self.windows.drain() {
+            self.reinit_queue.push_back((id, window));
+            let real_id = self.virtual_to_real.remove(&id);
+            if let Some(id) = real_id {
+                self.real_to_virtual.remove(&id);
+            }
+        }
+    }
+
     fn window_event(
         &mut self,
         event_loop: &dyn ActiveEventLoop,
         window_id: winit::window::WindowId,
         event: WinitEvent,
     ) {
-        if let Err(e) = self.process_queued_windows(event_loop) {
+        #[cfg(not(android_platform))]
+        if (!self.window_queue.is_empty() || !self.reinit_queue.is_empty())
+        && let Err(e) = self.process_queued_windows(event_loop) {
             println!("error processing windows: {e}");
         }
 
