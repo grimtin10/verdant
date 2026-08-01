@@ -378,158 +378,72 @@ impl<'a> WindowDraw<'a> {
     }
 }
 
+// simple boilerplate reduction for functions that just forward to the canvas
+macro_rules! oneliner {
+    ($fn_name:ident) => {
+        fn $fn_name(&mut self) {
+            self.canvas.$fn_name();
+        }
+    };
+    ($fn_name:ident, $($name:ident: $type:ty),*) => {
+        fn $fn_name(&mut self, $($name: $type),*) {
+            self.canvas.$fn_name($($name),*);
+        }
+    };
+    ($fn_name:ident, $($name:ident: $type:ty),* => $ret:ty) => {
+        fn $fn_name(&mut self, $($name: $type),*) -> $ret {
+            self.canvas.$fn_name($($name),*)
+        }
+    };
+}
+
 impl<'a> RenderSurface for WindowDraw<'a> {
-    fn background(&mut self, color: Color) {
-        self.canvas.background(color);
-    }
+    oneliner!(background, color: Color);
 
-    fn fill(&mut self, color: Color) {
-        self.canvas.fill(color);
-    }
+    oneliner!(fill, color: Color);
+    oneliner!(no_fill);
 
-    fn no_fill(&mut self) {
-        self.canvas.no_fill();
-    }
+    oneliner!(outline_color, color: Color);
+    oneliner!(outline_width, width: f32);
+    oneliner!(outline, color: Color, width: f32);
+    oneliner!(outline_style, color: Color, width: f32, scaling: ScalingMode);
+    oneliner!(no_outline);
+    oneliner!(outline_scaling, scaling: ScalingMode);
 
-    fn outline_color(&mut self, color: Color) {
-        self.canvas.outline_color(color);
-    }
+    oneliner!(corner_radius, radius: f32);
+    oneliner!(corner_scaling, scaling: ScalingMode);
+    oneliner!(corner_style, radius: f32, scaling: ScalingMode);
+    oneliner!(scaling_modes, outline_scaling: ScalingMode, corner_scaling: ScalingMode);
 
-    fn outline_width(&mut self, width: f32) {
-        self.canvas.outline_width(width);
-    }
+    oneliner!(clear_style);
 
-    fn outline(&mut self, color: Color, width: f32) {
-        self.canvas.outline(color, width);
-    }
+    oneliner!(rect, x: f32, y: f32, w: f32, h: f32);
+    oneliner!(ellipse, x: f32, y: f32, rx: f32, ry: f32);
+    oneliner!(line, x1: f32, y1: f32, x2: f32, y2: f32);
+    oneliner!(image, image: impl AsRef<Image>, x: f32, y: f32, w: f32, h: f32);
+    oneliner!(composite, canvas: impl AsRef<Canvas>, x: f32, y: f32, w: f32, h: f32);
 
-    fn outline_style(&mut self, color: Color, width: f32, scaling: ScalingMode) {
-        self.canvas.outline_style(color, width, scaling);
-    }
+    oneliner!(horizontal_text_align, align: HorizontalAlign);
+    oneliner!(vertical_text_align, align: VerticalAlign);
+    oneliner!(text_align, horizontal: HorizontalAlign, vertical: VerticalAlign);
+    oneliner!(line_align, align: HorizontalAlign);
+    oneliner!(font_size, size_px: f32);
 
-    fn no_outline(&mut self) {
-        self.canvas.no_outline();
-    }
+    oneliner!(text, font: impl AsRef<Font>, x: f32, y: f32, text: impl ToString);
+    oneliner!(rich_text, x: f32, y: f32, spans: &[Span]);
+    oneliner!(text_layout, font: impl AsRef<Font>, text: impl ToString => TextLayout);
+    oneliner!(text_size, font: impl AsRef<Font>, text: impl ToString => Vec2);
+    oneliner!(text_width, font: impl AsRef<Font>, text: impl ToString => f32);
+    oneliner!(text_height, font: impl AsRef<Font>, text: impl ToString => f32);
+    oneliner!(rich_text_layout, spans: &[Span] => TextLayout);
+    oneliner!(rich_text_size, spans: &[Span] => Vec2);
+    oneliner!(rich_text_width, spans: &[Span] => f32);
+    oneliner!(rich_text_height, spans: &[Span] => f32);
 
-    fn outline_scaling(&mut self, scaling: ScalingMode) {
-        self.canvas.outline_scaling(scaling);
-    }
-
-    fn corner_radius(&mut self, radius: f32) {
-        self.canvas.corner_radius(radius);
-    }
-
-    fn corner_scaling(&mut self, scaling: ScalingMode) {
-        self.canvas.corner_scaling(scaling);
-    }
-
-    fn corner_style(&mut self, radius: f32, scaling: ScalingMode) {
-        self.canvas.corner_style(radius, scaling);
-    }
-
-    fn scaling_modes(&mut self, outline_scaling: ScalingMode, corner_scaling: ScalingMode) {
-        self.canvas.scaling_modes(outline_scaling, corner_scaling);
-    }
-
-    fn clear_style(&mut self) {
-        self.canvas.clear_style();
-    }
-
-    fn rect(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.canvas.rect(x, y, w, h);
-    }
-
-    fn ellipse(&mut self, x: f32, y: f32, rx: f32, ry: f32) {
-        self.canvas.ellipse(x, y, rx, ry);
-    }
-
-    fn line(&mut self, x1: f32, y1: f32, x2: f32, y2: f32) {
-        self.canvas.line(x1, y1, x2, y2);
-    }
-
-    fn image(&mut self, image: impl AsRef<Image>, x: f32, y: f32, w: f32, h: f32) {
-        self.canvas.image(image, x, y, w, h);
-    }
-
-    fn composite(&mut self, canvas: impl AsRef<Canvas>, x: f32, y: f32, w: f32, h: f32) {
-        self.canvas.composite(canvas, x, y, w, h);
-    }
-
-    fn horizontal_text_align(&mut self, align: HorizontalAlign) {
-        self.canvas.horizontal_text_align(align);
-    }
-
-    fn vertical_text_align(&mut self, align: VerticalAlign) {
-        self.canvas.vertical_text_align(align);
-    }
-
-    fn text_align(&mut self, horizontal: HorizontalAlign, vertical: VerticalAlign) {
-        self.canvas.text_align(horizontal, vertical);
-    }
-
-    fn line_align(&mut self, align: HorizontalAlign) {
-        self.canvas.line_align(align);
-    }
-
-    fn font_size(&mut self, size_px: f32) {
-        self.canvas.font_size(size_px);
-    }
-
-    fn text(&mut self, font: impl AsRef<Font>, x: f32, y: f32, text: impl ToString) {
-        self.canvas.text(font, x, y, text);
-    }
-
-    fn rich_text(&mut self, x: f32, y: f32, spans: &[Span]) {
-        self.canvas.rich_text(x, y, spans);
-    }
-
-    fn text_layout(&mut self, font: impl AsRef<Font>, text: impl ToString) -> TextLayout {
-        self.canvas.text_layout(font, text)
-    }
-
-    fn text_size(&mut self, font: impl AsRef<Font>, text: impl ToString) -> Vec2 {
-        self.canvas.text_size(font, text)
-    }
-
-    fn text_width(&mut self, font: impl AsRef<Font>, text: impl ToString) -> f32 {
-        self.canvas.text_width(font, text)
-    }
-
-    fn text_height(&mut self, font: impl AsRef<Font>, text: impl ToString) -> f32 {
-        self.canvas.text_height(font, text)
-    }
-
-    fn rich_text_layout(&mut self, spans: &[Span]) -> TextLayout {
-        self.canvas.rich_text_layout(spans)
-    }
-
-    fn rich_text_size(&mut self, spans: &[Span]) -> Vec2 {
-        self.canvas.rich_text_size(spans)
-    }
-
-    fn rich_text_width(&mut self, spans: &[Span]) -> f32 {
-        self.canvas.rich_text_width(spans)
-    }
-
-    fn rich_text_height(&mut self, spans: &[Span]) -> f32 {
-        self.canvas.rich_text_height(spans)
-    }
-
-    fn set_view(&mut self, width: f32, height: f32, view_mode: ViewMode) {
-        self.canvas.set_view(width, height, view_mode);
-    }
-
-    fn clear_view(&mut self) {
-        self.canvas.clear_view();
-    }
-
-    fn set_origin(&mut self, x: f32, y: f32) {
-        self.canvas.set_origin(x, y);
-    }
-
-    fn clear_origin(&mut self) {
-        self.canvas.clear_origin();
-    }
+    oneliner!(set_view, width: f32, height: f32, view_mode: ViewMode);
+    oneliner!(clear_view);
+    oneliner!(set_origin, x: f32, y: f32);
+    oneliner!(clear_origin);
 
     fn with_style(&mut self, commands: impl FnOnce(&mut Self)) {
         let (style, text_style, view) = {
