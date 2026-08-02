@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (#xyz) - fixed in the given PR
 
 ## [Unreleased]
+
+## [0.8.2] - 2026-08-02
 ### Added
-- Implement `Add`, `Sub`, etc. on `Color`
 - Create the `Intersection` trait and the `Intersections` type
 - `VecN::dot`, `VecN::cross`, and `VecN::clamp`
   - Vec4 does not support `cross`
@@ -18,8 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Ellipse::to_unit_space`, `Ellipse::to_world_space`, and `Ellipse::is_circle`
 
 ### Fixed
-- Shapes styled with no outline no longer have a very thin dark outline
 - You can now do `f32 * VecN` instead of just `VecN * f32`
+
+## [0.8.1] - 2026-08-01
+### Added
+- Implement `Add`, `Sub`, etc. on `Color`
+
+### Fixed
+- Shapes styled with no outline no longer have a very thin dark outline
 
 ## [0.8.0] - 2026-08-01
 ### Added
