@@ -47,3 +47,19 @@ cfg_aliases = "0.2.0"
 [dev-dependencies]
 fastrand = "2.0"
 time = { version = "0.3", features = ["local-offset"] }
+
+[[example]]
+name = "android"
+crate-type = ["cdylib"]
+required-features = ["android"]
+
+[package.metadata.android]
+build_targets = ["aarch64-linux-android"]
+
+[package.metadata.android.application]
+label = "Verdant Test"
+
+# this might not work for everyone, and i'm not sure how to make it *just* work
+[package.metadata.android.sdk]
+target_sdk_version = 34
+min_sdk_version = 24

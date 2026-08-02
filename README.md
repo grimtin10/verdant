@@ -216,6 +216,17 @@ cd verdant
 cargo run --example boids --release
 cargo run --example clock --release
 ```
+
+To run the `android` example, first install `cargo-apk`:
+```sh
+cargo install cargo-apk
+```
+Then, clone the repository and run the `android` example:
+```sh
+git clone https://github.com/grimtin10/verdant.git
+cd verdant
+cargo apk run --example android -p verdant --features="android"
+```
 </details>
 
 ## MSRV
