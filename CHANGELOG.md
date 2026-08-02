@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (#xyz) - fixed in the given PR
 
 ## [Unreleased]
+### Added
+- Implement `Index` for `Intersections`
+
+## [0.8.3] - 2026-08-02
+### Fixed
+- Bump version number in README
 
 ## [0.8.2] - 2026-08-02
 ### Added

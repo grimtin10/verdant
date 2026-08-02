@@ -1,4 +1,4 @@
-use std::f32::consts::TAU;
+use std::{f32::consts::TAU, ops::Index};
 
 use crate::{shapes::{Ellipse, Line, Rect}, vec::Vec2};
 
@@ -6,6 +6,13 @@ use crate::{shapes::{Ellipse, Line, Rect}, vec::Vec2};
 pub struct Intersections<const N: usize> {
     pub points: [Vec2; N],
     len: usize,
+}
+
+impl<const N: usize> Index<usize> for Intersections<N> {
+    type Output = Vec2;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.points[index]
+    }
 }
 
 impl<const N: usize> Default for Intersections<N> {
