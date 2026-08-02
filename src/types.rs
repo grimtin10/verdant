@@ -1,4 +1,4 @@
-use std::{cmp::Reverse, collections::HashMap, fs, path::{Path, PathBuf}};
+use std::{cmp::Reverse, collections::HashMap, fs, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign}, path::{Path, PathBuf}};
 
 use bytemuck::{Pod, Zeroable};
 
@@ -82,6 +82,86 @@ impl From<Vec4> for Color {
 impl From<Color> for [f32; 4] {
     fn from(v: Color) -> Self {
         [v.r, v.g, v.b, v.a]
+    }
+}
+
+impl Add for Color {
+    type Output = Color;
+    fn add(self, other: Self) -> Self {
+        let r = (self.r + other.r).clamp(0., 1.);
+        let g = (self.g + other.g).clamp(0., 1.);
+        let b = (self.b + other.b).clamp(0., 1.);
+        let a = (self.a + other.a).clamp(0., 1.);
+        Self { r, g, b, a }
+    }
+}
+
+impl Sub for Color {
+    type Output = Color;
+    fn sub(self, other: Self) -> Self {
+        let r = (self.r - other.r).clamp(0., 1.);
+        let g = (self.g - other.g).clamp(0., 1.);
+        let b = (self.b - other.b).clamp(0., 1.);
+        let a = (self.a - other.a).clamp(0., 1.);
+        Self { r, g, b, a }
+    }
+}
+
+impl Mul for Color {
+    type Output = Color;
+    fn mul(self, other: Self) -> Self {
+        let r = (self.r * other.r).clamp(0., 1.);
+        let g = (self.g * other.g).clamp(0., 1.);
+        let b = (self.b * other.b).clamp(0., 1.);
+        let a = (self.a * other.a).clamp(0., 1.);
+        Self { r, g, b, a }
+    }
+}
+
+impl Div for Color {
+    type Output = Color;
+    fn div(self, other: Self) -> Self {
+        let r = (self.r / other.r).clamp(0., 1.);
+        let g = (self.g / other.g).clamp(0., 1.);
+        let b = (self.b / other.b).clamp(0., 1.);
+        let a = (self.a / other.a).clamp(0., 1.);
+        Self { r, g, b, a }
+    }
+}
+
+impl AddAssign for Color {
+    fn add_assign(&mut self, other: Self) {
+        self.r = (self.r + other.r).clamp(0., 1.);
+        self.g = (self.g + other.g).clamp(0., 1.);
+        self.b = (self.b + other.b).clamp(0., 1.);
+        self.a = (self.a + other.a).clamp(0., 1.);
+    }
+}
+
+impl SubAssign for Color {
+    fn sub_assign(&mut self, other: Self) {
+        self.r = (self.r - other.r).clamp(0., 1.);
+        self.g = (self.g - other.g).clamp(0., 1.);
+        self.b = (self.b - other.b).clamp(0., 1.);
+        self.a = (self.a - other.a).clamp(0., 1.);
+    }
+}
+
+impl MulAssign for Color {
+    fn mul_assign(&mut self, other: Self) {
+        self.r = (self.r * other.r).clamp(0., 1.);
+        self.g = (self.g * other.g).clamp(0., 1.);
+        self.b = (self.b * other.b).clamp(0., 1.);
+        self.a = (self.a * other.a).clamp(0., 1.);
+    }
+}
+
+impl DivAssign for Color {
+    fn div_assign(&mut self, other: Self) {
+        self.r = (self.r / other.r).clamp(0., 1.);
+        self.g = (self.g / other.g).clamp(0., 1.);
+        self.b = (self.b / other.b).clamp(0., 1.);
+        self.a = (self.a / other.a).clamp(0., 1.);
     }
 }
 

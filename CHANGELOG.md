@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (!) - breaking change
 (#xyz) - fixed in the given PR
 
+## [Unreleased]
+### Added
+- Implement `Add`, `Sub`, etc. on `Color`
+
+### Fixed
+- Shapes styled with no outline no longer have a very thin dark outline
+
 ## [0.8.0] - 2026-08-01
 ### Added
 - `Image::width()` and `Image::height()`

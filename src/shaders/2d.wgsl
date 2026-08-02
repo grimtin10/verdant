@@ -64,18 +64,18 @@ fn apply_outline(
 ) -> vec4<f32> {
     let half_width = outline_width * 0.5;
 
-    let inner_dist = dist - half_width;
-    let outer_dist = dist + half_width;
+    let shape_coverage = smoothstep(-aa, aa, half_width - dist);
+    let fill_coverage = smoothstep(-aa, aa, -half_width - dist);
+    let outline_coverage = shape_coverage - fill_coverage;
 
-    let outer_alpha = smoothstep(-aa, aa, -inner_dist);
-    let fill_factor = smoothstep(-aa, aa, -outer_dist);
+    let alpha = fill.a * fill_coverage + outline.a * outline_coverage;
+    let premult_rgb = fill.rgb * (fill.a * fill_coverage) + outline.rgb * (outline.a * outline_coverage);
 
-    let color = mix(outline, fill, fill_factor);
-    let a = color.a * outer_alpha;
+    // un-premultiply to apply gamma correction
+    let linear_rgb = premult_rgb / max(alpha, 1e-5);
+    let srgb_rgb = linear_to_srgb(linear_rgb);
 
-    let srgb_color = linear_to_srgb(color.rgb);
-
-    return vec4(srgb_color * a, a);
+    return vec4(srgb_rgb * alpha, alpha);
 }
 
 fn sdf_box(uv: vec2<f32>, half_size: vec2<f32>, radius: f32) -> f32 {
