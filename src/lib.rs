@@ -12,6 +12,8 @@
 //       though i am currently happy with its performance as it *is* in a pre-1.0 state
 //       honestly, it does pretty well for what it is
 
+// wgpu and the next trait solver don't play well with each other
+#![recursion_limit = "256"]
 #![deny(clippy::unwrap_used)]
 #![allow(clippy::chunks_exact_to_as_chunks)] // because it's a genuinely terrible suggestion
 
