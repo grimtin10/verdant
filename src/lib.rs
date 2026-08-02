@@ -29,7 +29,7 @@ use winit::{application::ApplicationHandler, dpi::PhysicalSize, event_loop::{Act
 #[cfg(android_platform)]
 pub use winit::platform::android::{activity::AndroidApp, EventLoopBuilderExtAndroid};
 
-use std::{collections::{HashMap, VecDeque}, marker::PhantomData, sync::{Arc, MutexGuard}};
+use std::{collections::{HashMap, VecDeque}, marker::PhantomData, sync::{Arc, MutexGuard}, time::Instant};
 
 use crate::{canvas::Canvas, errors::Error, event::WindowEvent, render_surface::RenderSurface, transform::Transform2d, types::Color, vec::Vec2, window::{Window, WindowDraw, WindowId, WindowProperties}};
 
@@ -177,6 +177,9 @@ struct RendererContext {
     instance: Arc<Instance>,
     context: Option<Arc<GpuContext>>,
 
+    // we use `Arc` to save on memory
+    start_time: Arc<Instant>,
+
     windows: HashMap<WindowId, Window>,
 
     virtual_to_real: HashMap<WindowId, winit::window::WindowId>,
@@ -197,6 +200,8 @@ impl RendererContext {
         Self {
             instance: Arc::new(Instance::default()),
             context: None,
+
+            start_time: Arc::new(Instant::now()),
 
             windows: HashMap::new(),
 
@@ -427,7 +432,8 @@ impl RendererContext {
                 surface,
                 context,
                 size.width,
-                size.height
+                size.height,
+                self.start_time.clone(),
             )?;
 
             let real_id = window.inner_window.id();
@@ -447,7 +453,7 @@ impl RendererContext {
                 inner_window,
                 surface,
                 size.width,
-                size.height
+                size.height,
             )?;
 
             let real_id = window.inner_window.id();
@@ -502,6 +508,7 @@ impl RendererContext {
         context: Arc<GpuContext>,
         width: u32,
         height: u32,
+        start_time: Arc<Instant>,
     ) -> RendererResult<Window> {
         let config = Self::configure_surface(&surface, &context, width, height);
 
@@ -513,6 +520,7 @@ impl RendererContext {
             surface,
             config,
             context,
+            start_time,
         );
 
         // we have to do this because some WMs just don't display a window until you draw something!
@@ -626,7 +634,7 @@ impl Renderer {
 
     /// Create a new canvas with the given width and height.
     pub fn create_canvas(&mut self, width: u32, height: u32) -> RendererResult<Canvas> {
-        Ok(Canvas::new(width, height, false))
+        Ok(Canvas::new(width, height, false, self.context.start_time.clone()))
     }
 
     /// Pumps the event loop and returns all window events since the last call.

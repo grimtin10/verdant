@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::{RendererResult, canvas::Canvas, image::Image, shapes::ScalingMode, text::{Font, HorizontalAlign, Span, TextLayout, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
 
 /// A surface that can be drawn onto.
@@ -111,6 +113,10 @@ pub trait RenderSurface {
     fn with_style(&mut self, commands: impl FnOnce(&mut Self));
     /// Applies `transform` relative to the current transform for the duration of `commands`.
     fn with_transform(&mut self, transform: impl AsRef<Transform2d>, commands: impl FnOnce(&mut Self));
+
+    // misc
+    /// Get the time since the program started.
+    fn get_time(&self) -> Duration;
 
     /// Submits all queued draw calls to the GPU and presents the frame.
     fn flush(&mut self) -> RendererResult<()>;

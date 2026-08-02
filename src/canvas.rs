@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, HashSet, hash_map::Entry}, hash::{DefaultHasher, Hash, Hasher}, mem::take, ops::Range, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicU64, Ordering}}};
+use std::{collections::{HashMap, HashSet, hash_map::Entry}, hash::{DefaultHasher, Hash, Hasher}, mem::take, ops::Range, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicU64, Ordering}}, time::{Duration, Instant}};
 
 use bytemuck::cast_slice;
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, BufferDescriptor, BufferUsages, CommandEncoder, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, util::{BufferInitDescriptor, DeviceExt}, wgt::TextureDataOrder};
@@ -209,6 +209,8 @@ pub struct CanvasDraw {
     pub(crate) text_style: TextStyle,
     pub(crate) view: View,
 
+    start_time: Arc<Instant>,
+
     width: u32,
     height: u32,
 
@@ -222,6 +224,7 @@ impl CanvasDraw {
         width: u32,
         height: u32,
         init_black: bool,
+        start_time: Arc<Instant>,
     ) -> Self {
         let mut view = View::default();
         view.set_window_size(Vec2::new(width as f32, height as f32));
@@ -238,6 +241,8 @@ impl CanvasDraw {
             style: Style::default(),
             text_style: TextStyle::default(),
             view,
+
+            start_time,
 
             width,
             height,
@@ -840,6 +845,10 @@ impl RenderSurface for CanvasDraw {
         self.context.update_transform(self.view.transform() * old_local);
     }
 
+    fn get_time(&self) -> Duration {
+        self.start_time.elapsed()
+    }
+
     fn flush(&mut self) -> RendererResult<()> {
         let (mut encoder, gpu_context, format) = {
             let Some(render_context) = self.render_context.as_ref() else { return Ok(()) };
@@ -871,11 +880,11 @@ impl AsRef<Canvas> for Canvas {
 }
 
 impl Canvas {
-    pub(crate) fn new(width: u32, height: u32, init_black: bool) -> Self {
+    pub(crate) fn new(width: u32, height: u32, init_black: bool, start_time: Arc<Instant>) -> Self {
         let id = CANVAS_ID.fetch_add(1, Ordering::Relaxed);
         Self {
             id,
-            inner: Arc::new(RwLock::new(CanvasDraw::new(id, width, height, init_black))),
+            inner: Arc::new(RwLock::new(CanvasDraw::new(id, width, height, init_black, start_time))),
         }
     }
 

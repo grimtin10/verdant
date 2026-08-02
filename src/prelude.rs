@@ -16,6 +16,7 @@ pub use crate::{Renderer, RendererResult, rgb, rgba, rgb255, rgba255};
 pub use crate::canvas::Canvas;
 pub use crate::event::{Key, KeyCode, MouseButton, ScrollDelta, WindowEvent};
 pub use crate::image::Image;
+pub use crate::intersections::{Intersect, Intersections};
 pub use crate::render_surface::RenderSurface;
 pub use crate::shapes::{Drawable, Ellipse, Line, Rect, ScalingMode, Style};
 pub use crate::transform::Transform2d;

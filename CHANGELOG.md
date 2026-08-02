@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - Implement `Index` for `Intersections`
+- Added `Intersections` to `prelude`
+- `RenderSurface::get_time` to get the time since the program started
+  - Useful for when you have a `Drawable` that needs to do things with time
 
 ## [0.8.3] - 2026-08-02
 ### Fixed

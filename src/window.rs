@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fmt::{self, Display, Formatter}, sync::{Arc, RwLockWriteGuard, atomic::{AtomicUsize, Ordering}}};
+use std::{collections::HashSet, fmt::{self, Display, Formatter}, sync::{Arc, RwLockWriteGuard, atomic::{AtomicUsize, Ordering}}, time::{Duration, Instant}};
 
 use wgpu::{CurrentSurfaceTexture, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
 use winit::{dpi::{PhysicalPosition, PhysicalSize}, monitor::Fullscreen, window::WindowLevel};
@@ -193,6 +193,7 @@ impl Window {
         surface: Surface<'static>,
         config: SurfaceConfiguration,
         gpu_context: Arc<GpuContext>,
+        start_time: Arc<Instant>,
     ) -> Self {
         Self {
             inner_window,
@@ -200,7 +201,7 @@ impl Window {
 
             gpu_context,
 
-            canvas: Canvas::new(config.width, config.height, true),
+            canvas: Canvas::new(config.width, config.height, true, start_time),
 
             surface,
             config,
@@ -213,7 +214,6 @@ impl Window {
         inner_window: Arc<Box<dyn winit::window::Window>>,
         surface: Surface<'static>,
         config: SurfaceConfiguration,
-
         old_window: Window,
     ) -> Self {
         Self {
@@ -475,6 +475,10 @@ impl<'a> RenderSurface for WindowDraw<'a> {
 
         let transform = self.canvas.view.transform();
         self.canvas.context.update_transform(transform * old_local);
+    }
+
+    fn get_time(&self) -> Duration {
+        self.canvas.get_time()
     }
 
     fn flush(&mut self) -> RendererResult<()> {
