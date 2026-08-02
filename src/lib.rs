@@ -37,6 +37,7 @@ pub mod canvas;
 pub mod errors;
 pub mod event;
 pub mod image;
+pub mod intersections;
 pub mod prelude;
 pub mod render_surface;
 pub mod shapes;

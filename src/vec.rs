@@ -28,6 +28,12 @@ macro_rules! op_binop {
                 Self::new($(self.$var $op rhs),*)
             }
         }
+        impl $opname<$t> for $rhs {
+            type Output = $t;
+            fn $func(self, rhs: $t) -> Self::Output {
+                <$t>::new($(rhs.$var $op self),*)
+            }
+        }
     };
 }
 
@@ -181,6 +187,28 @@ impl Vec2 {
             other
         }
     }
+
+    /// Calculates the dot product of this [`Vec2`] and `other`.
+    pub fn dot(&self, other: impl Into<Self>) -> f32 {
+        let other = other.into();
+        self.x * other.x + self.y * other.y
+    }
+
+    /// Calculates the cross product of this [`Vec2`] and `other`.
+    pub fn cross(&self, other: impl Into<Self>) -> f32 {
+        let other = other.into();
+        self.x * other.y - self.y * other.x
+    }
+
+    /// Clamps this [`Vec2`] to the range of `min` to `max`.
+    pub fn clamp(&self, min: impl Into<Self>, max: impl Into<Self>) -> Vec2 {
+        let min = min.into();
+        let max = max.into();
+        Self::new(
+            self.x.clamp(min.x, max.x),
+            self.y.clamp(min.y, max.y),
+        )
+    }
 }
 
 impl From<Vec2> for (f32, f32) {
@@ -310,6 +338,33 @@ impl Vec3 {
         } else {
             other
         }
+    }
+
+    /// Calculates the dot product of this [`Vec3`] and `other`.
+    pub fn dot(&self, other: impl Into<Self>) -> f32 {
+        let other = other.into();
+        self.x * other.x + self.y * other.y + self.z * other.z
+    }
+
+    /// Calculates the 3D cross product of this [`Vec3`] and `other`.
+    pub fn cross(&self, other: impl Into<Self>) -> Vec3 {
+        let other = other.into();
+        Self::new(
+            self.y * other.z - self.z * other.y,
+            self.z * other.x - self.x * other.z,
+            self.x * other.y - self.y * other.x,
+        )
+    }
+
+    /// Clamps this [`Vec3`] to the range of `min` to `max`.
+    pub fn clamp(&self, min: impl Into<Self>, max: impl Into<Self>) -> Vec3 {
+        let min = min.into();
+        let max = max.into();
+        Self::new(
+            self.x.clamp(min.x, max.x),
+            self.y.clamp(min.y, max.y),
+            self.z.clamp(min.z, max.z),
+        )
     }
 }
 
@@ -447,6 +502,24 @@ impl Vec4 {
         } else {
             other
         }
+    }
+
+    /// Calculates the dot product of this [`Vec4`] and `other`.
+    pub fn dot(&self, other: impl Into<Self>) -> f32 {
+        let other = other.into();
+        self.x * other.x + self.y * other.y + self.z * other.z + self.w * other.w
+    }
+
+    /// Clamps this [`Vec4`] to the range of `min` to `max`.
+    pub fn clamp(&self, min: impl Into<Self>, max: impl Into<Self>) -> Vec4 {
+        let min = min.into();
+        let max = max.into();
+        Self::new(
+            self.x.clamp(min.x, max.x),
+            self.y.clamp(min.y, max.y),
+            self.z.clamp(min.z, max.z),
+            self.w.clamp(min.w, max.w),
+        )
     }
 }
 
