@@ -159,13 +159,14 @@ fn create_texture(width: u32, height: u32, format: TextureFormat, gpu_context: &
 }
 
 #[derive(Debug)]
-struct CanvasRenderContext {
+pub(crate) struct CanvasRenderContext {
+    pub(crate) projection_group: BindGroup,
+    pub(crate) texture_bind_group: BindGroup,
+
     texture: Texture,
     texture_view: TextureView,
-    texture_bind_group: BindGroup,
 
     projection_buffer: Buffer,
-    projection_group: BindGroup,
 
     vertex_buffer: Buffer,
     vertex_buffer_size: u64,
@@ -209,13 +210,14 @@ pub struct CanvasDraw {
     pub(crate) text_style: TextStyle,
     pub(crate) view: View,
 
+    pub(crate) render_context: Option<CanvasRenderContext>,
+
     start_time: Arc<Instant>,
 
     width: u32,
     height: u32,
 
     init_black: bool,
-    render_context: Option<CanvasRenderContext>,
 }
 
 impl CanvasDraw {
@@ -242,13 +244,14 @@ impl CanvasDraw {
             text_style: TextStyle::default(),
             view,
 
+            render_context: None,
+
             start_time,
 
             width,
             height,
 
             init_black,
-            render_context: None,
         }
     }
 
@@ -289,12 +292,13 @@ impl CanvasDraw {
         });
 
         self.render_context = Some(CanvasRenderContext {
-            texture,
-            texture_view,
+            projection_group,
             texture_bind_group,
 
+            texture,
+            texture_view,
+
             projection_buffer,
-            projection_group,
 
             vertex_buffer,
             vertex_buffer_size: 0,

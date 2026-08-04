@@ -1,9 +1,10 @@
-use std::{collections::HashSet, fmt::{self, Display, Formatter}, sync::{Arc, RwLockWriteGuard, atomic::{AtomicUsize, Ordering}}, time::{Duration, Instant}};
+use std::{collections::HashSet, fmt::{self, Display, Formatter}, sync::{Arc, OnceLock, RwLockWriteGuard, atomic::{AtomicUsize, Ordering}}, time::{Duration, Instant}};
 
-use wgpu::{CurrentSurfaceTexture, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture};
+use bytemuck::cast_slice;
+use wgpu::{Buffer, BufferDescriptor, BufferUsages, CurrentSurfaceTexture, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture, TextureUsages};
 use winit::{dpi::{PhysicalPosition, PhysicalSize}, monitor::Fullscreen, window::WindowLevel};
 
-use crate::{AdvancedWindowProperties, GpuContext, Renderer, RendererResult, canvas::{Canvas, CanvasDraw}, image::Image, render_surface::RenderSurface, shapes::ScalingMode, text::{Font, HorizontalAlign, Span, TextLayout, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
+use crate::{AdvancedWindowProperties, GpuContext, Renderer, RendererResult, canvas::{Canvas, CanvasDraw}, image::Image, render_surface::RenderSurface, shape_vertices::canvas_vertices, shapes::ScalingMode, text::{Font, HorizontalAlign, Span, TextLayout, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -178,6 +179,8 @@ pub struct Window {
 
     pub(crate) gpu_context: Arc<GpuContext>,
 
+    // used to copy the canvas to the window with OpenGL
+    blit_buffer: OnceLock<Buffer>,
     canvas: Canvas,
 
     surface: Surface<'static>,
@@ -201,6 +204,7 @@ impl Window {
 
             gpu_context,
 
+            blit_buffer: OnceLock::new(),
             canvas: Canvas::new(config.width, config.height, true, start_time),
 
             surface,
@@ -222,6 +226,7 @@ impl Window {
 
             gpu_context: old_window.gpu_context,
 
+            blit_buffer: old_window.blit_buffer,
             canvas: old_window.canvas,
 
             surface,
@@ -491,15 +496,55 @@ impl<'a> RenderSurface for WindowDraw<'a> {
 
         let Some(canvas_texture) = self.canvas.get_texture() else { return Ok(()) };
 
-        encoder.copy_texture_to_texture(
-            canvas_texture.as_image_copy(),
-            frame.texture.as_image_copy(),
-            Extent3d {
-                width: self.window.config.width,
-                height: self.window.config.height,
-                depth_or_array_layers: 1,
-            }
-        );
+        if self.window.config.usage.contains(TextureUsages::COPY_DST) {
+            encoder.copy_texture_to_texture(
+                canvas_texture.as_image_copy(),
+                frame.texture.as_image_copy(),
+                Extent3d {
+                    width: self.window.config.width,
+                    height: self.window.config.height,
+                    depth_or_array_layers: 1,
+                }
+            );
+        } else if let Some(rc) = self.canvas.render_context.as_ref() {
+            let frame_view = frame.texture.create_view(&Default::default());
+            let width = self.get_width();
+            let height = self.get_height();
+
+            let quad = canvas_vertices(0., 0., width, height, Vec2::ZERO, Vec2::ONE, Color::WHITE);
+            let bytes = cast_slice(&quad);
+
+            let buffer = self.window.blit_buffer.get_or_init(|| {
+                self.window.gpu_context.device.create_buffer(&BufferDescriptor {
+                    label: Some("window blit buffer"),
+                    size: bytes.len() as u64,
+                    usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+                    mapped_at_creation: false,
+                })
+            });
+
+            self.window.gpu_context.queue.write_buffer(buffer, 0, bytes);
+
+            let mut pass = encoder.begin_render_pass(&RenderPassDescriptor {
+                label: Some("blit canvas to frame"),
+                color_attachments: &[Some(RenderPassColorAttachment {
+                    view: &frame_view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(Color::TRANSPARENT.into()),
+                        store: StoreOp::Store,
+                    }
+                })],
+                ..Default::default()
+            });
+
+            pass.set_pipeline(&self.window.gpu_context.pipeline);
+            pass.set_bind_group(0, Some(&rc.projection_group), &[]);
+            pass.set_bind_group(1, Some(&rc.texture_bind_group), &[]);
+            pass.set_vertex_buffer(0, buffer.slice(..));
+            pass.draw(0..6, 0..1);
+        }
 
         self.window.gpu_context.queue.submit([encoder.finish()]);
         self.window.gpu_context.queue.present(frame);

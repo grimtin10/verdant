@@ -23,7 +23,7 @@ pub use wgpu::TextureFormat;
 use bytemuck::{Pod, Zeroable};
 
 use pollster::block_on;
-use wgpu::{Adapter, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, BufferBindingType, ColorTargetState, ColorWrites, Device, DeviceDescriptor, Extent3d, FilterMode, FragmentState, FrontFace, Instance, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler, SamplerDescriptor, ShaderStages, Surface, SurfaceColorSpace, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState, VertexStepMode, include_wgsl, util::DeviceExt, vertex_attr_array, wgt::TextureDataOrder};
+use wgpu::{Adapter, BackendOptions, Backends, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent, BlendFactor, BlendOperation, BlendState, BufferBindingType, ColorTargetState, ColorWrites, Device, DeviceDescriptor, Extent3d, FilterMode, FragmentState, FrontFace, Instance, InstanceFlags, MemoryBudgetThresholds, MultisampleState, PipelineLayoutDescriptor, PolygonMode, PowerPreference, PresentMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipeline, RenderPipelineDescriptor, RequestAdapterOptions, Sampler, SamplerDescriptor, ShaderStages, Surface, SurfaceColorSpace, SurfaceConfiguration, TextureDescriptor, TextureDimension, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexState, VertexStepMode, include_wgsl, util::DeviceExt, vertex_attr_array, wgt::TextureDataOrder};
 use winit::{application::ApplicationHandler, dpi::PhysicalSize, event_loop::{ActiveEventLoop, EventLoop}};
 
 #[cfg(android_platform)]
@@ -197,8 +197,21 @@ struct RendererContext {
 
 impl RendererContext {
     fn new(is_wayland: bool) -> Self {
+        // there seems to be a vulkan driver bug on android (https://github.com/bevyengine/bevy/pull/23276) so we use opengl until it's fixed
+        let backends = if cfg!(target_os = "android") {
+            Backends::GL
+        } else {
+            Backends::PRIMARY
+        };
+
         Self {
-            instance: Arc::new(Instance::default()),
+            instance: Arc::new(Instance::new(wgpu::InstanceDescriptor {
+                backends,
+                flags: InstanceFlags::default(),
+                backend_options: BackendOptions::default(),
+                memory_budget_thresholds: MemoryBudgetThresholds::default(),
+                display: None,
+            })),
             context: None,
 
             start_time: Arc::new(Instant::now()),
@@ -486,7 +499,7 @@ impl RendererContext {
             .unwrap_or(wgpu::CompositeAlphaMode::Auto);
 
         let config = SurfaceConfiguration {
-            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_DST,
+            usage: surface_capabilities.usages,
             format,
             color_space: SurfaceColorSpace::Auto,
             width,

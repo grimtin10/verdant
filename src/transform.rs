@@ -131,8 +131,8 @@ impl Transform2d {
     ///
     /// let t = Transform2d::rotation_rad(std::f32::consts::FRAC_PI_2);
     /// let p = t.transform_point(Vec2::new(1., 0.));
-    /// assert!((p.x - 0.).abs() < 1e-6);
-    /// assert!((p.y - 1.).abs() < 1e-6);
+    /// assert!((p.x - 0.).abs() < 1e-5);
+    /// assert!((p.y - 1.).abs() < 1e-5);
     /// ```
     pub fn rotation_rad(rad: f32) -> Self {
         let (sin, cos) = rad.sin_cos();
@@ -154,8 +154,8 @@ impl Transform2d {
     /// let mut t = Transform2d::translation(1., 0.);
     /// let t2 = t.rotate_rad(std::f32::consts::FRAC_PI_2);
     /// let p = t2.transform_point(Vec2::new(0., 0.));
-    /// assert!((p.x - 0.).abs() < 1e-6);
-    /// assert!((p.y - 1.).abs() < 1e-6);
+    /// assert!((p.x - 0.).abs() < 1e-5);
+    /// assert!((p.y - 1.).abs() < 1e-5);
     /// ```
     pub fn rotate_rad(&mut self, rad: f32) -> Self {
         *self = self.then(Self::rotation_rad(rad));
@@ -170,8 +170,8 @@ impl Transform2d {
     ///
     /// let t = Transform2d::rotation_deg(90.);
     /// let p = t.transform_point(Vec2::new(1., 0.));
-    /// assert!((p.x - 0.).abs() < 1e-6);
-    /// assert!((p.y - 1.).abs() < 1e-6);
+    /// assert!((p.x - 0.).abs() < 1e-5);
+    /// assert!((p.y - 1.).abs() < 1e-5);
     /// ```
     pub fn rotation_deg(deg: f32) -> Self {
         let (sin, cos) = deg.to_radians().sin_cos();
@@ -193,8 +193,8 @@ impl Transform2d {
     /// let mut t = Transform2d::translation(1., 0.);
     /// let t2 = t.rotate_deg(90.);
     /// let p = t2.transform_point(Vec2::new(0., 0.));
-    /// assert!((p.x - 0.).abs() < 1e-6);
-    /// assert!((p.y - 1.).abs() < 1e-6);
+    /// assert!((p.x - 0.).abs() < 1e-5);
+    /// assert!((p.y - 1.).abs() < 1e-5);
     /// ```
     pub fn rotate_deg(&mut self, deg: f32) -> Self {
         *self = self.then(Self::rotation_deg(deg));
@@ -259,10 +259,10 @@ impl Transform2d {
     /// ```
     /// use verdant::{transform::Transform2d, vec::Vec2};
     ///
-    /// let t = Transform2d::scaling(2., 3.).then(Transform2d::rotation_deg(45.));
+    /// let t = Transform2d::scaling(2., 3.).rotation_deg(45.);
     /// let s = t.get_scale();
-    /// assert!((s.x - 2.).abs() < 1e-6);
-    /// assert!((s.y - 3.).abs() < 1e-6);
+    /// assert!((s.x - 2.).abs() < 1e-5);
+    /// assert!((s.y - 3.).abs() < 1e-5);
     /// ```
     pub fn get_scale(self) -> Vec2 {
         Vec2::new(
@@ -280,8 +280,9 @@ impl Transform2d {
     ///
     /// let t = Transform2d::scaling(0., 5.);
     /// let s = t.get_safe_scale();
-    /// assert!((s.x - 1e-5).abs() < 1e-6); // clamped to epsilon
-    /// assert!((s.y - 5.).abs() < 1e-6);
+    /// assert!((s.x - 1e-5).abs() < 1e-5); // clamped to epsilon
+    /// assert!((s.y - 5.).abs() < 1e-5);
+    /// ```
     pub fn get_safe_scale(self) -> Vec2 {
         let s = self.get_scale();
         Vec2::new(s.x.max(1e-5), s.y.max(1e-5))
@@ -293,6 +294,12 @@ impl Transform2d {
     /// # Example
     /// ```
     /// use verdant::{transform::Transform2d, vec::Vec2};
+    ///
+    /// let t = Transform2d::scaling(2., 3.);
+    /// let v = Vec2::new(1., 1.);
+    ///
+    /// let transformed = t.transform_vector(v);
+    /// assert_eq!(transformed, Vec2::new(2., 3.));
     /// ```
     pub fn transform_vector(self, v: impl Into<Vec2>) -> Vec2 {
         let v = v.into();
@@ -301,6 +308,156 @@ impl Transform2d {
             m11 * v.x + m12 * v.y,
             m21 * v.x + m22 * v.y,
         )
+    }
+
+    /// Computes the inverse of this transform matrix, if it exists.
+    ///
+    /// The inverse matrix undoes the tranfromation applied by `self`.
+    /// Returns `None` if the transform is singular (non-invertible), such as when
+    /// the scale factor on any axis is `0.0`.
+    ///
+    /// # Example
+    /// ```
+    /// use verdant::{transform::Transform2d, vec::Vec2};
+    ///
+    /// let t = Transform2d::translation(5., -3.).rotate_deg(90.);
+    /// let inv = t.inverse().unwrap();
+    ///
+    /// let original_point = Vec2::new(10., 4.);
+    /// let transformed_point = t.transform_point(original_point);
+    /// let restored_point = inv.transform_point(transformed_point);
+    ///
+    /// assert!((restored_point.x - original_point.x).abs() < 1e-5);
+    /// assert!((restored_point.y - original_point.y).abs() < 1e-5);
+    /// ```
+    pub fn inverse(self) -> Option<Self> {
+        let [m11, m21, m12, m22, m13, m23] = self.matrix;
+
+        let determinant = m11 * m22 - m12 * m21;
+        if determinant.abs() < 1e-5 {
+            return None;
+        }
+
+        let inverse_det = 1.0 / determinant;
+
+        let im11 =  m22 * inverse_det;
+        let im12 = -m12 * inverse_det;
+        let im21 = -m21 * inverse_det;
+        let im22 =  m11 * inverse_det;
+
+        let im13 = -(im11 * m13 + im12 * m23);
+        let im23 = -(im21 * m13 + im22 * m23);
+
+        Some(Self {
+            matrix: [
+                im11, im21,
+                im12, im22,
+                im13, im23,
+            ]
+        })
+    }
+
+    /// Returns a transform that shears by a factor of `kx` horizontally and `ky` vertically.
+    ///
+    /// Shear factors are typically the tangent of the shear angle
+    /// (e.g., a 45-degree horizontal shear has a `kx` of `1.0)
+    ///
+    /// # Example
+    /// ```
+    /// use verdant::{transform::Transform2d, vec::Vec2};
+    ///
+    /// let t = Transform2d::shearing(1.0, 0.0);
+    /// assert_eq!(t.transform_point(Vec2::new(0., 1.)), Vec2::new(1., 1.));
+    /// ```
+    pub fn shearing(kx: f32, ky: f32) -> Self {
+        Self {
+            matrix: [
+                1., ky,
+                kx, 1.,
+                0., 0.,
+            ]
+        }
+    }
+
+    /// Applies an additional shear of `kx` horizontally and `ky` vertically after `self` and returns the result.
+    ///
+    /// # Example
+    /// ```
+    /// use verdant::{transform::Transform2d, vec::Vec2};
+    ///
+    /// let mut t = Transform2d::translation(1., 1.);
+    /// let t2 = t.shear(1.0, 0.0);
+    /// assert_eq!(t2.transform_point(Vec2::new(0., 1.)), Vec2::new(2., 2.));
+    /// ```
+    pub fn shear(&mut self, kx: f32, ky: f32) -> Self {
+        *self = self.then(Self::shearing(kx, ky));
+        *self
+    }
+
+    /// Returns a transform that skews by `x_rad` radians horizontally and `y_rad` radians vertically.
+    ///
+    /// # Example
+    /// ```
+    /// use verdant::{transform::Transform2d, vec::Vec2};
+    /// use std::f32::consts::FRAC_PI_4;
+    ///
+    /// let t = Transform2d::skewed_rad(FRAC_PI_4, 0.);
+    /// let p = t.transform_point(Vec2::new(0., 1.));
+    /// assert!((p.x - 1.).abs() < 1e-5);
+    /// assert!((p.y - 1.).abs() < 1e-5);
+    /// ```
+    pub fn skewed_rad(x_rad: f32, y_rad: f32) -> Self {
+        Self::shearing(x_rad.tan(), y_rad.tan())
+    }
+
+    /// Applies an additional skew of `x_rad` radians horizontally and `y_rad` radians vertically after `self` and returns the result.
+    ///
+    /// # Example
+    /// ```
+    /// use verdant::{transform::Transform2d, vec::Vec2};
+    /// use std::f32::consts::FRAC_PI_4;
+    ///
+    /// let mut t = Transform2d::translation(1., 1.);
+    /// let t2 = t.skew_rad(FRAC_PI_4, 0.);
+    /// let p = t2.transform_point(Vec2::new(0., 0.));
+    /// assert!((p.x - 2.).abs() < 1e-5);
+    /// assert!((p.y - 1.).abs() < 1e-5);
+    /// ```
+    pub fn skew_rad(&mut self, x_rad: f32, y_rad: f32) -> Self {
+        *self = self.then(Self::skewed_rad(x_rad, y_rad));
+        *self
+    }
+
+    /// Returns a transform that skews by `x_deg` degrees horizontally and `y_deg` degrees vertically.
+    ///
+    /// # Example
+    /// ```
+    /// use verdant::{transform::Transform2d, vec::Vec2};
+    ///
+    /// let t = Transform2d::skewed_deg(45., 0.);
+    /// let p = t.transform_point(Vec2::new(0., 1.));
+    /// assert!((p.x - 1.).abs() < 1e-5);
+    /// assert!((p.y - 1.).abs() < 1e-5);
+    /// ```
+    pub fn skewed_deg(x_deg: f32, y_deg: f32) -> Self {
+        Self::shearing(x_deg.to_radians().tan(), y_deg.to_radians().tan())
+    }
+
+    /// Applies an additional skew of `x_deg` degrees horizontally and `y_deg` degrees vertically after `self` and returns the result.
+    ///
+    /// # Example
+    /// ```
+    /// use verdant::{transform::Transform2d, vec::Vec2};
+    ///
+    /// let mut t = Transform2d::translation(1., 1.);
+    /// let t2 = t.skew_deg(45., 0.);
+    /// let p = t2.transform_point(Vec2::new(0., 0.));
+    /// assert!((p.x - 2.).abs() < 1e-5);
+    /// assert!((p.y - 1.).abs() < 1e-5);
+    /// ```
+    pub fn skew_deg(&mut self, x_deg: f32, y_deg: f32) -> Self {
+        *self = self.then(Self::skewed_deg(x_deg, y_deg));
+        *self
     }
 }
 

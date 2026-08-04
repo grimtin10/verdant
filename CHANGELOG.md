@@ -8,12 +8,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (!) - breaking change
 (#xyz) - fixed in the given PR
 
-## [Unreleased]
+## [0.9.0] - 2026-08-03
 ### Added
 - Implement `Index` for `Intersections`
 - Added `Intersections` to `prelude`
 - `RenderSurface::get_time` to get the time since the program started
   - Useful for when you have a `Drawable` that needs to do things with time
+- `Ellipse::world_to_unit`, `Ellipse::unit_to_world`, and `Ellipse::bounding_circle`
+- `Line::world_start`, `Line::world_end`, and `Line::to_world`
+- `Rect::local_corners` (does what `Rect::corners` used to do) and `Rect::bounding_circle`
+- `Transform2d::inverse`, `Transform2d::shearing`, `Transform2d::shear`, `Transform2d::skewed_rad`, `Transform2d::skew_rad`, `Transform2d::skewed_deg`, and `Transform2d::skew_deg`
+- `transform` example
+- `Ellipse::contains_exact` and `Ellipse::intersects_exact`
+
+### Changed
+- The `android` feature now also enables the `gles` feature
+- Renamed `Ellipse::to_unit_space` to `Ellipse::local_to_unit` (!)
+- Renamed `Ellipse::to_world_space` to `Ellipse::unit_to_local` (!)
+- Changed all epsilons in `intersections` to be consistent with their use
+- `Rect::corners` now returns corners in world-space instead of local-space (!)
+- `Rect::edges` now returns edges in world-space instead of local-space (!)
+  - This is what these functions should've done from the start, I just forgot about transforms when initially implementing them
+- Modified `Ellipse::is_circle` to apply transformations first, making it more accurate to what you'd actually see (!)
+- Optimized and tweaked intersection checks to be faster and more accurate
+- `Ellipse::local_to_unit` and `Ellipse::unit_to_local` now take `impl Into<Vec2>` arguments
+
+### Fixed
+- Implemented workaround for file descriptor leak on Android
+  - Android now uses GLES as the rendering backend
+- Fixed bad `TextureUsages` on window surface on OpenGL
+  - OpenGL now uses an intermediary quad to blit the texture of the inner canvas onto the screen
+- Fixed various bugs in `intersections`
+- `Intersections::Index` no longer allows you to index past the length
+- `Intersections::into_iter` no longer returns stale data if the length is less than the capacity
+- Added missing doc comment to `Intersect::intersection_points`
+
+All of the breaking changes in this update are very minor (they're for features no one is using yet) and are for correctness
 
 ## [0.8.3] - 2026-08-02
 ### Fixed

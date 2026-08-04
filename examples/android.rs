@@ -3,6 +3,7 @@ use std::time::Instant;
 use verdant::{AndroidApp, prelude::*};
 
 #[unsafe(no_mangle)]
+#[cfg(target_os = "android")]
 fn android_main(app: AndroidApp) -> RendererResult<()> {
     let mut renderer = Renderer::new(app)?;
     let window_id = renderer.create_window("verdant android", 1000, 1000);
