@@ -65,12 +65,53 @@ impl Transform2d {
     /// let p = Vec2::new(3., 4.);
     /// assert_eq!(t.transform_point(p), p);
     /// ```
-    pub fn identity() -> Self {
+    #[inline(always)]
+    pub const fn identity() -> Self {
         Self {
             matrix: [
                 1., 0.,
                 0., 1.,
                 0., 0.,
+            ]
+        }
+    }
+
+    /// Multiplies two transforms together in `const` contexts, applying `rhs` first, then `self`.
+    ///
+    /// This performs standard matrix multiplication ($A \cdot B$). Because trait methods in Rust
+    /// cannot be `const`, this function provides compile-time transform composition, serving as
+    /// the underlying implementation for both [`then`](Self::then) and the [`Mul`](std::ops::Mul) operator.
+    ///
+    /// # Example
+    /// ```
+    /// use verdant::{transform::Transform2d, vec::Vec2};
+    ///
+    /// let scale = Transform2d::scaling(2., 2.);
+    /// let translate = Transform2d::translation(1., 0.);
+    ///
+    /// // `scale` is applied first, then `translate`
+    /// const COMPOSED: Transform2d = translate.const_mul(scale);
+    ///
+    /// let p = COMPOSED.transform_point(Vec2::new(1., 0.));
+    /// assert_eq!(p, Vec2::new(3., 0.)); // scaled first (1 -> 2), then translated (+1 -> 3)
+    /// ```
+    #[inline(always)]
+    pub const fn const_mul(self, rhs: Self) -> Self {
+        let [lm11, lm21, lm12, lm22, lm13, lm23] = self.matrix;
+        let [rm11, rm21, rm12, rm22, rm13, rm23] = rhs.matrix;
+
+        let m11 = lm11 * rm11 + lm12 * rm21;
+        let m21 = lm21 * rm11 + lm22 * rm21;
+        let m12 = lm11 * rm12 + lm12 * rm22;
+        let m22 = lm21 * rm12 + lm22 * rm22;
+        let m13 = lm11 * rm13 + lm12 * rm23 + lm13; // translation x
+        let m23 = lm21 * rm13 + lm22 * rm23 + lm23; // translation y
+
+        Self {
+            matrix: [
+                m11, m21,
+                m12, m22,
+                m13, m23,
             ]
         }
     }
@@ -85,8 +126,9 @@ impl Transform2d {
     /// let p = t.transform_point(Vec2::new(1., 0.));
     /// assert_eq!(p, Vec2::new(4., 0.)); // translated first, then scaled
     /// ```
-    pub fn then(self, other: Self) -> Self {
-        other.mul(self)
+    #[inline(always)]
+    pub const fn then(self, other: Self) -> Self {
+        other.const_mul(self)
     }
 
     /// Returns a transform that translates by `(x, y)`.
@@ -98,7 +140,8 @@ impl Transform2d {
     /// let t = Transform2d::translation(5., -3.);
     /// assert_eq!(t.transform_point(Vec2::new(1., 1.)), Vec2::new(6., -2.));
     /// ```
-    pub fn translation(x: f32, y: f32) -> Self {
+    #[inline(always)]
+    pub const fn translation(x: f32, y: f32) -> Self {
         Self {
             matrix: [
                 1., 0.,
@@ -118,9 +161,9 @@ impl Transform2d {
     /// let t2 = t.translate(3., 1.);
     /// assert_eq!(t2.transform_point(Vec2::new(1., 1.)), Vec2::new(5., 3.));
     /// ```
-    pub fn translate(&mut self, x: f32, y: f32) -> Self {
-        *self = self.then(Self::translation(x, y));
-        *self
+    #[inline(always)]
+    pub const fn translate(self, x: f32, y: f32) -> Self {
+        self.then(Self::translation(x, y))
     }
 
     /// Returns a transform that rotates by `rad` radians, counter-clockwise.
@@ -134,6 +177,7 @@ impl Transform2d {
     /// assert!((p.x - 0.).abs() < 1e-5);
     /// assert!((p.y - 1.).abs() < 1e-5);
     /// ```
+    #[inline(always)]
     pub fn rotation_rad(rad: f32) -> Self {
         let (sin, cos) = rad.sin_cos();
         Self {
@@ -157,9 +201,9 @@ impl Transform2d {
     /// assert!((p.x - 0.).abs() < 1e-5);
     /// assert!((p.y - 1.).abs() < 1e-5);
     /// ```
-    pub fn rotate_rad(&mut self, rad: f32) -> Self {
-        *self = self.then(Self::rotation_rad(rad));
-        *self
+    #[inline(always)]
+    pub fn rotate_rad(self, rad: f32) -> Self {
+        self.then(Self::rotation_rad(rad))
     }
 
     /// Returns a transform that rotates by `deg` degrees, counter-clockwise.
@@ -173,6 +217,7 @@ impl Transform2d {
     /// assert!((p.x - 0.).abs() < 1e-5);
     /// assert!((p.y - 1.).abs() < 1e-5);
     /// ```
+    #[inline(always)]
     pub fn rotation_deg(deg: f32) -> Self {
         let (sin, cos) = deg.to_radians().sin_cos();
         Self {
@@ -196,9 +241,9 @@ impl Transform2d {
     /// assert!((p.x - 0.).abs() < 1e-5);
     /// assert!((p.y - 1.).abs() < 1e-5);
     /// ```
-    pub fn rotate_deg(&mut self, deg: f32) -> Self {
-        *self = self.then(Self::rotation_deg(deg));
-        *self
+    #[inline(always)]
+    pub fn rotate_deg(self, deg: f32) -> Self {
+        self.then(Self::rotation_deg(deg))
     }
 
     /// Returns a transform that scales by `sx` horizontally and `sy` vertically.
@@ -210,7 +255,8 @@ impl Transform2d {
     /// let t = Transform2d::scaling(2., 3.);
     /// assert_eq!(t.transform_point(Vec2::new(1., 1.)), Vec2::new(2., 3.));
     /// ```
-    pub fn scaling(sx: f32, sy: f32) -> Self {
+    #[inline(always)]
+    pub const fn scaling(sx: f32, sy: f32) -> Self {
         Self {
             matrix: [
                 sx, 0.,
@@ -229,9 +275,9 @@ impl Transform2d {
     /// let t = Transform2d::translation(1., 1.).scale(2., 3.);
     /// assert_eq!(t.transform_point(Vec2::new(0., 0.)), Vec2::new(2., 3.));
     /// ```
-    pub fn scale(&mut self, sx: f32, sy: f32) -> Self {
-        *self = self.then(Transform2d::scaling(sx, sy));
-        *self
+    #[inline(always)]
+    pub const fn scale(self, sx: f32, sy: f32) -> Self {
+        self.then(Transform2d::scaling(sx, sy))
     }
 
     /// Applies this transform to a 2D point.
@@ -243,6 +289,7 @@ impl Transform2d {
     /// let t = Transform2d::translation(1., 2.);
     /// assert_eq!(t.transform_point(Vec2::new(3., 4.)), Vec2::new(4., 6.));
     /// ```
+    #[inline(always)]
     pub fn transform_point(self, p: impl Into<Vec2>) -> Vec2 {
         let p = p.into();
         let [m11, m21, m12, m22, m13, m23] = self.matrix;
@@ -264,6 +311,7 @@ impl Transform2d {
     /// assert!((s.x - 2.).abs() < 1e-5);
     /// assert!((s.y - 3.).abs() < 1e-5);
     /// ```
+    #[inline(always)]
     pub fn get_scale(self) -> Vec2 {
         Vec2::new(
             (self.matrix[0] * self.matrix[0] + self.matrix[1] * self.matrix[1]).sqrt(),
@@ -283,9 +331,62 @@ impl Transform2d {
     /// assert!((s.x - 1e-5).abs() < 1e-5); // clamped to epsilon
     /// assert!((s.y - 5.).abs() < 1e-5);
     /// ```
+    #[inline(always)]
     pub fn get_safe_scale(self) -> Vec2 {
         let s = self.get_scale();
         Vec2::new(s.x.max(1e-5), s.y.max(1e-5))
+    }
+
+    /// Returns the maximum and minimum scale factors encoded in this transform as `(max_scale, min_scale)`.
+    ///
+    /// Unlike [`get_scale`](Self::get_scale), which measures scale strictly along the local X and Y axes,
+    /// this calculates the scale long the principal axes (the directions of maximum and minimum stretch).
+    /// This provides the true geometric bounds of the transformation, properly accounting for shearing.
+    ///
+    /// # Example
+    /// ```
+    /// use verdant::transform::Transform2d;
+    ///
+    /// // A 45-degree shear matrix stretches space diagonally
+    /// let t = Transform2d::shearing(1.0, 0.0);
+    /// let (max_scale, min_scale) = t.get_principal_scales();
+    ///
+    /// assert!((max_scale - 1.61803).abs() < 1e-4);
+    /// assert!((min_scale - 0.61803).abs() < 1e-4);
+    /// ```
+    #[inline(always)]
+    pub fn get_principal_scales(self) -> (f32, f32) {
+        let [m11, m21, m12, m22, _, _] = self.matrix;
+
+        let e = m11 * m11 + m12 * m12;
+        let f = m11 * m21 + m12 * m22;
+        let g = m21 * m21 + m22 * m22;
+
+        let diff = e - g;
+        let disc = (diff * diff + 4.0 * f * f).sqrt();
+
+        let max_sq = (e + g + disc) * 0.5;
+        let min_sq = (e + g - disc) * 0.5;
+
+        (max_sq.max(0.0).sqrt(), min_sq.max(0.0).sqrt())
+    }
+
+    /// Returns the translation component of this transform as a [`Vec2`].
+    ///
+    /// This is mathematically equivalent to `self.transform_point(Vec2::ZERO)`, as the
+    /// translation represents exactly where the origin `(0, 0)` is mapped to.
+    ///
+    /// # Example
+    /// ```
+    /// use verdant::{transform::Transform2d, vec::Vec2};
+    ///
+    /// let t = Transform2d::translation(5., -3.);
+    /// assert_eq!(t.get_translation(), Vec2::new(5., -3.));
+    /// ```
+    #[inline(always)]
+    pub const fn get_translation(self) -> Vec2 {
+        let [_, _, _, _, m13, m23] = self.matrix;
+        Vec2::new(m13, m23)
     }
 
     /// Applies this transform to a directional 2D vector, ignoring any translation.
@@ -301,6 +402,7 @@ impl Transform2d {
     /// let transformed = t.transform_vector(v);
     /// assert_eq!(transformed, Vec2::new(2., 3.));
     /// ```
+    #[inline(always)]
     pub fn transform_vector(self, v: impl Into<Vec2>) -> Vec2 {
         let v = v.into();
         let [m11, m21, m12, m22, _, _] = self.matrix;
@@ -330,7 +432,8 @@ impl Transform2d {
     /// assert!((restored_point.x - original_point.x).abs() < 1e-5);
     /// assert!((restored_point.y - original_point.y).abs() < 1e-5);
     /// ```
-    pub fn inverse(self) -> Option<Self> {
+    #[inline(always)]
+    pub const fn inverse(self) -> Option<Self> {
         let [m11, m21, m12, m22, m13, m23] = self.matrix;
 
         let determinant = m11 * m22 - m12 * m21;
@@ -369,7 +472,8 @@ impl Transform2d {
     /// let t = Transform2d::shearing(1.0, 0.0);
     /// assert_eq!(t.transform_point(Vec2::new(0., 1.)), Vec2::new(1., 1.));
     /// ```
-    pub fn shearing(kx: f32, ky: f32) -> Self {
+    #[inline(always)]
+    pub const fn shearing(kx: f32, ky: f32) -> Self {
         Self {
             matrix: [
                 1., ky,
@@ -389,9 +493,9 @@ impl Transform2d {
     /// let t2 = t.shear(1.0, 0.0);
     /// assert_eq!(t2.transform_point(Vec2::new(0., 1.)), Vec2::new(2., 2.));
     /// ```
-    pub fn shear(&mut self, kx: f32, ky: f32) -> Self {
-        *self = self.then(Self::shearing(kx, ky));
-        *self
+    #[inline(always)]
+    pub const fn shear(self, kx: f32, ky: f32) -> Self {
+        self.then(Self::shearing(kx, ky))
     }
 
     /// Returns a transform that skews by `x_rad` radians horizontally and `y_rad` radians vertically.
@@ -406,6 +510,7 @@ impl Transform2d {
     /// assert!((p.x - 1.).abs() < 1e-5);
     /// assert!((p.y - 1.).abs() < 1e-5);
     /// ```
+    #[inline(always)]
     pub fn skewed_rad(x_rad: f32, y_rad: f32) -> Self {
         Self::shearing(x_rad.tan(), y_rad.tan())
     }
@@ -423,9 +528,9 @@ impl Transform2d {
     /// assert!((p.x - 2.).abs() < 1e-5);
     /// assert!((p.y - 1.).abs() < 1e-5);
     /// ```
-    pub fn skew_rad(&mut self, x_rad: f32, y_rad: f32) -> Self {
-        *self = self.then(Self::skewed_rad(x_rad, y_rad));
-        *self
+    #[inline(always)]
+    pub fn skew_rad(self, x_rad: f32, y_rad: f32) -> Self {
+        self.then(Self::skewed_rad(x_rad, y_rad))
     }
 
     /// Returns a transform that skews by `x_deg` degrees horizontally and `y_deg` degrees vertically.
@@ -439,6 +544,7 @@ impl Transform2d {
     /// assert!((p.x - 1.).abs() < 1e-5);
     /// assert!((p.y - 1.).abs() < 1e-5);
     /// ```
+    #[inline(always)]
     pub fn skewed_deg(x_deg: f32, y_deg: f32) -> Self {
         Self::shearing(x_deg.to_radians().tan(), y_deg.to_radians().tan())
     }
@@ -455,9 +561,9 @@ impl Transform2d {
     /// assert!((p.x - 2.).abs() < 1e-5);
     /// assert!((p.y - 1.).abs() < 1e-5);
     /// ```
-    pub fn skew_deg(&mut self, x_deg: f32, y_deg: f32) -> Self {
-        *self = self.then(Self::skewed_deg(x_deg, y_deg));
-        *self
+    #[inline(always)]
+    pub fn skew_deg(self, x_deg: f32, y_deg: f32) -> Self {
+        self.then(Self::skewed_deg(x_deg, y_deg))
     }
 }
 
@@ -477,22 +583,6 @@ impl Mul for Transform2d {
     /// assert_eq!(p, Vec2::new(4., 0.)); // scaled first, then translated
     /// ```
     fn mul(self, rhs: Self) -> Self::Output {
-        let [lm11, lm21, lm12, lm22, lm13, lm23] = self.matrix;
-        let [rm11, rm21, rm12, rm22, rm13, rm23] = rhs.matrix;
-
-        let m11 = lm11 * rm11 + lm12 * rm21;
-        let m21 = lm21 * rm11 + lm22 * rm21;
-        let m12 = lm11 * rm12 + lm12 * rm22;
-        let m22 = lm21 * rm12 + lm22 * rm22;
-        let m13 = lm11 * rm13 + lm12 * rm23 + lm13; // translation x
-        let m23 = lm21 * rm13 + lm22 * rm23 + lm23; // translation y
-
-        Self {
-            matrix: [
-                m11, m21,
-                m12, m22,
-                m13, m23,
-            ]
-        }
+        self.const_mul(rhs)
     }
 }

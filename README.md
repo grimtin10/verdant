@@ -173,7 +173,7 @@ Add this to your `Cargo.toml`:
 [dependencies]
 verdant = "0.9"
 ```
-Currently, Verdant only supports desktop, though web/mobile support is planned soon.
+Currently, Verdant only supports desktop and android, though iOS/web support is planned soon.
 
 <details>
 <summary>

@@ -13,19 +13,19 @@ pub trait Drawable {
 /// The scaling mode for outlines and corner radii.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ScalingMode {
-    /// Scales with both local transforms and camera zoom, behaving like physical geometry.
+    /// Scales only with view scaling, remaining unaffected by local transforms.
     /// The default.
     #[default]
-    Geometric,
+    WithView,
 
     /// Stays at a constant screen pixel size, completely unaffected by zoom or transforms.
     Constant,
 
+    /// Scales with both local transforms and camera zoom, behaving like physical geometry.
+    Geometric,
+
     /// Scales only with local transforms, remaining unaffected by view scaling.
     WithTransform,
-
-    /// Scales only with view scaling, remaining unaffected by local transforms.
-    WithView,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -293,8 +293,7 @@ impl Drawable for Rect {
     fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32) {
         window.with_style(|window| {
             window.with_transform(
-                self.transform
-                    .then(Transform2d::translation(x, y)),
+                self.transform.translate(x, y),
                 |window| {
                     window.fill(self.style.fill_color);
                     window.outline_color(self.style.outline_color);
@@ -329,8 +328,7 @@ impl Drawable for Ellipse {
     fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32) {
         window.with_style(|window| {
             window.with_transform(
-                self.transform
-                    .then(Transform2d::translation(x, y)),
+                self.transform.translate(x, y),
                 |window| {
                     window.fill(self.style.fill_color);
                     window.outline_color(self.style.outline_color);
@@ -349,6 +347,8 @@ pub struct Line {
     pub style: Style,
     pub transform: Transform2d,
 }
+
+impl_transformed!(Line, |s: &mut Line| *s);
 
 impl Line {
     /// Creates a fully specified [`Line`] with start point, end point, style, and transform.
@@ -425,8 +425,7 @@ impl Drawable for Line {
         let offset = self.end - self.start;
         window.with_style(|window| {
             window.with_transform(
-                self.transform
-                    .then(Transform2d::translation(x, y)),
+                self.transform.translate(x, y),
                 |window| {
                     window.outline(self.style.outline_color, self.style.outline_width);
                     window.line(0., 0., offset.x, offset.y);
@@ -500,8 +499,7 @@ impl Drawable for ImageRect {
     fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32) {
         window.with_style(|window| {
             window.with_transform(
-                self.transform
-                    .then(Transform2d::translation(x, y)),
+                self.transform.translate(x, y),
                 |window| {
                     window.fill(self.color);
                     window.image(&self.image, 0., 0., self.size.x, self.size.y);

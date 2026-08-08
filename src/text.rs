@@ -754,8 +754,7 @@ impl Drawable for Text {
     fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32) {
         window.with_style(|window| {
             window.with_transform(
-                self.transform
-                    .then(Transform2d::translation(x, y)),
+                self.transform.translate(x, y),
                 |window| {
                     window.fill(self.style.color);
                     window.font_size(self.style.size);
@@ -848,8 +847,7 @@ impl Drawable for RichText {
     fn draw_at(&self, window: &mut impl RenderSurface, x: f32, y: f32) {
         window.with_style(|window| {
             window.with_transform(
-                self.transform
-                    .then(Transform2d::translation(x, y)),
+                self.transform.translate(x, y),
                 |window| {
                     window.text_align(self.align.horizontal, self.align.vertical);
                     window.line_align(self.align.line);

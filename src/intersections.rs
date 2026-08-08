@@ -106,14 +106,19 @@ pub trait Intersect<T> {
 }
 
 impl Line {
+    /// Returns the transform that maps this [`Line`] to world space
+    pub fn world_transform(&self) -> Transform2d {
+        self.transform.then(Transform2d::translation(self.start.x, self.start.y))
+    }
+
     /// Returns the start point of the line in world-space, transformed by `self.transform`.
     pub fn world_start(&self) -> Vec2 {
-        self.transform.transform_point(self.start)
+        self.world_transform().get_translation()
     }
 
     /// Returns the end point of the line in world-space, transformed by `self.transform`.
     pub fn world_end(&self) -> Vec2 {
-        self.transform.transform_point(self.end)
+        self.world_transform().transform_point(self.end - self.start)
     }
 
     /// Returns the line as a [`Line`] struct in world-space.
@@ -133,17 +138,28 @@ impl Rect {
     #[inline(always)]
     pub fn local_corners(&self) -> [Vec2; 4] {
         [
-            self.position,
-            Vec2::new(self.position.x + self.size.x, self.position.y),
-            Vec2::new(self.position.x + self.size.x, self.position.y + self.size.y),
-            Vec2::new(self.position.x, self.position.y + self.size.y),
+            Vec2::ZERO,
+            Vec2::new(self.size.x, 0.0),
+            Vec2::new(self.size.x, self.size.y),
+            Vec2::new(0.0, self.size.y),
         ]
     }
 
     /// Returns the corners of the rectangle in world-space, transformed by `self.transform`.
     #[inline(always)]
     pub fn corners(&self) -> [Vec2; 4] {
-        self.local_corners().map(|p| self.transform.transform_point(p))
+        let t = self.world_transform();
+        let p0 = t.get_translation();
+
+        let dx = t.transform_vector((self.size.x, 0.0));
+        let dy = t.transform_vector((0.0, self.size.y));
+
+        [
+            p0,
+            p0 + dx,
+            p0 + dx + dy,
+            p0 + dy,
+        ]
     }
 
     /// Returns the edges of the rectangle as an array of lines.
@@ -161,14 +177,23 @@ impl Rect {
 
     /// Returns the bounding circle of this [`Rect`].
     pub fn bounding_circle(&self) -> (Vec2, f32) {
-        let center = self.transform.transform_point(self.position + self.size * 0.5);
-        let [m11, m21, m12, m22, _, _] = self.transform.matrix;
-        let sx = (m11 * m11 + m21 * m21).sqrt();
-        let sy = (m12 * m12 + m22 * m22).sqrt();
-        let half_w = self.size.x * 0.5;
-        let half_h = self.size.y * 0.5;
-        let radius = (half_w * half_w + half_h * half_h).sqrt() * sx.max(sy);
-        (center, radius)
+        let t = self.world_transform();
+
+        let p0 = t.get_translation();
+
+        let dx = t.transform_vector((self.size.x, 0.0));
+        let dy = t.transform_vector((0.0, self.size.y));
+
+        let center = p0 + (dx + dy) * 0.5;
+        let d1 = (dx + dy).length_squared();
+        let d2 = (dx - dy).length_squared();
+
+        (center, d1.max(d2).sqrt() * 0.5)
+    }
+
+    /// Returns the transform that maps this [`Rect`] to world space
+    pub fn world_transform(&self) -> Transform2d {
+        self.transform.then(Transform2d::translation(self.position.x, self.position.y))
     }
 }
 
@@ -177,8 +202,8 @@ impl Ellipse {
     pub fn local_to_unit(&self, point: impl Into<Vec2>) -> Vec2 {
         let point = point.into();
         Vec2::new(
-            (point.x - self.position.x) / self.size.x,
-            (point.y - self.position.y) / self.size.y,
+            point.x / self.size.x,
+            point.y / self.size.y,
         )
     }
 
@@ -186,58 +211,44 @@ impl Ellipse {
     pub fn unit_to_local(&self, point: impl Into<Vec2>) -> Vec2 {
         let point = point.into();
         Vec2::new(
-            point.x * self.size.x + self.position.x,
-            point.y * self.size.y + self.position.y,
+            point.x * self.size.x,
+            point.y * self.size.y,
         )
     }
 
     /// Transforms a world-space point into unit-circle-space.
     pub fn world_to_unit(&self, point: impl Into<Vec2>) -> Option<Vec2> {
-        let inv = self.transform.inverse()?;
+        let inv = self.world_transform().inverse()?;
         Some(self.local_to_unit(inv.transform_point(point)))
     }
 
     /// Transforms a unit-circle-space point back into world-space.
     pub fn unit_to_world(&self, point: impl Into<Vec2>) -> Vec2 {
-        self.transform.transform_point(self.unit_to_local(point))
-    }
-
-    fn circle_params(&self) -> (Vec2, f32) {
-        let center = self.transform.transform_point(self.position);
-        let [m11, m21, _, _, _, _] = self.transform.matrix;
-        let sx = (m11 * m11 + m21 * m21).sqrt();
-        (center, self.size.x * sx)
+        self.world_transform().transform_point(self.unit_to_local(point))
     }
 
     /// Checks if this [`Ellipse`] is a perfect circle.
     /// Takes into account transformations.
     pub fn is_circle(&self) -> bool {
-        let [m11, m21, m12, m22, _, _] = self.transform.matrix;
-        let sx = m11 * m11 + m21 * m21;
-        let sy = m12 * m12 + m22 * m22;
-
-        let rx = self.size.x * self.size.x * sx;
-        let ry = self.size.y * self.size.y * sy;
-
-        (rx - ry).abs() < 1e-5
+        let combined = Transform2d::scaling(self.size.x, self.size.y).then(self.transform);
+        let (max_scale, min_scale) = combined.get_principal_scales();
+        (max_scale - min_scale).abs() < 1e-5
     }
 
     /// Returns the center and radius of the bounding circle of this [`Ellipse`].
     pub fn bounding_circle(&self) -> (Vec2, f32) {
-        let center = self.transform.transform_point(self.position);
-        let [m11, m21, m12, m22, _, _] = self.transform.matrix;
-        let sx = (m11 * m11 + m21 * m21).sqrt();
-        let sy = (m12 * m12 + m22 * m22).sqrt();
-        (center, self.size.x.max(self.size.y) * sx.max(sy))
+        let center = self.world_transform().get_translation();
+        let combined = Transform2d::scaling(self.size.x, self.size.y).then(self.transform);
+        let (radius, _) = combined.get_principal_scales();
+        (center, radius)
     }
 
     /// Checks if this [`Ellipse`] fully contains another with 100% mathematical exactness.
     /// Slower than `contains()`, but lossless. You can just use `contains()` for most cases.
     pub fn contains_exact(&self, other: &Ellipse) -> bool {
-        let (c1, r1) = self.bounding_circle();
-        let (c2, r2) = other.bounding_circle();
+        let (_, r1) = self.bounding_circle();
+        let (_, r2) = other.bounding_circle();
         if r1 < r2 { return false; }
-        if (c1 - c2).length_squared() > (r1 - r2).powi(2) { return false; }
 
         if self.intersection_points(other).is_some() { return false; }
 
@@ -253,34 +264,37 @@ impl Ellipse {
         if (c1 - c2).length_squared() > (r1 + r2) * (r1 + r2) { return false; }
 
         if self.is_circle() && other.is_circle() {
-            let (_, r1) = self.circle_params();
-            let (_, r2) = other.circle_params();
+            let (_, r1) = self.bounding_circle();
+            let (_, r2) = other.bounding_circle();
             let d = (c1 - c2).length();
-            return d <= r1 + r2 && d >= (r1 - r2).abs();
+            return d <= r1 + r2;
         }
 
         if self.intersection_points(other).is_some() { return true; }
 
-        let a_center = self.transform.transform_point(self.position);
+        let a_center = self.world_transform().get_translation();
         if other.contains(&a_center) { return true; }
 
-        let b_center = other.transform.transform_point(other.position);
+        let b_center = other.world_transform().get_translation();
         if self.contains(&b_center) { return true; }
 
         false
     }
 
     fn get_b_to_a_unit_transform(&self, other: &Ellipse) -> Option<Transform2d> {
-        let inv_a = self.transform.inverse()?;
+        let inv_a = self.world_transform().inverse()?;
 
         let to_world_b = Transform2d::scaling(other.size.x, other.size.y)
-            .translate(other.position.x, other.position.y)
-            .then(other.transform);
+            .then(other.world_transform());
 
-        let to_unit_a = Transform2d::translation(-self.position.x, -self.position.y)
-            .then(Transform2d::scaling(1.0 / self.size.x, 1.0 / self.size.y));
+        let to_unit_a = Transform2d::scaling(1.0 / self.size.x, 1.0 / self.size.y);
 
         Some(to_world_b.then(inv_a).then(to_unit_a))
+    }
+
+    /// Returns the transform that maps this [`Ellipse`] to world space
+    pub fn world_transform(&self) -> Transform2d {
+        self.transform.then(Transform2d::translation(self.position.x, self.position.y))
     }
 }
 
@@ -427,10 +441,10 @@ impl Intersect<Vec2> for Rect {
     type Points = Intersections<1>;
 
     fn contains(&self, other: &Vec2) -> bool {
-        let Some(inv) = self.transform.inverse() else { return false };
+        let Some(inv) = self.world_transform().inverse() else { return false };
         let local = inv.transform_point(*other);
-        local.x >= self.position.x && local.x <= self.position.x + self.size.x &&
-        local.y >= self.position.y && local.y <= self.position.y + self.size.y
+        local.x >= 0.0 && local.x <= self.size.x &&
+        local.y >= 0.0 && local.y <= self.size.y
     }
 
     fn intersects(&self, other: &Vec2) -> bool { self.contains(other) }
@@ -444,14 +458,14 @@ impl Intersect<Vec2> for Rect {
    }
 }
 
-fn liang_barsky(rect: &Rect, start: Vec2, end: Vec2) -> Option<(f32, f32)> {
+fn liang_barsky(size: Vec2, start: Vec2, end: Vec2) -> Option<(f32, f32)> {
     let d = end - start;
 
-    let min = rect.position;
-    let max = rect.position + rect.size;
+    let min = Vec2::ZERO;
+    let max = size;
 
-    let mut t0 = 0f32;
-    let mut t1 = 1f32;
+    let mut t0 = f32::NEG_INFINITY;
+    let mut t1 = f32::INFINITY;
 
     let p = [-d.x, d.x, -d.y, d.y];
     let q = [start.x - min.x, max.x - start.x, start.y - min.y, max.y - start.y];
@@ -478,45 +492,46 @@ impl Intersect<Line> for Rect {
     type Points = Intersections<2>;
 
     fn contains(&self, other: &Line) -> bool {
-        let Some(inv) = self.transform.inverse() else { return false };
+        let Some(inv) = self.world_transform().inverse() else { return false };
         let w = other.to_world();
 
         let s = inv.transform_point(w.start);
         let e = inv.transform_point(w.end);
 
-        s.x >= self.position.x && s.x <= self.position.x + self.size.x &&
-        s.y >= self.position.y && s.y <= self.position.y + self.size.y &&
-        e.x >= self.position.x && e.x <= self.position.x + self.size.x &&
-        e.y >= self.position.y && e.y <= self.position.y + self.size.y
+        s.x >= 0.0 && s.x <= self.size.x &&
+        s.y >= 0.0 && s.y <= self.size.y &&
+        e.x >= 0.0 && e.x <= self.size.x &&
+        e.y >= 0.0 && e.y <= self.size.y
     }
 
     fn intersects(&self, other: &Line) -> bool {
-        let Some(inv) = self.transform.inverse() else { return false };
+        let Some(inv) = self.world_transform().inverse() else { return false };
         let w = other.to_world();
 
         let start = inv.transform_point(w.start);
         let end = inv.transform_point(w.end);
 
-        let Some((t0, t1)) = liang_barsky(self, start, end) else { return false };
+        let Some((t0, t1)) = liang_barsky(self.size, start, end) else { return false };
         t0 <= t1
     }
 
     fn intersection_points(&self, other: &Line) -> Option<Self::Points> {
-        let inv = self.transform.inverse()?;
+        let inv = self.world_transform().inverse()?;
         let w = other.to_world();
 
         let start = inv.transform_point(w.start);
         let end = inv.transform_point(w.end);
 
-        let (t0, t1) = liang_barsky(self, start, end)?;
+        let (t0, t1) = liang_barsky(self.size, start, end)?;
 
         if t0 <= t1 {
             let mut list = Intersections::new();
-            if t0 > 0.0 && t0 <= 1.0 {
-                list.push(self.transform.transform_point(start + (end - start) * t0));
+            let t = self.world_transform();
+            if (0.0..=1.0).contains(&t0) {
+                list.push(t.transform_point(start + (end - start) * t0));
             }
-            if (0.0..=1.0).contains(&t1) {
-                list.push(self.transform.transform_point(start + (end - start) * t1));
+            if (0.0..=1.0).contains(&t1) && (t1 - t0).abs() > 1e-5 {
+                list.push(t.transform_point(start + (end - start) * t1));
             }
 
             if list.is_empty() { None } else { Some(list) }
@@ -530,35 +545,37 @@ impl Intersect<Rect> for Rect {
     type Points = Intersections<8>;
 
     fn contains(&self, other: &Rect) -> bool {
-        let Some(inv) = self.transform.inverse() else { return false };
+        let Some(inv) = self.world_transform().inverse() else { return false };
 
         other.corners().into_iter().all(|c| {
             let p = inv.transform_point(c);
-            p.x >= self.position.x && p.x <= self.position.x + self.size.x &&
-            p.y >= self.position.y && p.y <= self.position.y + self.size.y
+            p.x >= 0.0 && p.x <= self.size.x &&
+            p.y >= 0.0 && p.y <= self.size.y
         })
     }
 
     fn intersects(&self, other: &Rect) -> bool {
-        let Some(inv) = self.transform.inverse() else { return false };
+        let Some(inv) = self.world_transform().inverse() else { return false };
+        let combined = other.world_transform().then(inv);
 
-        let [p0, p1, p2, p3] = other.corners().map(|c| inv.transform_point(c));
+        let [p0, p1, p2, p3] = other.local_corners().map(|c| combined.transform_point(c));
         let min = p0.min(p1).min(p2).min(p3);
         let max = p0.max(p1).max(p2).max(p3);
 
-        if max.x < self.position.x || min.x > self.position.x + self.size.x
-        || max.y < self.position.y || min.y > self.position.y + self.size.y {
+        if max.x < 0.0 || min.x > self.size.x
+        || max.y < 0.0 || min.y > self.size.y {
             return false;
         }
 
-        let Some(inv) = other.transform.inverse() else { return false };
+        let Some(inv) = other.world_transform().inverse() else { return false };
+        let combined = self.world_transform().then(inv);
 
-        let [p0, p1, p2, p3] = self.corners().map(|c| inv.transform_point(c));
+        let [p0, p1, p2, p3] = self.local_corners().map(|c| combined.transform_point(c));
         let min = p0.min(p1).min(p2).min(p3);
         let max = p0.max(p1).max(p2).max(p3);
 
-        if max.x < other.position.x || min.x > other.position.x + other.size.x
-        || max.y < other.position.y || min.y > other.position.y + other.size.y {
+        if max.x < 0.0 || min.x > other.size.x
+        || max.y < 0.0 || min.y > other.size.y {
             return false;
         }
 
@@ -585,20 +602,21 @@ impl Intersect<Ellipse> for Rect {
     type Points = Intersections<8>;
 
     fn contains(&self, other: &Ellipse) -> bool {
-        let Some(inv) = self.transform.inverse() else { return false };
+        let Some(inv) = self.world_transform().inverse() else { return false };
 
-        let other_center = inv.transform_point(other.transform.transform_point(other.position));
+        let other_t = other.world_transform();
+        let other_center = inv.transform_point(other_t.get_translation());
 
-        let vx = inv.transform_vector(other.transform.transform_vector(Vec2::new(other.size.x, 0.0)));
-        let vy = inv.transform_vector(other.transform.transform_vector(Vec2::new(0.0, other.size.y)));
+        let vx = inv.transform_vector(other_t.transform_vector((other.size.x, 0.0)));
+        let vy = inv.transform_vector(other_t.transform_vector((0.0, other.size.y)));
 
         let rx = (vx.x * vx.x + vy.x * vy.x).sqrt();
         let ry = (vx.y * vx.y + vy.y * vy.y).sqrt();
 
-        other_center.x - rx >= self.position.x &&
-        other_center.x + rx <= self.position.x + self.size.x &&
-        other_center.y - ry >= self.position.y &&
-        other_center.y + ry <= self.position.y + self.size.y
+        other_center.x - rx >= 0. &&
+        other_center.x + rx <= self.size.x &&
+        other_center.y - ry >= 0. &&
+        other_center.y + ry <= self.size.y
     }
 
     fn intersects(&self, other: &Ellipse) -> bool {
@@ -606,10 +624,11 @@ impl Intersect<Ellipse> for Rect {
         let (c2, r2) = other.bounding_circle();
         if (c1 - c2).length_squared() > (r1 + r2) * (r1 + r2) { return false }
 
-        let other_center = other.transform.transform_point(other.position);
+        let other_t = other.world_transform();
+        let other_center = other_t.get_translation();
         if self.contains(&other_center) { return true }
 
-        let Some(other_inv) = other.transform.inverse() else { return false };
+        let Some(other_inv) = other_t.inverse() else { return false };
         let unit_corners = self.corners().map(|c| {
             other.local_to_unit(other_inv.transform_point(c))
         });
@@ -636,7 +655,7 @@ impl Intersect<Ellipse> for Rect {
         let (c2, r2) = other.bounding_circle();
         if (c1 - c2).length_squared() > (r1 + r2) * (r1 + r2) { return None }
 
-        let other_inv = other.transform.inverse()?;
+        let other_inv = other.world_transform().inverse()?;
         let unit_corners = self.corners().map(|c| {
             other.local_to_unit(other_inv.transform_point(c))
         });
@@ -693,7 +712,7 @@ impl Intersect<Line> for Ellipse {
     type Points = Intersections<2>;
 
     fn contains(&self, other: &Line) -> bool {
-        let Some(inv) = self.transform.inverse() else { return false };
+        let Some(inv) = self.world_transform().inverse() else { return false };
         let w = other.to_world();
 
         let start = self.local_to_unit(inv.transform_point(w.start));
@@ -703,7 +722,7 @@ impl Intersect<Line> for Ellipse {
     }
 
     fn intersects(&self, other: &Line) -> bool {
-        let Some(inv) = self.transform.inverse() else { return false };
+        let Some(inv) = self.world_transform().inverse() else { return false };
         let w = other.to_world();
         let u1 = self.local_to_unit(inv.transform_point(w.start));
         let u2 = self.local_to_unit(inv.transform_point(w.end));
@@ -724,7 +743,7 @@ impl Intersect<Line> for Ellipse {
     }
 
     fn intersection_points(&self, other: &Line) -> Option<Self::Points> {
-        let inv = self.transform.inverse()?;
+        let inv = self.world_transform().inverse()?;
         let w = other.to_world();
         let u1 = self.local_to_unit(inv.transform_point(w.start));
         let u2 = self.local_to_unit(inv.transform_point(w.end));
@@ -783,8 +802,8 @@ impl Intersect<Ellipse> for Ellipse {
 
     fn contains(&self, other: &Ellipse) -> bool {
         if self.is_circle() && other.is_circle() {
-            let (c1, r1) = self.circle_params();
-            let (c2, r2) = other.circle_params();
+            let (c1, r1) = self.bounding_circle();
+            let (c2, r2) = other.bounding_circle();
 
             if r1 < r2 { return false }
             return (c2 - c1).length_squared() <= (r1 - r2) * (r1 - r2)
@@ -810,15 +829,16 @@ impl Intersect<Ellipse> for Ellipse {
         if (c1 - c2).length_squared() > (r1 + r2) * (r1 + r2) { return false }
 
         if self.is_circle() && other.is_circle() {
-            let (_, r1) = self.circle_params();
-            let (_, r2) = other.circle_params();
+            let (_, r1) = self.bounding_circle();
+            let (_, r2) = other.bounding_circle();
             let d = (c1 - c2).length();
-            return d <= r1 + r2 && d >= (r1 - r2).abs();
+            return d <= r1 + r2;
         }
 
-        let a_center = self.transform.transform_point(self.position);
+        let a_center = self.world_transform().get_translation();
         if other.contains(&a_center) { return true }
-        let b_center = other.transform.transform_point(other.position);
+
+        let b_center = other.world_transform().get_translation();
         if self.contains(&b_center) { return true }
 
         let Some(b_to_a) = self.get_b_to_a_unit_transform(other) else { return false };
@@ -847,8 +867,8 @@ impl Intersect<Ellipse> for Ellipse {
         if (bc1 - bc2).length_squared() > (br1 + br2) * (br1 + br2) { return None }
 
         if self.is_circle() && other.is_circle() {
-            let (c1, r1) = self.circle_params();
-            let (c2, r2) = other.circle_params();
+            let (c1, r1) = self.bounding_circle();
+            let (c2, r2) = other.bounding_circle();
 
             let d_vec = c2 - c1;
             let d2 = d_vec.length_squared();

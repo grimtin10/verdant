@@ -8,6 +8,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (!) - breaking change
 (#xyz) - fixed in the given PR
 
+## [Unreleased]
+### Added
+- `Transform::const_mul`, `Transform::get_principal_scales`, and `Transform::get_translation`
+- `Line::world_transform`, `Rect::world_transform`, and `Ellipse::world_transform`
+- `Color::red`, `Color::green`, `Color::blue`, and `Color::alpha` to allow you to modify color channels by method chaining
+
+### Changed
+- Futher optimizations to intersections
+- Changed default scaling mode for outlines and corner radii to be `WithView` instead of `Geometric` to align with expected behavior (!)
+- Updated provided color list to look better instead of strictly following the CSS spec
+- `Transform2d` functions no longer take `&mut self` (!)
+- The README now correctly reflects android support
+- All `Transform2d` functions that can be `const` are now `const`
+
+### Fixed
+- Added missing `Line::transform` function
+- Fixed `Ellipse::is_circle` and `Ellipse::bounding_circle` not taking shear into account
+- Fixed intersections applying incorrect transformation order
+- Fixed a few other intersection-based bugs
+  - Intersections turned out to be a *lot* harder than I was expecting
+- `Rect::local_corners` now actually returns corners in local-space
+- `Ellipse::local_to_unit` and `Ellipse::unit_to_local` now actually work in local-space
+
 ## [0.9.0] - 2026-08-03
 ### Added
 - Implement `Index` for `Intersections`
@@ -44,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added missing doc comment to `Intersect::intersection_points`
 
 All of the breaking changes in this update are very minor (they're for features no one is using yet) and are for correctness
+(it's arguable if some of them count as breaking changes, but I'll mark them as such regardless)
 
 ## [0.8.3] - 2026-08-02
 ### Fixed

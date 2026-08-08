@@ -59,6 +59,30 @@ impl Color {
             a: 1. - self.a,
         }
     }
+
+    /// Sets the red channel of this [`Color`]
+    pub fn red(mut self, r: f32) -> Self {
+        self.r = r;
+        self
+    }
+
+    /// Sets the green channel of this [`Color`]
+    pub fn green(mut self, g: f32) -> Self {
+        self.g = g;
+        self
+    }
+
+    /// Sets the blue channel of this [`Color`]
+    pub fn blue(mut self, b: f32) -> Self {
+        self.b = b;
+        self
+    }
+
+    /// Sets the alpha channel of this [`Color`]
+    pub fn alpha(mut self, a: f32) -> Self {
+        self.a = a;
+        self
+    }
 }
 
 impl From<Color> for wgpu::Color {
@@ -165,79 +189,77 @@ impl DivAssign for Color {
     }
 }
 
-// based on web/CSS conventions
+// based on web/CSS conventions, but absolutely does not follow the spec
 impl Color {
     pub const TRANSPARENT: Self = rgba(0., 0., 0., 0.);
 
-    // Neutrals
-    pub const BLACK:       Self = rgb(0.,    0.,    0.   );
-    pub const WHITE:       Self = rgb(1.,    1.,    1.   );
-    pub const DARK_GRAY:   Self = rgb(0.25,  0.25,  0.25 );
-    pub const GRAY:        Self = rgb(0.5,   0.5,   0.5  );
-    pub const LIGHT_GRAY:  Self = rgb(0.75,  0.75,  0.75 );
-    pub const SILVER:      Self = rgb(0.753, 0.753, 0.753);
+    // neutrals
+    pub const BLACK:       Self = rgb(0.0,  0.0,  0.0 );
+    pub const DARK_GRAY:   Self = rgb(0.2,  0.2,  0.2 );
+    pub const GRAY:        Self = rgb(0.5,  0.5,  0.5 );
+    pub const LIGHT_GRAY:  Self = rgb(0.8,  0.8,  0.8 );
+    pub const SILVER:      Self = rgb(0.75, 0.76, 0.78);
+    pub const WHITE:       Self = rgb(1.0,  1.0,  1.0 );
 
-    // Reds
-    pub const RED:         Self = rgb(1.,    0.,    0.   );
-    pub const DARK_RED:    Self = rgb(0.545, 0.,    0.   );
-    pub const CRIMSON:     Self = rgb(0.863, 0.078, 0.235);
-    pub const TOMATO:      Self = rgb(1.,    0.388, 0.278);
-    pub const SALMON:      Self = rgb(0.980, 0.502, 0.447);
+    // reds
+    pub const RED:         Self = rgb(1.0,  0.0,  0.0 );
+    pub const DARK_RED:    Self = rgb(0.55, 0.0,  0.05);
+    pub const CRIMSON:     Self = rgb(0.85, 0.1,  0.3 );
+    pub const TOMATO:      Self = rgb(1.0,  0.35, 0.2 );
+    pub const SALMON:      Self = rgb(0.95, 0.5,  0.4 );
 
-    // Pinks & Magentas
-    pub const PINK:        Self = rgb(1.,    0.753, 0.796);
-    pub const HOT_PINK:    Self = rgb(1.,    0.412, 0.706);
-    pub const DEEP_PINK:   Self = rgb(1.,    0.078, 0.576);
-    pub const MAGENTA:     Self = rgb(1.,    0.,    1.   );
+    // pinks & magentas
+    pub const PINK:        Self = rgb(1.0,  0.4,  0.6 );
+    pub const HOT_PINK:    Self = rgb(1.0,  0.1,  0.5 );
+    pub const DEEP_PINK:   Self = rgb(0.9,  0.05, 0.4 );
+    pub const MAGENTA:     Self = rgb(1.0,  0.0,  1.0 );
 
-    // Oranges
-    pub const ORANGE_RED:  Self = rgb(1.,    0.271, 0.   );
-    pub const ORANGE:      Self = rgb(1.,    0.647, 0.   );
-    pub const GOLD:        Self = rgb(1.,    0.843, 0.   );
+    // oranges & yellows
+    pub const ORANGE_RED:  Self = rgb(1.0,  0.25, 0.0 );
+    pub const ORANGE:      Self = rgb(1.0,  0.5,  0.0 );
+    pub const GOLD:        Self = rgb(1.0,  0.8,  0.1 );
+    pub const YELLOW:      Self = rgb(1.0,  1.0,  0.0 );
+    pub const KHAKI:       Self = rgb(0.7,  0.6,  0.3 );
 
-    // Yellows
-    pub const YELLOW:      Self = rgb(1.,    1.,    0.   );
-    pub const KHAKI:       Self = rgb(0.941, 0.902, 0.549);
+    // greens
+    pub const GREEN:       Self = rgb(0.0,  1.0,  0.0 );
+    pub const LIME:        Self = rgb(0.75, 1.0,  0.0 );
+    pub const DARK_GREEN:  Self = rgb(0.0,  0.4,  0.1 );
+    pub const FOREST_GREEN:Self = rgb(0.1,  0.4,  0.15);
+    pub const OLIVE:       Self = rgb(0.4,  0.5,  0.1 );
+    pub const YELLOW_GREEN:Self = rgb(0.6,  0.8,  0.2 );
+    pub const SPRING_GREEN:Self = rgb(0.0,  0.9,  0.4 );
 
-    // Greens
-    pub const LIME:        Self = rgb(0.,    1.,    0.   );
-    pub const GREEN:       Self = rgb(0.,    0.502, 0.   );
-    pub const DARK_GREEN:  Self = rgb(0.,    0.392, 0.   );
-    pub const FOREST_GREEN:Self = rgb(0.133, 0.545, 0.133);
-    pub const OLIVE:       Self = rgb(0.502, 0.502, 0.   );
-    pub const YELLOW_GREEN:Self = rgb(0.604, 0.804, 0.196);
-    pub const SPRING_GREEN:Self = rgb(0.,    1.,    0.498);
+    // cyans & teals
+    pub const CYAN:        Self = rgb(0.0,  1.0,  1.0 );
+    pub const TEAL:        Self = rgb(0.0,  0.4,  0.4 );
+    pub const TURQUOISE:   Self = rgb(0.2,  0.8,  0.7 );
+    pub const AQUAMARINE:  Self = rgb(0.3,  0.9,  0.8 );
 
-    // Cyans & Teals
-    pub const CYAN:        Self = rgb(0.,    1.,    1.   );
-    pub const TEAL:        Self = rgb(0.,    0.502, 0.502);
-    pub const TURQUOISE:   Self = rgb(0.251, 0.878, 0.816);
-    pub const AQUAMARINE:  Self = rgb(0.498, 1.,    0.831);
+    // blues
+    pub const BLUE:        Self = rgb(0.0,  0.0,  1.0 );
+    pub const DARK_BLUE:   Self = rgb(0.0,  0.0,  0.5 );
+    pub const NAVY:        Self = rgb(0.0,  0.05, 0.3 );
+    pub const ROYAL_BLUE:  Self = rgb(0.25, 0.4,  0.9 );
+    pub const STEEL_BLUE:  Self = rgb(0.3,  0.5,  0.7 );
+    pub const SKY_BLUE:    Self = rgb(0.4,  0.7,  1.0 );
+    pub const CORNFLOWER:  Self = rgb(0.4,  0.6,  0.9 );
+    pub const DODGER_BLUE: Self = rgb(0.1,  0.6,  1.0 );
 
-    // Blues
-    pub const BLUE:        Self = rgb(0.,    0.,    1.   );
-    pub const DARK_BLUE:   Self = rgb(0.,    0.,    0.545);
-    pub const NAVY:        Self = rgb(0.,    0.,    0.502);
-    pub const ROYAL_BLUE:  Self = rgb(0.255, 0.412, 0.882);
-    pub const STEEL_BLUE:  Self = rgb(0.275, 0.510, 0.706);
-    pub const SKY_BLUE:    Self = rgb(0.529, 0.808, 0.922);
-    pub const CORNFLOWER:  Self = rgb(0.392, 0.584, 0.929);
-    pub const DODGER_BLUE: Self = rgb(0.118, 0.565, 1.   );
+    // purples & violets
+    pub const PURPLE:      Self = rgb(0.5,  0.2,  0.8 );
+    pub const VIOLET:      Self = rgb(0.6,  0.2,  0.9 );
+    pub const INDIGO:      Self = rgb(0.2,  0.0,  0.5 );
+    pub const LAVENDER:    Self = rgb(0.7,  0.7,  1.0 );
+    pub const ORCHID:      Self = rgb(0.7,  0.3,  0.8 );
+    pub const PLUM:        Self = rgb(0.5,  0.2,  0.5 );
 
-    // Purples & Violets
-    pub const PURPLE:      Self = rgb(0.502, 0.,    0.502);
-    pub const VIOLET:      Self = rgb(0.933, 0.510, 0.933);
-    pub const INDIGO:      Self = rgb(0.294, 0.,    0.510);
-    pub const LAVENDER:    Self = rgb(0.902, 0.902, 0.980);
-    pub const ORCHID:      Self = rgb(0.855, 0.439, 0.839);
-    pub const PLUM:        Self = rgb(0.867, 0.627, 0.867);
-
-    // Browns
-    pub const BROWN:       Self = rgb(0.647, 0.165, 0.165);
-    pub const SIENNA:      Self = rgb(0.627, 0.322, 0.176);
-    pub const SADDLE_BROWN:Self = rgb(0.545, 0.271, 0.075);
-    pub const TAN:         Self = rgb(0.824, 0.706, 0.549);
-    pub const BEIGE:       Self = rgb(0.961, 0.961, 0.863);
+    // browns
+    pub const BROWN:       Self = rgb(0.5,  0.3,  0.1 );
+    pub const SIENNA:      Self = rgb(0.6,  0.3,  0.15);
+    pub const SADDLE_BROWN:Self = rgb(0.4,  0.2,  0.05);
+    pub const TAN:         Self = rgb(0.8,  0.7,  0.5 );
+    pub const BEIGE:       Self = rgb(0.9,  0.85, 0.7 );
 }
 
 pub trait IntoArray<T, const N: usize> {
