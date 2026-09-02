@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changed default scaling mode for outlines and corner radii to be `WithView` instead of `Geometric` to align with expected behavior (!)
 - Updated provided color list to look better instead of strictly following the CSS spec
 - `Transform2d` functions no longer take `&mut self` (!)
+  - This shouldn't affect almost any existing code, but it is still a breaking change
 - The README now correctly reflects android support
 - All `Transform2d` functions that can be `const` are now `const`
 
