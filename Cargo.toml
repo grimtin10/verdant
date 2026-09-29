@@ -32,7 +32,7 @@ glam = ["dep:glam"]
 bytemuck = "1.25.0"
 pollster = "1.0.1"
 
-winit = { version = "0.31.0-beta.2", default-features = false, features = ["x11", "wayland", "wayland-dlopen"] }
+winit = { version = "=0.31.0-beta.2", default-features = false, features = ["x11", "wayland", "wayland-dlopen"] }
 
 wgpu = { version = "30.0.0", default-features = false, features = ["wgsl", "std", "parking_lot"] }
 
@@ -46,6 +46,7 @@ cfg_aliases = "0.2.0"
 
 [dev-dependencies]
 fastrand = "2.0"
+skrifa = "0.46.2"
 time = { version = "0.3", features = ["local-offset"] }
 
 [[example]]
