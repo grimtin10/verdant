@@ -726,6 +726,11 @@ impl RenderSurface for CanvasDraw {
         #[allow(clippy::mutable_key_type)]
         let glyphs = layout.get_cached_glyphs();
 
+        // atlas texels only map 1:1 onto device pixels if the quad lands on whole pixels,
+        // anywhere else the linear sampler blurs the glyph
+        let [m11, m21, m12, m22, tx, ty] = self.context.transform.matrix;
+        let snap = [m11, m21, m12, m22] == [1., 0., 0., 1.];
+
         for line in &layout.lines {
             for segment in &line.segments {
                 let Some(cached_glyphs) = glyphs.get(&segment.font) else { continue };
@@ -736,9 +741,17 @@ impl RenderSurface for CanvasDraw {
                     let key = (glyph.char, segment.style.size.to_bits());
                     let Some(cached) = cached_glyphs.get(&key) else { continue };
 
+                    let mut glyph_x = x + glyph.pos.x + line.offset.x;
+                    let mut glyph_y = y + glyph.pos.y + line.offset.y;
+
+                    if snap {
+                        glyph_x = (glyph_x + tx).round() - tx;
+                        glyph_y = (glyph_y + ty).round() - ty;
+                    }
+
                     self.push_vertices(textured_vertices(
-                        x + glyph.pos.x + line.offset.x,
-                        y + glyph.pos.y + line.offset.y,
+                        glyph_x,
+                        glyph_y,
                         glyph.visual_size.x,
                         glyph.visual_size.y,
                         cached.uv_min,

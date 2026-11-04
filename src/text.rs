@@ -623,6 +623,7 @@ impl Span {
         self.text.hash(state);
         self.font.hash(state);
         self.style.size.to_bits().hash(state);
+        bytemuck::bytes_of(&self.style.color).hash(state); // segments keep the style, so layouts are per-color
     }
 }
 
