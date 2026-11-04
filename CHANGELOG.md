@@ -32,6 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Rect::local_corners` now actually returns corners in local-space
 - `Ellipse::local_to_unit` and `Ellipse::unit_to_local` now actually work in local-space
 
+## [0.9.2] - 2026-11-03
+### Fixed
+- Fixed text rendering being blurry due to texels landing between pixels (#3)
+
+## [0.9.1] - 2026-09-29
+### Changed
+- `winit` is now locked to `0.31.0-beta.2` to avoid dealing with large API changes for now
+  - This will change in the future
+
 ## [0.9.0] - 2026-08-03
 ### Added
 - Implement `Index` for `Intersections`
