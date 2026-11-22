@@ -2,11 +2,13 @@
 
 #[cfg(feature = "image")]
 use std::path::Path;
-use std::{fmt::{self, Debug, Formatter}, sync::{Arc, RwLockReadGuard}};
+use std::{fmt::{self, Debug, Formatter}, sync::{Arc, Mutex, MutexGuard, RwLockReadGuard}};
 
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Extent3d, Origin3d, TexelCopyBufferLayout, TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor};
 
-use crate::{GpuContext, RendererResult, errors::Error, types::ByteSource};
+use crate::{GpuContext, RendererResult, errors::Error};
+#[cfg(feature = "image")]
+use crate::types::ByteSource;
 
 /// A rectangular region defined by a position and size.
 #[derive(Debug, Clone, Copy)]
@@ -48,15 +50,24 @@ pub(crate) struct ImageData {
     texture: Texture,
 }
 
+/// The parts of an [`Image`] that are shared between all of its clones.
+///
+/// Clones share the GPU texture as well as the pixels, so drawing a clone
+/// (which canvases do for every draw batch) doesn't create and upload a new texture each time.
+struct Shared {
+    pixels: Vec<u8>,
+    gpu: Option<Arc<ImageData>>,
+    /// The region changed since the texture was last uploaded.
+    /// Ignored until the texture is created, since creating it uploads the whole image.
+    dirty_zone: Option<Bounds>,
+}
+
 #[derive(Clone)]
 pub struct Image {
-    pub(crate) data: Option<Arc<ImageData>>,
-
     width: u32,
     height: u32,
 
-    image: Arc<Vec<u8>>,
-    dirty_zone: Option<Bounds>,
+    shared: Arc<Mutex<Shared>>,
 }
 
 impl AsRef<Image> for Image {
@@ -73,19 +84,20 @@ impl AsRef<Image> for RwLockReadGuard<'_, Image> {
 
 impl Debug for Image {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let shared = self.lock();
         f.debug_struct("Image")
             .field("width", &self.width)
             .field("height", &self.height)
-            .field("data", &self.data)
-            .field("image", &format!("[{} bytes of image data]", self.image.len()))
-            .field("dirty_zone", &self.dirty_zone)
+            .field("image", &format!("[{} bytes of image data]", shared.pixels.len()))
+            .field("gpu", &shared.gpu)
+            .field("dirty_zone", &shared.dirty_zone)
             .finish()
     }
 }
 
 impl PartialEq for Image {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.image, &other.image)
+        Arc::ptr_eq(&self.shared, &other.shared)
     }
 }
 
@@ -99,28 +111,25 @@ impl Image {
             return Err(Error::ImageBufferTooSmall { expected: required_bytes, actual: actual_bytes });
         }
 
-        Ok(Self {
-            width,
-            height,
-
-            data: None,
-
-            image: Arc::new(data),
-            dirty_zone: Some(Bounds::new(0, 0, width, height)),
-        })
+        Ok(Self::from_pixels(data, width, height))
     }
 
-    /// Creates a completely transparent image with the given width and height.
-    pub fn new_empty(width: u32, height: u32) -> Self {
+    fn from_pixels(pixels: Vec<u8>, width: u32, height: u32) -> Self {
         Self {
             width,
             height,
 
-            data: None,
-
-            image: Arc::new(vec![0; (width * height * 4) as usize]),
-            dirty_zone: Some(Bounds::new(0, 0, width, height)),
+            shared: Arc::new(Mutex::new(Shared { pixels, gpu: None, dirty_zone: None })),
         }
+    }
+
+    fn lock(&self) -> MutexGuard<'_, Shared> {
+        self.shared.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// Creates a completely transparent image with the given width and height.
+    pub fn new_empty(width: u32, height: u32) -> Self {
+        Self::from_pixels(vec![0; (width * height * 4) as usize], width, height)
     }
 
     /// Loads an image from the given source (byte array or path to image file).
@@ -133,15 +142,7 @@ impl Image {
         let image = load_from_memory(&bytes)?.to_rgba8();
         let (width, height) = image.dimensions();
 
-        Ok(Self {
-            width,
-            height,
-
-            data: None,
-
-            image: Arc::new(image.to_vec()),
-            dirty_zone: Some(Bounds::new(0, 0, width, height)),
-        })
+        Ok(Self::from_pixels(image.into_raw(), width, height))
     }
 
     #[cfg(feature = "image")]
@@ -150,7 +151,7 @@ impl Image {
 
         Ok(
             DynamicImage::ImageRgba8(
-                ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(self.width, self.height, self.image.to_vec())
+                ImageBuffer::<Rgba<u8>, Vec<u8>>::from_raw(self.width, self.height, self.lock().pixels.clone())
                     .expect("this should never happen")
             ).save(path)?
         )
@@ -178,6 +179,47 @@ impl Image {
         src_height: u32,
         src_data: &[u8],
     ) -> RendererResult<()> {
+        self.check_blit(dst_x, dst_y, src_width, src_height, src_data)?;
+
+        // images are values, so if clones still share our pixels we copy them first (copy-on-write)
+        // so that the clones don't change. this also gives us our own texture
+        if Arc::strong_count(&self.shared) > 1 {
+            let pixels = self.lock().pixels.clone();
+            *self = Self::from_pixels(pixels, self.width, self.height);
+        }
+
+        self.write_pixels(dst_x, dst_y, src_width, src_height, src_data);
+        Ok(())
+    }
+
+    /// Like [`Image::blit`], but writes in place even if clones share this image,
+    /// so they all see the change and no copy is made.
+    ///
+    /// Used for font atlases, which only ever gain glyphs: draw batches holding
+    /// an older clone only sample regions that never change, so copying the
+    /// whole atlas (and its texture) for every new glyph would be pure waste.
+    #[cfg(feature = "text")]
+    pub(crate) fn blit_shared(
+        &self,
+        dst_x: u32,
+        dst_y: u32,
+        src_width: u32,
+        src_height: u32,
+        src_data: &[u8],
+    ) -> RendererResult<()> {
+        self.check_blit(dst_x, dst_y, src_width, src_height, src_data)?;
+        self.write_pixels(dst_x, dst_y, src_width, src_height, src_data);
+        Ok(())
+    }
+
+    fn check_blit(
+        &self,
+        dst_x: u32,
+        dst_y: u32,
+        src_width: u32,
+        src_height: u32,
+        src_data: &[u8],
+    ) -> RendererResult<()> {
         if src_width == 0 || src_height == 0 {
             return Ok(());
         }
@@ -193,8 +235,7 @@ impl Image {
             });
         }
 
-        let row_bytes = (src_width * 4) as usize;
-        let required_bytes = src_height as usize * row_bytes;
+        let required_bytes = (src_width * 4) as usize * src_height as usize;
         if src_data.len() < required_bytes {
             return Err(Error::BlitBufferTooSmall {
                 expected: required_bytes,
@@ -202,13 +243,20 @@ impl Image {
             });
         }
 
-        let is_shared = Arc::strong_count(&self.image) > 1;
-        let image_mut = Arc::make_mut(&mut self.image);
-        let image_mut: &mut [u8] = image_mut;
+        Ok(())
+    }
 
-        if is_shared {
-            self.data = None;
+    /// Writes an already bounds-checked rectangle and marks it for upload.
+    fn write_pixels(&self, dst_x: u32, dst_y: u32, src_width: u32, src_height: u32, src_data: &[u8]) {
+        if src_width == 0 || src_height == 0 {
+            return;
         }
+
+        let row_bytes = (src_width * 4) as usize;
+        let required_bytes = src_height as usize * row_bytes;
+
+        let mut shared = self.lock();
+        let image_mut: &mut [u8] = &mut shared.pixels;
 
         let dst_start_byte = ((dst_y * self.width) * 4) as usize;
 
@@ -228,9 +276,7 @@ impl Image {
         }
 
         let new_bounds = Bounds::new(dst_x, dst_y, src_width, src_height);
-        self.dirty_zone = Some(self.dirty_zone.map_or(new_bounds, |old| old.union(new_bounds)));
-
-        Ok(())
+        shared.dirty_zone = Some(shared.dirty_zone.map_or(new_bounds, |old| old.union(new_bounds)));
     }
 
     /// Copies a rectangular region from another image into this image at the given position.
@@ -279,7 +325,8 @@ impl Image {
             });
         }
 
-        let image_ref: &[u8] = &self.image;
+        let shared = self.lock();
+        let image_ref: &[u8] = &shared.pixels;
         let start_byte = ((bounds.y * self.width + bounds.x) * 4) as usize;
 
         if bounds.width == self.width {
@@ -308,9 +355,12 @@ impl Image {
         Ok(buffer)
     }
 
-    pub(crate) fn submit_to_gpu(&mut self, ctx: &GpuContext) -> RendererResult<Arc<ImageData>> {
-        if let Some(data) = self.data.clone() {
-            self.write_texture(ctx, data.clone());
+    pub(crate) fn submit_to_gpu(&self, ctx: &GpuContext) -> RendererResult<Arc<ImageData>> {
+        let mut shared = self.lock();
+        if let Some(data) = shared.gpu.clone() {
+            if let Some(zone) = shared.dirty_zone.take() {
+                self.write_texture(ctx, &data, zone, &shared.pixels);
+            }
             Ok(data)
         } else {
             let size = Extent3d { width: self.width, height: self.height, depth_or_array_layers: 1 };
@@ -337,42 +387,41 @@ impl Image {
             });
 
             let data = Arc::new(ImageData { bind_group, texture });
-            self.write_texture(ctx, data.clone());
-            self.data = Some(data.clone());
+            self.write_texture(ctx, &data, Bounds::new(0, 0, self.width, self.height), &shared.pixels);
+            shared.gpu = Some(data.clone());
+            shared.dirty_zone = None;
 
             Ok(data)
         }
     }
 
-    pub(crate) fn write_texture(&mut self, ctx: &GpuContext, data: Arc<ImageData>) {
-        if let Some(zone) = self.dirty_zone.take() {
-            let size = Extent3d {
-                width: zone.width,
-                height: zone.height,
-                depth_or_array_layers: 1
-            };
+    fn write_texture(&self, ctx: &GpuContext, data: &ImageData, zone: Bounds, pixels: &[u8]) {
+        let size = Extent3d {
+            width: zone.width,
+            height: zone.height,
+            depth_or_array_layers: 1
+        };
 
-            let offset = ((zone.y * self.width + zone.x) * 4) as u64;
+        let offset = ((zone.y * self.width + zone.x) * 4) as u64;
 
-            ctx.queue.write_texture(
-                TexelCopyTextureInfo {
-                    texture: &data.texture,
-                    mip_level: 0,
-                    origin: Origin3d {
-                        x: zone.x,
-                        y: zone.y,
-                        z: 0,
-                    },
-                    aspect: TextureAspect::All,
+        ctx.queue.write_texture(
+            TexelCopyTextureInfo {
+                texture: &data.texture,
+                mip_level: 0,
+                origin: Origin3d {
+                    x: zone.x,
+                    y: zone.y,
+                    z: 0,
                 },
-                &self.image,
-                TexelCopyBufferLayout {
-                    offset,
-                    bytes_per_row: Some(4 * self.width),
-                    rows_per_image: Some(self.height),
-                },
-                size,
-            );
-        }
+                aspect: TextureAspect::All,
+            },
+            pixels,
+            TexelCopyBufferLayout {
+                offset,
+                bytes_per_row: Some(4 * self.width),
+                rows_per_image: Some(self.height),
+            },
+            size,
+        );
     }
 }

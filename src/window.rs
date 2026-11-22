@@ -4,7 +4,9 @@ use bytemuck::cast_slice;
 use wgpu::{Buffer, BufferDescriptor, BufferUsages, CurrentSurfaceTexture, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Surface, SurfaceConfiguration, SurfaceTexture, TextureUsages};
 use winit::{dpi::{PhysicalPosition, PhysicalSize}, monitor::Fullscreen, window::WindowLevel};
 
-use crate::{AdvancedWindowProperties, GpuContext, Renderer, RendererResult, canvas::{Canvas, CanvasDraw}, image::Image, render_surface::RenderSurface, shape_vertices::canvas_vertices, shapes::ScalingMode, text::{Font, HorizontalAlign, Span, TextLayout, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
+#[cfg(feature = "text")]
+use crate::text::{Font, HorizontalAlign, Span, TextLayout, VerticalAlign};
+use crate::{AdvancedWindowProperties, GpuContext, Renderer, RendererResult, canvas::{Canvas, CanvasDraw}, image::Image, render_surface::RenderSurface, shape_vertices::canvas_vertices, shapes::ScalingMode, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -428,21 +430,36 @@ impl<'a> RenderSurface for WindowDraw<'a> {
     oneliner!(image, image: impl AsRef<Image>, x: f32, y: f32, w: f32, h: f32);
     oneliner!(composite, canvas: impl AsRef<Canvas>, x: f32, y: f32, w: f32, h: f32);
 
+    #[cfg(feature = "text")]
     oneliner!(horizontal_text_align, align: HorizontalAlign);
+    #[cfg(feature = "text")]
     oneliner!(vertical_text_align, align: VerticalAlign);
+    #[cfg(feature = "text")]
     oneliner!(text_align, horizontal: HorizontalAlign, vertical: VerticalAlign);
+    #[cfg(feature = "text")]
     oneliner!(line_align, align: HorizontalAlign);
+    #[cfg(feature = "text")]
     oneliner!(font_size, size_px: f32);
 
+    #[cfg(feature = "text")]
     oneliner!(text, font: impl AsRef<Font>, x: f32, y: f32, text: impl ToString);
+    #[cfg(feature = "text")]
     oneliner!(rich_text, x: f32, y: f32, spans: &[Span]);
+    #[cfg(feature = "text")]
     oneliner!(text_layout, font: impl AsRef<Font>, text: impl ToString => TextLayout);
+    #[cfg(feature = "text")]
     oneliner!(text_size, font: impl AsRef<Font>, text: impl ToString => Vec2);
+    #[cfg(feature = "text")]
     oneliner!(text_width, font: impl AsRef<Font>, text: impl ToString => f32);
+    #[cfg(feature = "text")]
     oneliner!(text_height, font: impl AsRef<Font>, text: impl ToString => f32);
+    #[cfg(feature = "text")]
     oneliner!(rich_text_layout, spans: &[Span] => TextLayout);
+    #[cfg(feature = "text")]
     oneliner!(rich_text_size, spans: &[Span] => Vec2);
+    #[cfg(feature = "text")]
     oneliner!(rich_text_width, spans: &[Span] => f32);
+    #[cfg(feature = "text")]
     oneliner!(rich_text_height, spans: &[Span] => f32);
 
     oneliner!(set_view, width: f32, height: f32, view_mode: ViewMode);
@@ -451,14 +468,17 @@ impl<'a> RenderSurface for WindowDraw<'a> {
     oneliner!(clear_origin);
 
     fn with_style(&mut self, commands: impl FnOnce(&mut Self)) {
-        let (style, text_style, view) = {
-            (self.canvas.style, self.canvas.text_style, self.canvas.view)
-        };
+        let (style, view) = (self.canvas.style, self.canvas.view);
+        #[cfg(feature = "text")]
+        let text_style = self.canvas.text_style;
 
         commands(self);
 
         self.canvas.style = style;
-        self.canvas.text_style = text_style;
+        #[cfg(feature = "text")]
+        {
+            self.canvas.text_style = text_style;
+        }
         self.canvas.view.set(view);
         self.canvas.sync_view_transform();
     }

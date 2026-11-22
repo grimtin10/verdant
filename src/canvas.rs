@@ -1,12 +1,18 @@
-use std::{collections::{HashMap, HashSet, hash_map::Entry}, hash::{DefaultHasher, Hash, Hasher}, mem::take, ops::Range, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicU64, Ordering}}, time::{Duration, Instant}};
+#[cfg(feature = "text")]
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::{collections::{HashMap, HashSet, hash_map::Entry}, mem::take, ops::Range, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::{AtomicU64, Ordering}}, time::{Duration, Instant}};
 
 use bytemuck::cast_slice;
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Buffer, BufferDescriptor, BufferUsages, CommandEncoder, Extent3d, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView, util::{BufferInitDescriptor, DeviceExt}, wgt::TextureDataOrder};
 
-use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, render_surface::RenderSurface, shape_vertices::{canvas_vertices, ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::{ScalingMode, Style}, text::{self, Font, HorizontalAlign, Span, TextLayout, VerticalAlign}, transform::{GpuTransform2d, Transform2d}, types::{Color, TextLayoutCache}, vec::Vec2, view::{View, ViewMode}};
+use crate::{GpuContext, RendererResult, Vertex, image::Image, ortho, render_surface::RenderSurface, shape_vertices::{canvas_vertices, ellipse_vertices, line_vertices, rect_vertices, textured_vertices}, shapes::{ScalingMode, Style}, transform::{GpuTransform2d, Transform2d}, types::Color, vec::Vec2, view::{View, ViewMode}};
+
+#[cfg(feature = "text")]
+use crate::{text::{self, Font, HorizontalAlign, Span, TextLayout, VerticalAlign}, types::TextLayoutCache};
 
 static CANVAS_ID: AtomicU64 = AtomicU64::new(0);
 
+#[cfg(feature = "text")]
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct TextStyle {
     size: f32,
@@ -15,6 +21,7 @@ pub(crate) struct TextStyle {
     line_align: HorizontalAlign,
 }
 
+#[cfg(feature = "text")]
 impl Default for TextStyle {
     fn default() -> Self {
         Self {
@@ -53,6 +60,7 @@ pub(crate) struct CanvasContext {
 
     clear_color: Option<Color>,
 
+    #[cfg(feature = "text")]
     layout_cache: TextLayoutCache,
 }
 
@@ -90,6 +98,7 @@ impl CanvasContext {
         self.transform = transform;
     }
 
+    #[cfg(feature = "text")]
     pub(crate) fn get_or_create_layout(
         &mut self,
         spans: &[Span],
@@ -207,6 +216,7 @@ pub struct CanvasDraw {
     pub(crate) context: CanvasContext,
 
     pub(crate) style: Style,
+    #[cfg(feature = "text")]
     pub(crate) text_style: TextStyle,
     pub(crate) view: View,
 
@@ -241,6 +251,7 @@ impl CanvasDraw {
             context,
 
             style: Style::default(),
+            #[cfg(feature = "text")]
             text_style: TextStyle::default(),
             view,
 
@@ -328,6 +339,7 @@ impl CanvasDraw {
         )
     }
 
+    #[cfg(feature = "text")]
     fn get_span(&self, font: impl AsRef<Font>, text: impl ToString) -> [Span; 1] {
         [Span::new(
             text,
@@ -688,31 +700,38 @@ impl RenderSurface for CanvasDraw {
         });
     }
 
+    #[cfg(feature = "text")]
     fn horizontal_text_align(&mut self, align: HorizontalAlign) {
         self.text_style.horizontal_align = align;
     }
 
+    #[cfg(feature = "text")]
     fn vertical_text_align(&mut self, align: VerticalAlign) {
         self.text_style.vertical_align = align;
     }
 
+    #[cfg(feature = "text")]
     fn text_align(&mut self, horizontal: HorizontalAlign, vertical: VerticalAlign) {
         self.text_style.horizontal_align = horizontal;
         self.text_style.vertical_align = vertical;
     }
 
+    #[cfg(feature = "text")]
     fn line_align(&mut self, align: HorizontalAlign) {
         self.text_style.line_align = align;
     }
 
+    #[cfg(feature = "text")]
     fn font_size(&mut self, size_px: f32) {
         self.text_style.size = size_px;
     }
 
+    #[cfg(feature = "text")]
     fn text(&mut self, font: impl AsRef<Font>, x: f32, y: f32, text: impl ToString) {
         self.rich_text(x, y, &self.get_span(font, text));
     }
 
+    #[cfg(feature = "text")]
     // TODO: implement faster hot path for single-span text draw calls
     fn rich_text(&mut self, x: f32, y: f32, spans: &[Span]) {
         let layout = self.context.get_or_create_layout(
@@ -763,22 +782,27 @@ impl RenderSurface for CanvasDraw {
         }
     }
 
+    #[cfg(feature = "text")]
     fn text_layout(&mut self, font: impl AsRef<Font>, text: impl ToString) -> TextLayout {
         self.rich_text_layout(&self.get_span(font, text))
     }
 
+    #[cfg(feature = "text")]
     fn text_size(&mut self, font: impl AsRef<Font>, text: impl ToString) -> Vec2 {
         self.rich_text_size(&self.get_span(font, text))
     }
 
+    #[cfg(feature = "text")]
     fn text_width(&mut self, font: impl AsRef<Font>, text: impl ToString) -> f32 {
         self.rich_text_width(&self.get_span(font, text))
     }
 
+    #[cfg(feature = "text")]
     fn text_height(&mut self, font: impl AsRef<Font>, text: impl ToString) -> f32 {
         self.rich_text_height(&self.get_span(font, text))
     }
 
+    #[cfg(feature = "text")]
     fn rich_text_layout(&mut self, spans: &[Span]) -> TextLayout {
         self.context.get_or_create_layout(
             spans,
@@ -788,6 +812,7 @@ impl RenderSurface for CanvasDraw {
         ).clone()
     }
 
+    #[cfg(feature = "text")]
     fn rich_text_size(&mut self, spans: &[Span]) -> Vec2 {
         self.context.get_or_create_layout(
             spans,
@@ -797,6 +822,7 @@ impl RenderSurface for CanvasDraw {
         ).size
     }
 
+    #[cfg(feature = "text")]
     fn rich_text_width(&mut self, spans: &[Span]) -> f32 {
         self.context.get_or_create_layout(
             spans,
@@ -806,6 +832,7 @@ impl RenderSurface for CanvasDraw {
         ).size.x
     }
 
+    #[cfg(feature = "text")]
     fn rich_text_height(&mut self, spans: &[Span]) -> f32 {
         self.context.get_or_create_layout(
             spans,
@@ -839,13 +866,17 @@ impl RenderSurface for CanvasDraw {
 
     fn with_style(&mut self, commands: impl FnOnce(&mut Self)) {
         let style = self.style;
+        #[cfg(feature = "text")]
         let text_style = self.text_style;
         let view = self.view;
 
         commands(self);
 
         self.style = style;
-        self.text_style = text_style;
+        #[cfg(feature = "text")]
+        {
+            self.text_style = text_style;
+        }
         self.view.set(view);
         self.sync_view_transform();
     }
