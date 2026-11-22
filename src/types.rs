@@ -1,8 +1,12 @@
-use std::{cmp::Reverse, collections::HashMap, fs, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign}, path::{Path, PathBuf}};
+#[cfg(feature = "text")]
+use std::{cmp::Reverse, collections::HashMap};
+use std::{fs, ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign}, path::{Path, PathBuf}};
 
 use bytemuck::{Pod, Zeroable};
 
-use crate::{LAYOUT_CACHE_CAPACITY, RendererResult, rgb, rgba, text::TextLayout, vec::Vec4};
+use crate::{RendererResult, rgb, rgba, vec::Vec4};
+#[cfg(feature = "text")]
+use crate::{LAYOUT_CACHE_CAPACITY, text::TextLayout};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default, Pod, Zeroable, PartialEq)]
@@ -315,12 +319,14 @@ impl ByteSource for Vec<u8> {
     fn load(self) -> RendererResult<Vec<u8>> { Ok(self) }
 }
 
+#[cfg(feature = "text")]
 #[derive(Debug)]
 struct CachedLayout {
     layout: TextLayout,
     last_used: u64,
 }
 
+#[cfg(feature = "text")]
 #[derive(Debug)]
 pub(crate) struct TextLayoutCache {
     map: HashMap<u64, CachedLayout>,
@@ -328,6 +334,7 @@ pub(crate) struct TextLayoutCache {
     capacity: usize,
 }
 
+#[cfg(feature = "text")]
 impl Default for TextLayoutCache {
     fn default() -> Self {
         Self {
@@ -338,6 +345,7 @@ impl Default for TextLayoutCache {
     }
 }
 
+#[cfg(feature = "text")]
 impl TextLayoutCache {
     pub fn get(&mut self, key: u64) -> Option<&TextLayout> {
         self.tick += 1;

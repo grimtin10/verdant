@@ -1,4 +1,6 @@
-use crate::{image::Image, render_surface::RenderSurface, text::{RichText, Text}, transform::Transform2d, types::Color, vec::Vec2};
+#[cfg(feature = "text")]
+use crate::text::{RichText, Text};
+use crate::{image::Image, render_surface::RenderSurface, transform::Transform2d, types::Color, vec::Vec2};
 
 /// Trait for types that can draw themselves onto a [`RenderSurface`].
 pub trait Drawable {
@@ -510,8 +512,12 @@ impl Drawable for ImageRect {
 }
 
 // `.clone()` here is fine, because it's just cloning an `Arc` and everything else is `Copy`
+#[cfg(feature = "text")]
 impl_position!(no_at, Text, |s: &mut Text| s.clone());
+#[cfg(feature = "text")]
 impl_transformed!(Text, |s: &mut Text| s.clone());
 
+#[cfg(feature = "text")]
 impl_position!(no_at, RichText, |s: &mut RichText| s.clone());
+#[cfg(feature = "text")]
 impl_transformed!(RichText, |s: &mut RichText| s.clone());

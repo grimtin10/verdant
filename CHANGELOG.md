@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 (#xyz) - fixed in the given PR
 
 ## [Unreleased]
+
+## [0.9.3] - 2026-11-22
+### Fixed
+- Fixed the crate not building without the `text` feature
+- Fixed examples that need the `text` or `image-png` features failing to build without them, they are now skipped instead
+- Fixed windows created while the event loop is running not appearing until another window receives an event
+- Fixed glyphs already drawn as `notdef` not being drawn from a fallback font added afterwards with `Font::add_fallback`
+- `Renderer::new` now falls back to X11 when Wayland can't be used (e.g. libwayland is missing, or `WAYLAND_DISPLAY` is stale) and `DISPLAY` is set
+- Fixed the doc examples for `Transform2d::const_mul`, `Transform2d::get_scale`, and `Transform2d::shear`
+
+## [0.9.2] - 2026-11-03
 ### Added
 - `Transform::const_mul`, `Transform::get_principal_scales`, and `Transform::get_translation`
 - `Line::world_transform`, `Rect::world_transform`, and `Ellipse::world_transform`
@@ -31,9 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Intersections turned out to be a *lot* harder than I was expecting
 - `Rect::local_corners` now actually returns corners in local-space
 - `Ellipse::local_to_unit` and `Ellipse::unit_to_local` now actually work in local-space
-
-## [0.9.2] - 2026-11-03
-### Fixed
 - Fixed text rendering being blurry due to texels landing between pixels (#3)
 
 ## [0.9.1] - 2026-09-29

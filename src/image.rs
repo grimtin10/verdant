@@ -6,7 +6,9 @@ use std::{fmt::{self, Debug, Formatter}, sync::{Arc, RwLockReadGuard}};
 
 use wgpu::{BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, Extent3d, Origin3d, TexelCopyBufferLayout, TexelCopyTextureInfo, Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureViewDescriptor};
 
-use crate::{GpuContext, RendererResult, errors::Error, types::ByteSource};
+use crate::{GpuContext, RendererResult, errors::Error};
+#[cfg(feature = "image")]
+use crate::types::ByteSource;
 
 /// A rectangular region defined by a position and size.
 #[derive(Debug, Clone, Copy)]

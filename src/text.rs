@@ -538,9 +538,23 @@ impl Font {
     /// Adds a fallback font to this [`Font`].
     /// Used whenever the main font doesn't support a given glyph.
     /// If no fallback fonts support the glyph, the main font's `notdef` glyph will be displayed instead.
+    ///
+    /// Glyphs already drawn as `notdef` that `font` has are drawn from it from then on.
     // TODO: if someone adds cycling fallbacks it will probably explode
+    // TODO: the atlas space taken up by the evicted `notdef` glyphs isn't reused
     pub fn add_fallback(&self, font: impl AsRef<Font>) {
-        self.inner.fallbacks_mut().push(font.as_ref().clone());
+        let font = font.as_ref();
+
+        // evict cached `notdef` glyphs the new fallback can draw, so they're rasterized again from it
+        {
+            let mut cache = match self.inner.cache.write() {
+                Ok(guard) => guard,
+                Err(err) => err.into_inner(),
+            };
+            cache.retain(|glyph, _| self.has_glyph(glyph.0) || !font.has_glyph(glyph.0));
+        }
+
+        self.inner.fallbacks_mut().push(font.clone());
     }
 }
 
@@ -858,3 +872,4 @@ impl Drawable for RichText {
         });
     }
 }
+

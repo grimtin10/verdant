@@ -86,11 +86,11 @@ impl Transform2d {
     /// ```
     /// use verdant::{transform::Transform2d, vec::Vec2};
     ///
-    /// let scale = Transform2d::scaling(2., 2.);
-    /// let translate = Transform2d::translation(1., 0.);
+    /// const SCALE: Transform2d = Transform2d::scaling(2., 2.);
+    /// const TRANSLATE: Transform2d = Transform2d::translation(1., 0.);
     ///
-    /// // `scale` is applied first, then `translate`
-    /// const COMPOSED: Transform2d = translate.const_mul(scale);
+    /// // `SCALE` is applied first, then `TRANSLATE`
+    /// const COMPOSED: Transform2d = TRANSLATE.const_mul(SCALE);
     ///
     /// let p = COMPOSED.transform_point(Vec2::new(1., 0.));
     /// assert_eq!(p, Vec2::new(3., 0.)); // scaled first (1 -> 2), then translated (+1 -> 3)
@@ -306,7 +306,7 @@ impl Transform2d {
     /// ```
     /// use verdant::{transform::Transform2d, vec::Vec2};
     ///
-    /// let t = Transform2d::scaling(2., 3.).rotation_deg(45.);
+    /// let t = Transform2d::scaling(2., 3.).rotate_deg(45.);
     /// let s = t.get_scale();
     /// assert!((s.x - 2.).abs() < 1e-5);
     /// assert!((s.y - 3.).abs() < 1e-5);
@@ -489,9 +489,10 @@ impl Transform2d {
     /// ```
     /// use verdant::{transform::Transform2d, vec::Vec2};
     ///
-    /// let mut t = Transform2d::translation(1., 1.);
+    /// let t = Transform2d::translation(1., 1.);
     /// let t2 = t.shear(1.0, 0.0);
-    /// assert_eq!(t2.transform_point(Vec2::new(0., 1.)), Vec2::new(2., 2.));
+    /// // translated first (0, 1 -> 1, 2), then sheared (x += y -> 3, 2)
+    /// assert_eq!(t2.transform_point(Vec2::new(0., 1.)), Vec2::new(3., 2.));
     /// ```
     #[inline(always)]
     pub const fn shear(self, kx: f32, ky: f32) -> Self {

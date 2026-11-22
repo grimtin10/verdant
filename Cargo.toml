@@ -1,6 +1,6 @@
 [package]
 name = "verdant"
-version = "0.9.2"
+version = "0.9.3"
 edition = "2024"
 description = "A windowing and rendering library, made to be accessible. Clean API, SDF-based rendering, multi-window support, built on wgpu and winit."
 license = "MPL-2.0"
@@ -53,6 +53,38 @@ time = { version = "0.3", features = ["local-offset"] }
 name = "android"
 crate-type = ["cdylib"]
 required-features = ["android"]
+
+[[example]]
+name = "basic"
+required-features = ["image-png"]
+
+[[example]]
+name = "boids"
+required-features = ["text"]
+
+[[example]]
+name = "font_fallback"
+required-features = ["text"]
+
+[[example]]
+name = "multi_window"
+required-features = ["text"]
+
+[[example]]
+name = "rich_text"
+required-features = ["text"]
+
+[[example]]
+name = "text"
+required-features = ["text"]
+
+[[example]]
+name = "text_sizes"
+required-features = ["text"]
+
+[[example]]
+name = "transform"
+required-features = ["text"]
 
 [package.metadata.android]
 build_targets = ["aarch64-linux-android"]

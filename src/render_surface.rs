@@ -1,6 +1,8 @@
 use std::time::Duration;
 
-use crate::{RendererResult, canvas::Canvas, image::Image, shapes::ScalingMode, text::{Font, HorizontalAlign, Span, TextLayout, VerticalAlign}, transform::Transform2d, types::Color, vec::Vec2, view::ViewMode};
+use crate::{RendererResult, canvas::Canvas, image::Image, shapes::ScalingMode, transform::Transform2d, types::Color, view::ViewMode};
+#[cfg(feature = "text")]
+use crate::{text::{Font, HorizontalAlign, Span, TextLayout, VerticalAlign}, vec::Vec2};
 
 /// A surface that can be drawn onto.
 ///
@@ -61,40 +63,55 @@ pub trait RenderSurface {
     // text
     /// Sets the horizontal text alignment for subsequent text calls.
     /// Affects rich text.
+    #[cfg(feature = "text")]
     fn horizontal_text_align(&mut self, align: HorizontalAlign);
     /// Sets the vertical text alignment for subsequent text calls.
     /// Affects rich text.
+    #[cfg(feature = "text")]
     fn vertical_text_align(&mut self, align: VerticalAlign);
     /// Sets the text alignment for subsequent text calls.
     /// Affects rich text.
+    #[cfg(feature = "text")]
     fn text_align(&mut self, horizontal: HorizontalAlign, vertical: VerticalAlign);
     /// Sets the alignment per-line for subsequent text calls.
     /// Affects rich text.
+    #[cfg(feature = "text")]
     fn line_align(&mut self, align: HorizontalAlign);
     /// Sets the font size (in pixels) for subsequent text calls.
     /// Does not affect rich text.
+    #[cfg(feature = "text")]
     fn font_size(&mut self, size_px: f32);
     /// Draws text at `(x, y)` with the given font using the current fill color and text size.
+    #[cfg(feature = "text")]
     fn text(&mut self, font: impl AsRef<Font>, x: f32, y: f32, text: impl ToString);
     /// Draws rich text at `(x, y)` with each span's font and style.
+    #[cfg(feature = "text")]
     fn rich_text(&mut self, x: f32, y: f32, spans: &[Span]);
 
     /// Gets the layout for `text` with the given font and the current font size and text alignment.
+    #[cfg(feature = "text")]
     fn text_layout(&mut self, font: impl AsRef<Font>, text: impl ToString) -> TextLayout;
     /// Gets the size of `text` with the given font and the current font size.
+    #[cfg(feature = "text")]
     fn text_size(&mut self, font: impl AsRef<Font>, text: impl ToString) -> Vec2;
     /// Gets the width of `text` with the given font and the current font size.
+    #[cfg(feature = "text")]
     fn text_width(&mut self, font: impl AsRef<Font>, text: impl ToString) -> f32;
     /// Gets the height of `text` with the given font and the current font size.
+    #[cfg(feature = "text")]
     fn text_height(&mut self, font: impl AsRef<Font>, text: impl ToString) -> f32;
 
     /// Gets the layout for `spans` with the current text alignment.
+    #[cfg(feature = "text")]
     fn rich_text_layout(&mut self, spans: &[Span]) -> TextLayout;
     /// Gets the size of `spans`.
+    #[cfg(feature = "text")]
     fn rich_text_size(&mut self, spans: &[Span]) -> Vec2;
     /// Gets the width of `spans`.
+    #[cfg(feature = "text")]
     fn rich_text_width(&mut self, spans: &[Span]) -> f32;
     /// Gets the height of `spans`.
+    #[cfg(feature = "text")]
     fn rich_text_height(&mut self, spans: &[Span]) -> f32;
 
     // view

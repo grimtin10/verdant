@@ -70,6 +70,7 @@ const KIND_TEXTURED: u32 = 3;
 const KIND_SDF_TEXT: u32 = 4;
 const KIND_CANVAS:   u32 = 5;
 
+#[cfg(feature = "text")]
 const LAYOUT_CACHE_CAPACITY: usize = 1024;
 
 // ...because `impl !Send` isn't stable yet...
@@ -582,7 +583,7 @@ impl Renderer {
     #[cfg(not(android_platform))]
     /// Creates a new `Renderer` instance with no windows.
     pub fn new() -> RendererResult<Self> {
-        let event_loop = EventLoop::new()?;
+        let event_loop = Self::create_event_loop()?;
         let is_wayland = {
             #[cfg(linux_platform)]
             {
@@ -599,6 +600,29 @@ impl Renderer {
 
             unsend: PhantomData,
         })
+    }
+
+    // winit picks wayland whenever `WAYLAND_DISPLAY` is set, and gives up if that fails
+    // (e.g. libwayland isn't installed, or the variable is stale in an x11 session)
+    // so we fall back to x11 if there's an x display
+    #[cfg(not(android_platform))]
+    fn create_event_loop() -> RendererResult<EventLoop> {
+        let error = match EventLoop::new() {
+            Ok(event_loop) => return Ok(event_loop),
+            Err(e) => e,
+        };
+
+        #[cfg(linux_platform)]
+        if std::env::var_os("DISPLAY").is_some_and(|d| !d.is_empty()) {
+            use winit::platform::x11::EventLoopBuilderExtX11;
+
+            if let Ok(event_loop) = EventLoop::builder().with_x11().build() {
+                println!("failed to create wayland event loop ({error}), falling back to x11");
+                return Ok(event_loop);
+            }
+        }
+
+        Err(error.into())
     }
 
     /// Creates a new `Renderer` instance with no windows.
@@ -744,6 +768,18 @@ impl ApplicationHandler for RendererContext {
         if let Err(e) = self.process_queued_windows(event_loop) {
             println!("error processing windows: {e}");
         }
+    }
+
+    // windows requested while the loop is running are created here, on the loop's next pass
+    // otherwise they'd wait for an event on some other window (a mouse move, a key press), which could take seconds
+    fn about_to_wait(&mut self, event_loop: &dyn ActiveEventLoop) {
+        #[cfg(not(android_platform))]
+        if (!self.window_queue.is_empty() || !self.reinit_queue.is_empty())
+        && let Err(e) = self.process_queued_windows(event_loop) {
+            println!("error processing windows: {e}");
+        }
+        #[cfg(android_platform)]
+        let _ = event_loop;
     }
 
     // android is very particular with the lifetime of surfaces, so we have to do this

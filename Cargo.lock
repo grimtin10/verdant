@@ -2325,7 +2325,7 @@ dependencies = [
 
 [[package]]
 name = "verdant"
-version = "0.9.2"
+version = "0.9.3"
 dependencies = [
  "bytemuck",
  "cfg_aliases",
