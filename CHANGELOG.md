@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ## [0.9.3] - 2026-11-22
+### Changed
+- Clones of an `Image` now share its GPU texture, so drawing an image no longer creates and uploads a new texture every time
+- Loading new glyphs no longer copies the font atlas while text is waiting to be drawn
+
 ### Fixed
 - Fixed the crate not building without the `text` feature
 - Fixed examples that need the `text` or `image-png` features failing to build without them, they are now skipped instead

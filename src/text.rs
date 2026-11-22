@@ -340,7 +340,9 @@ impl FontInner {
 
         {
             let position = self.position.lock()?;
-            self.atlas.write()?.blit(position.current_x, position.current_y, width, height, &rgba)?;
+            // written in place, rather than copied, even though draw batches may still hold clones of the atlas
+            // they only ever sample regions that are already filled, which never change
+            self.atlas.read()?.blit_shared(position.current_x, position.current_y, width, height, &rgba)?;
         }
 
         let (u0, v0, u1, v1) = {
